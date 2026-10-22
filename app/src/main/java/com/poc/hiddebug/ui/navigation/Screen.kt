@@ -3,7 +3,6 @@ package com.poc.hiddebug.ui.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Mouse
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -14,7 +13,6 @@ enum class Screen(
     val icon: ImageVector
 ) {
     Dashboard("dashboard", "Dashboard", Icons.Default.Dashboard),
-    QuickSend("quicksend", "Quick Send", Icons.Default.FlashOn),
     Combos("combos", "Combos", Icons.Default.Code),
     Snippets("snippets", "Snippets", Icons.Default.Key),
     Trackpad("trackpad", "Trackpad", Icons.Default.Mouse)

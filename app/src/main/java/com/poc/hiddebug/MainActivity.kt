@@ -35,7 +35,6 @@ import com.poc.hiddebug.service.HidService
 import com.poc.hiddebug.ui.combos.ComboStudioScreen
 import com.poc.hiddebug.ui.dashboard.DashboardScreen
 import com.poc.hiddebug.ui.navigation.Screen
-import com.poc.hiddebug.ui.quicksend.QuickSendScreen
 import com.poc.hiddebug.ui.snippets.SnippetStudioScreen
 import com.poc.hiddebug.ui.theme.GhostHidTheme
 import com.poc.hiddebug.ui.trackpad.TrackpadScreen
@@ -150,7 +149,6 @@ fun MainAppScaffold(service: HidService?) {
         ) {
             when (currentScreen) {
                 Screen.Dashboard -> DashboardScreen(service = service)
-                Screen.QuickSend -> QuickSendScreen(service = service)
                 Screen.Combos -> ComboStudioScreen(service = service)
                 Screen.Snippets -> SnippetStudioScreen()
                 Screen.Trackpad -> TrackpadScreen(service = service)
