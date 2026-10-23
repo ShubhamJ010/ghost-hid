@@ -326,6 +326,7 @@ private fun PointerPad(
                 },
                 onTap = {
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    service?.sendMouseButton(MouseButton.LEFT)
                     scope.launch {
                         ripple.snapTo(0f)
                         ripple.animateTo(1f, animationSpec = tween(420, easing = LinearEasing))

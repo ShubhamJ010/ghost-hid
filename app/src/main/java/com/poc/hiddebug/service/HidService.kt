@@ -86,6 +86,7 @@ class HidService : Service() {
         private const val CLICK_SETTLE_MS = 30L
         private const val CLICK_GAP_MS = 90L
         private const val WHEEL_SETTLE_MS = 14L
+        private const val MOVE_CHUNK_GAP_MS = 6L
 
         private val HID_DESCRIPTOR = byteArrayOf(
             // Mouse collection (Report ID 2)
@@ -94,7 +95,7 @@ class HidService : Service() {
             0x05.toByte(), 0x09.toByte(), 0x19.toByte(), 0x01.toByte(), 0x29.toByte(), 0x03.toByte(),
             0x15.toByte(), 0x00.toByte(), 0x25.toByte(), 0x01.toByte(), 0x95.toByte(), 0x03.toByte(),
             0x75.toByte(), 0x01.toByte(), 0x81.toByte(), 0x02.toByte(), 0x95.toByte(), 0x01.toByte(),
-            0x75.toByte(), 0x05.toByte(), 0x81.toByte(), 0x01.toByte(), 0x05.toByte(), 0x01.toByte(),
+            0x75.toByte(), 0x05.toByte(), 0x81.toByte(), 0x03.toByte(), 0x05.toByte(), 0x01.toByte(),
             0x09.toByte(), 0x30.toByte(), 0x09.toByte(), 0x31.toByte(), 0x09.toByte(), 0x38.toByte(),
             0x15.toByte(), 0x81.toByte(), 0x25.toByte(), 0x7F.toByte(), 0x75.toByte(), 0x08.toByte(),
             0x95.toByte(), 0x03.toByte(), 0x81.toByte(), 0x06.toByte(), 0xC0.toByte(), 0xC0.toByte(),
@@ -226,16 +227,26 @@ class HidService : Service() {
         }
 
         override fun onGetReport(device: BluetoothDevice?, type: Byte, id: Byte, bufferSize: Int) {
-            val reportSize = when (id.toInt()) {
-                KEYBOARD_REPORT_ID -> 8
-                MOUSE_REPORT_ID -> 4
-                else -> bufferSize.coerceIn(0, 64)
+            log("onGetReport: type=$type, id=$id, bufferSize=$bufferSize")
+            if (type == BluetoothHidDevice.REPORT_TYPE_INPUT) {
+                val reportSize = when (id.toInt()) {
+                    KEYBOARD_REPORT_ID -> 8
+                    MOUSE_REPORT_ID -> 4
+                    else -> null
+                }
+                if (reportSize != null) {
+                    hidDevice?.replyReport(device, type, id, ByteArray(reportSize))
+                } else {
+                    hidDevice?.reportError(device, BluetoothHidDevice.ERROR_RSP_INVALID_RPT_ID)
+                }
+            } else {
+                hidDevice?.reportError(device, BluetoothHidDevice.ERROR_RSP_UNSUPPORTED_REQ)
             }
-            hidDevice?.replyReport(device, type, id, ByteArray(reportSize))
         }
 
         override fun onSetReport(device: BluetoothDevice?, type: Byte, id: Byte, data: ByteArray?) {
-            hidDevice?.replyReport(device, type, id, ByteArray(0))
+            log("onSetReport: type=$type, id=$id")
+            hidDevice?.reportError(device, BluetoothHidDevice.ERROR_RSP_SUCCESS)
         }
     }
 
@@ -501,6 +512,9 @@ class HidService : Service() {
                 wheel = 0
             )
             hid.sendReport(target, MOUSE_REPORT_ID, report)
+            if (reports > 1 && index < reports - 1) {
+                sleep(MOVE_CHUNK_GAP_MS)
+            }
         }
     }
 
