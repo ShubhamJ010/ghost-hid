@@ -703,54 +703,29 @@ fun ExpressiveFavoriteCombosSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 4.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(MaterialShapes.ShapeFlower)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(MaterialShapes.ShapeFlower)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Stars,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Favorite Combos",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "M3 Expressive • Tap to execute",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh
-            ) {
-                Text(
-                    text = "${distinctFavorites.size} shortcuts",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                Icon(
+                    imageVector = Icons.Default.Stars,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(20.dp)
                 )
             }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "Favorite Combos",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -792,7 +767,7 @@ fun ExpressiveFavoriteCombosSection(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(305.dp)
+                .height(320.dp)
         ) {
             val p0 = expressivePalettes[0]
             val p1 = expressivePalettes[1]
@@ -803,7 +778,7 @@ fun ExpressiveFavoriteCombosSection(
             // 5 Expressive shapes: scattered, organic layout with enlarged Lock and downward shifted elements
             // 0: Center Tilted Pill (Login - shifted down)
             // 1: TopStart Squircle (Lock - enlarged & shifted down)
-            // 2: BottomEnd 6-Sided Star (Sleep - large & snug)
+            // 2: BottomEnd 6-Sided Star (Sleep - enlarged 10% & snug)
             // 3: TopEnd Fan (Fan)
             // 4: BottomStart Ghost-ish (Ghost-ish - shifted down)
             val configs = remember {
@@ -835,22 +810,22 @@ fun ExpressiveFavoriteCombosSection(
                         rot = -12f,
                         shape = RoundedCornerShape(30.dp),
                         offsetX = 12.dp,
-                        offsetY = 26.dp,
+                        offsetY = 38.dp,
                         containerColor = p1.container,
                         contentColor = p1.content,
                         border = BorderStroke(1.5.dp, p1.border.copy(alpha = 0.40f))
                     ),
-                    // 2: BottomEnd 6-Sided Rounded Star (Sleep - large, scattered & brought snug towards center)
+                    // 2: BottomEnd 6-Sided Rounded Star (Sleep - enlarged 10% to 150dp, snug towards center)
                     CollageConfig(
                         slotId = 2,
                         shapeName = "Flower",
                         emptyLabel = "Flower",
-                        width = 136.dp,
-                        height = 136.dp,
+                        width = 150.dp,
+                        height = 150.dp,
                         align = Alignment.BottomEnd,
                         rot = 8f,
                         shape = com.poc.hiddebug.ui.theme.RoundedStarShape(sides = 6, curve = 0.09, rotation = 45f),
-                        offsetX = (-18).dp,
+                        offsetX = (-16).dp,
                         offsetY = (-10).dp,
                         containerColor = p2.container,
                         contentColor = p2.content,
