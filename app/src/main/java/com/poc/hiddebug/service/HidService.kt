@@ -21,6 +21,8 @@ import com.poc.hiddebug.domain.model.HidStep
 import com.poc.hiddebug.domain.model.LogEntry
 import com.poc.hiddebug.domain.parser.ActionSequenceParser
 import com.poc.hiddebug.domain.parser.KeyTokens
+import com.poc.hiddebug.domain.pointer.MouseButton
+import com.poc.hiddebug.domain.pointer.PointerMath
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -34,6 +36,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 
 class HidService : Service() {
 
@@ -70,6 +73,19 @@ class HidService : Service() {
         const val ACTION_CMD = "com.poc.hiddebug.ACTION_CMD"
         const val ACTION_LOCK = "com.poc.hiddebug.ACTION_LOCK"
         const val ACTION_TYPE = "com.poc.hiddebug.ACTION_TYPE"
+
+        const val MOUSE_REPORT_ID = 2
+        const val KEYBOARD_REPORT_ID = 1
+        private val RELEASE_REPORT = ByteArray(4)
+
+        // A click must be long enough for every host stack to sample it, and
+        // the two cycles must sit inside the OS double-click window (~500 ms).
+        // The gaps are generous because some Bluetooth stacks coalesce reports
+        // that arrive only a few milliseconds apart.
+        private const val CLICK_PRESS_MS = 48L
+        private const val CLICK_SETTLE_MS = 30L
+        private const val CLICK_GAP_MS = 90L
+        private const val WHEEL_SETTLE_MS = 14L
 
         private val HID_DESCRIPTOR = byteArrayOf(
             // Mouse collection (Report ID 2)
@@ -210,7 +226,12 @@ class HidService : Service() {
         }
 
         override fun onGetReport(device: BluetoothDevice?, type: Byte, id: Byte, bufferSize: Int) {
-            hidDevice?.replyReport(device, type, id, ByteArray(8))
+            val reportSize = when (id.toInt()) {
+                KEYBOARD_REPORT_ID -> 8
+                MOUSE_REPORT_ID -> 4
+                else -> bufferSize.coerceIn(0, 64)
+            }
+            hidDevice?.replyReport(device, type, id, ByteArray(reportSize))
         }
 
         override fun onSetReport(device: BluetoothDevice?, type: Byte, id: Byte, data: ByteArray?) {
@@ -359,50 +380,152 @@ class HidService : Service() {
         }
     }
 
-    fun sendMouse(action: String?) {
-        if (action.isNullOrEmpty()) return
+    // ---------------------------------------------------------------------
+    // Pointer transport
+    //
+    // Every pointer report goes through one thread so press/release pairs can
+    // never overtake each other. Relative motion is coalesced and split into
+    // HID-sized chunks, which keeps fast drags smooth and never blocks the
+    // caller (the trackpad runs on the UI thread).
+    // ---------------------------------------------------------------------
+
+    private val pointerLock = Any()
+    private val pointerExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "ghid-pointer").apply { isDaemon = true }
+    }
+    private var pendingDx = 0
+    private var pendingDy = 0
+    private var pointerFlushScheduled = false
+
+    /**
+     * Emits a real press/release cycle. Multiple clicks are emitted as
+     * separate cycles so Windows and macOS both interpret them natively
+     * instead of relying on a vendor-specific "double click" report.
+     */
+    fun sendMouseButton(button: MouseButton, clicks: Int = 1) {
         val hid = hidDevice ?: return
         val target = targetDevice ?: return
-        executor.execute {
-            var buttons: Byte = 0
-            var wheel = 0
-            var doubleClick = false
+        val count = clicks.coerceAtLeast(1)
 
-            when (action.trim().lowercase(Locale.ROOT)) {
-                "click-left", "left-click", "leftclick", "lclick" -> buttons = 0x01
-                "click-right", "right-click", "rightclick", "rclick" -> buttons = 0x02
-                "click-middle", "middle-click", "middleclick", "mclick" -> buttons = 0x04
-                "double-click", "doubleclick", "dblclick" -> {
-                    buttons = 0x01
-                    doubleClick = true
-                }
-                "scroll-up", "scrollup", "wheel-up" -> wheel = 1
-                "scroll-down", "scrolldown", "wheel-down" -> wheel = -1
+        runOnPointerThread {
+            repeat(count) { index ->
+                if (index > 0) sleep(CLICK_GAP_MS)
+                hid.sendReport(target, MOUSE_REPORT_ID, mouseReport(button.mask, 0, 0, 0))
+                sleep(CLICK_PRESS_MS)
+                hid.sendReport(target, MOUSE_REPORT_ID, RELEASE_REPORT)
+                sleep(CLICK_SETTLE_MS)
             }
-
-            sendMouseReport(buttons, wheel)
-            if (doubleClick) {
-                try { Thread.sleep(80) } catch (ignored: Exception) {}
-                sendMouseReport(buttons, wheel)
-            }
-            log(">>> Mouse action: $action")
+            log(">>> Mouse ${button.name.lowercase(Locale.ROOT)} x$count")
         }
     }
 
-    fun sendMouseMove(dx: Int, dy: Int, wheel: Int = 0, buttons: Byte = 0) {
-        val clampX = dx.coerceIn(-127, 127).toByte()
-        val clampY = dy.coerceIn(-127, 127).toByte()
-        val clampW = wheel.coerceIn(-127, 127).toByte()
-        val report = byteArrayOf(buttons, clampX, clampY, clampW)
-        hidDevice?.sendReport(targetDevice, 2, report)
+    /**
+     * Relative pointer motion, and/or wheel notches when [wheel] is non-zero.
+     * Motion larger than one report is transmitted in full instead of being
+     * clipped to 127 counts.
+     */
+    fun sendMouseMove(dx: Int, dy: Int, wheel: Int = 0) {
+        if (dx == 0 && dy == 0 && wheel == 0) return
+        if (hidDevice == null || targetDevice == null) return
+
+        if (wheel != 0) {
+            runOnPointerThread { emitWheel(wheel) }
+            return
+        }
+
+        synchronized(pointerLock) {
+            pendingDx += dx
+            pendingDy += dy
+            if (!pointerFlushScheduled) {
+                pointerFlushScheduled = true
+                runOnPointerThread(::flushPointerMoves)
+            }
+        }
     }
 
-    private fun sendMouseReport(buttons: Byte, wheel: Int) {
-        val down = byteArrayOf(buttons, 0x00, 0x00, wheel.toByte())
-        val up = ByteArray(4)
-        hidDevice?.sendReport(targetDevice, 2, down)
-        try { Thread.sleep(45) } catch (ignored: Exception) {}
-        hidDevice?.sendReport(targetDevice, 2, up)
+    /** CLI and combo entry point. Tokens stay in sync with the Go grammar. */
+    fun sendMouse(action: String?) {
+        val normalized = action?.trim()?.lowercase(Locale.ROOT).orEmpty()
+        if (normalized.isEmpty()) return
+
+        when (normalized) {
+            "double-click", "doubleclick", "dblclick" -> sendMouseButton(MouseButton.LEFT, clicks = 2)
+            "scroll-up", "scrollup", "wheel-up" -> sendMouseMove(0, 0, wheel = 1)
+            "scroll-down", "scrolldown", "wheel-down" -> sendMouseMove(0, 0, wheel = -1)
+            else -> {
+                val button = MouseButton.fromToken(normalized)
+                if (button != null) sendMouseButton(button) else log("Unknown mouse action: $action")
+            }
+        }
+    }
+
+    private fun runOnPointerThread(block: () -> Unit) {
+        if (pointerExecutor.isShutdown) return
+        try {
+            pointerExecutor.execute(block)
+        } catch (ignored: RejectedExecutionException) {
+            // The service is shutting down; drop the report instead of crashing.
+        }
+    }
+
+    private fun flushPointerMoves() {
+        while (true) {
+            val stepX: Int
+            val stepY: Int
+            synchronized(pointerLock) {
+                if (pendingDx == 0 && pendingDy == 0) {
+                    pointerFlushScheduled = false
+                    return
+                }
+                stepX = pendingDx
+                stepY = pendingDy
+                pendingDx = 0
+                pendingDy = 0
+            }
+            emitMove(stepX, stepY)
+        }
+    }
+
+    private fun emitMove(dx: Int, dy: Int) {
+        val hid = hidDevice ?: return
+        val target = targetDevice ?: return
+        val xChunks = PointerMath.chunks(dx)
+        val yChunks = PointerMath.chunks(dy)
+        val reports = maxOf(xChunks.size, yChunks.size)
+
+        for (index in 0 until reports) {
+            val report = mouseReport(
+                buttons = 0,
+                dx = xChunks.getOrElse(index) { 0 },
+                dy = yChunks.getOrElse(index) { 0 },
+                wheel = 0
+            )
+            hid.sendReport(target, MOUSE_REPORT_ID, report)
+        }
+    }
+
+    private fun emitWheel(notches: Int) {
+        val hid = hidDevice ?: return
+        val target = targetDevice ?: return
+        for (chunk in PointerMath.chunks(notches)) {
+            hid.sendReport(target, MOUSE_REPORT_ID, mouseReport(0, 0, 0, chunk))
+            sleep(WHEEL_SETTLE_MS)
+        }
+    }
+
+    private fun mouseReport(buttons: Byte, dx: Int, dy: Int, wheel: Int): ByteArray = byteArrayOf(
+        buttons,
+        dx.coerceIn(-127, 127).toByte(),
+        dy.coerceIn(-127, 127).toByte(),
+        wheel.coerceIn(-127, 127).toByte()
+    )
+
+    private fun sleep(millis: Long) {
+        try {
+            Thread.sleep(millis)
+        } catch (interrupted: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
     }
 
     /**
@@ -516,6 +639,8 @@ class HidService : Service() {
             try { hid.unregisterApp() } catch (ignored: Exception) {}
             adapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, hid)
         }
+        executor.shutdownNow()
+        pointerExecutor.shutdownNow()
         _connectionState.value = ConnectionStatus.DISCONNECTED
         writeStatusFile()
         log("GhostHID Service destroyed.")
