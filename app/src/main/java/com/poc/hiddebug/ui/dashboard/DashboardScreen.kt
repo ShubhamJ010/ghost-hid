@@ -45,7 +45,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
@@ -70,6 +69,7 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LargeFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -107,6 +107,7 @@ import com.poc.hiddebug.domain.model.Snippet
 import com.poc.hiddebug.service.HidService
 import com.poc.hiddebug.ui.theme.Clover4Shape
 import com.poc.hiddebug.ui.theme.MaterialShapes
+import com.poc.hiddebug.ui.quicksend.QuickSendOverlay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -114,8 +115,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun DashboardScreen(
     service: HidService?,
-    onNavigateToCombos: (() -> Unit)? = null,
-    onNavigateToQuickSend: () -> Unit = {}
+    onNavigateToCombos: (() -> Unit)? = null
 ) {
     val connectionState by service?.connectionState?.collectAsState()
         ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
@@ -128,6 +128,7 @@ fun DashboardScreen(
     val allCombos by comboRepo.combos.collectAsState()
 
     var showDevicePicker by remember { mutableStateOf(false) }
+    var showQuickSend by remember { mutableStateOf(false) }
     var lastExecutedStatus by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(lastExecutedStatus) {
@@ -161,14 +162,7 @@ fun DashboardScreen(
             }
 
             // ==========================================
-            // SECTION 2: QUICK SEND ENTRY (DEDICATED COMPOSER)
-            // ==========================================
-            item {
-                QuickSendLaunchCard(onClick = onNavigateToQuickSend)
-            }
-
-            // ==========================================
-            // SECTION 3: FAVORITE COMBOS (EXPRESSIVE SHAPES COLLAGE)
+            // SECTION 2: FAVORITE COMBOS (EXPRESSIVE SHAPES COLLAGE)
             // ==========================================
             item {
                 ExpressiveFavoriteCombosSection(
@@ -224,6 +218,29 @@ fun DashboardScreen(
                 }
             }
         }
+
+        LargeFloatingActionButton(
+            onClick = { showQuickSend = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 20.dp, bottom = 20.dp),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            shape = MaterialShapes.ShapeClover4
+        ) {
+            Icon(
+                imageVector = Icons.Default.Bolt,
+                contentDescription = "Open quick send",
+                modifier = Modifier.size(38.dp)
+            )
+        }
+    }
+
+    if (showQuickSend) {
+        QuickSendOverlay(
+            service = service,
+            onDismiss = { showQuickSend = false }
+        )
     }
 
     // Bluetooth Device Picker Dialog
@@ -318,6 +335,7 @@ fun DashboardScreen(
         )
     }
 }
+
 // =========================================================================
 // SECTION 1: DEVICE DASHBOARD HERO (REACTIVE, DYNAMIC, MATERIAL EXPRESSIVE)
 // =========================================================================

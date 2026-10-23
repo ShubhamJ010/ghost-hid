@@ -46,7 +46,6 @@ import com.poc.hiddebug.service.HidService
 import com.poc.hiddebug.ui.combos.ComboStudioScreen
 import com.poc.hiddebug.ui.dashboard.DashboardScreen
 import com.poc.hiddebug.ui.navigation.Screen
-import com.poc.hiddebug.ui.quicksend.QuickSendScreen
 import com.poc.hiddebug.ui.snippets.SnippetStudioScreen
 import com.poc.hiddebug.ui.theme.GhostHidTheme
 import com.poc.hiddebug.ui.trackpad.TrackpadScreen
@@ -132,25 +131,23 @@ fun MainAppScaffold(service: HidService?) {
 
     Scaffold(
         bottomBar = {
-            if (currentScreen != Screen.QuickSend) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ) {
-                    Screen.bottomNavScreens.forEach { screen ->
-                        NavigationBarItem(
-                            selected = currentScreen == screen,
-                            onClick = { currentScreen = screen },
-                            icon = { Icon(screen.icon, contentDescription = screen.title) },
-                            label = {
-                                Text(
-                                    text = screen.title,
-                                    maxLines = 1,
-                                    fontSize = 11.sp,
-                                    softWrap = false
-                                )
-                            }
-                        )
-                    }
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ) {
+                Screen.bottomNavScreens.forEach { screen ->
+                    NavigationBarItem(
+                        selected = currentScreen == screen,
+                        onClick = { currentScreen = screen },
+                        icon = { Icon(screen.icon, contentDescription = screen.title) },
+                        label = {
+                            Text(
+                                text = screen.title,
+                                maxLines = 1,
+                                fontSize = 11.sp,
+                                softWrap = false
+                            )
+                        }
+                    )
                 }
             }
         }
@@ -164,7 +161,7 @@ fun MainAppScaffold(service: HidService?) {
             AnimatedContent(
                 targetState = currentScreen,
                 transitionSpec = {
-                    val modalScreens = setOf(Screen.Snippets, Screen.QuickSend)
+                    val modalScreens = setOf(Screen.Snippets)
                     if (targetState in modalScreens) {
                         (slideInVertically(
                             animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow),
@@ -190,16 +187,11 @@ fun MainAppScaffold(service: HidService?) {
                 when (screen) {
                     Screen.Dashboard -> DashboardScreen(
                         service = service,
-                        onNavigateToCombos = { currentScreen = Screen.Combos },
-                        onNavigateToQuickSend = { currentScreen = Screen.QuickSend }
+                        onNavigateToCombos = { currentScreen = Screen.Combos }
                     )
                     Screen.Combos -> ComboStudioScreen(
                         service = service,
                         onNavigateToSnippets = { currentScreen = Screen.Snippets }
-                    )
-                    Screen.QuickSend -> QuickSendScreen(
-                        service = service,
-                        onNavigateBack = { currentScreen = Screen.Dashboard }
                     )
                     Screen.Snippets -> SnippetStudioScreen(
                         service = service,

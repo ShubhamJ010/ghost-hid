@@ -1,10 +1,17 @@
 package com.poc.hiddebug.ui.quicksend
 
-import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,50 +21,59 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Badge
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -70,7 +86,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.poc.hiddebug.GhostHidApp
-import com.poc.hiddebug.domain.model.QuickSendEntry
 import com.poc.hiddebug.domain.parser.SequenceAnalysis
 import com.poc.hiddebug.domain.parser.SequenceAnalyzer
 import com.poc.hiddebug.service.HidService
@@ -79,23 +94,23 @@ import com.poc.hiddebug.ui.common.sequence.SequencePreview
 import com.poc.hiddebug.ui.common.sequence.formatStepCount
 import com.poc.hiddebug.ui.theme.MaterialShapes
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Dedicated quick-send surface. The composer lives at the bottom and rises with the
  * keyboard; the live parsed preview is always directly above the field.
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun QuickSendScreen(
+fun QuickSendOverlay(
     service: HidService?,
-    onNavigateBack: () -> Unit
+    onDismiss: () -> Unit
 ) {
     val historyRepository = GhostHidApp.instance.quickSendHistoryRepository
     val comboRepository = GhostHidApp.instance.comboRepository
     val history by historyRepository.entries.collectAsState()
 
     var scheme by rememberSaveable { mutableStateOf("") }
-    var showHistorySheet by remember { mutableStateOf(false) }
     var editorScheme by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
 
@@ -104,8 +119,40 @@ fun QuickSendScreen(
     val clipboard = LocalClipboardManager.current
     val focusManager = LocalFocusManager.current
     val haptic = LocalHapticFeedback.current
+    val historyListState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var composerVisible by rememberSaveable { mutableStateOf(true) }
+    val composerScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
 
-    BackHandler(onBack = onNavigateBack)
+                return when {
+                    available.y < -4f -> {
+                        composerVisible = false
+                        Offset.Zero
+                    }
+                    available.y > 4f && !composerVisible -> {
+                        composerVisible = true
+                        available
+                    }
+                    available.y > 4f -> {
+                        composerVisible = true
+                        Offset.Zero
+                    }
+                    else -> Offset.Zero
+                }
+            }
+        }
+    }
+
+    fun revealComposerAtTop() {
+        composerVisible = true
+        scope.launch { historyListState.animateScrollToItem(0) }
+    }
 
     LaunchedEffect(status) {
         if (status != null) {
@@ -127,96 +174,108 @@ fun QuickSendScreen(
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         service.executeCombo(raw)
         if (record) historyRepository.record(raw)
+        revealComposerAtTop()
         status = "Sent ${formatStepCount(target.steps.size)}"
         focusManager.clearFocus()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .imePadding()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)
     ) {
-        QuickSendTopBar(onNavigateBack = onNavigateBack)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.92f)
+                .imePadding()
+                .navigationBarsPadding()
+        ) {
+            QuickSendSheetHeader(onDismiss = onDismiss, historyCount = history.size)
 
-        if (!imeVisible) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                item {
-                    QuickSendHistoryHeader(
-                        count = history.take(6).size
-                    )
-                }
-
-                if (history.isEmpty()) {
+            if (!imeVisible) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .nestedScroll(composerScrollConnection),
+                    state = historyListState,
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     item {
-                        QuickSendEmptyState(
-                            onPickExample = { picked -> scheme = picked },
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
+                        QuickSendHistoryHeader(count = history.size)
                     }
-                } else {
-                    items(history.take(6), key = { it.createdAt + it.scheme }) { entry ->
-                        QuickSendHistoryCard(
-                            entry = entry,
-                            onRerun = {
-                                scheme = entry.scheme
-                                send(entry.scheme, record = true)
-                            },
-                            onSave = {
-                                focusManager.clearFocus()
-                                editorScheme = entry.scheme
+
+                    if (history.isEmpty()) {
+                        item {
+                            QuickSendEmptyState(
+                                onPickExample = { picked -> scheme = picked },
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                    } else {
+                        items(history, key = { it.createdAt + it.scheme }) { entry ->
+                            QuickSendHistoryCard(
+                                entry = entry,
+                                onRerun = {
+                                    scheme = entry.scheme
+                                    send(entry.scheme, record = true)
+                                },
+                                onSave = {
+                                    focusManager.clearFocus()
+                                    editorScheme = entry.scheme
+                                }
+                            )
+                        }
+                    }
+                }
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+
+            AnimatedContent(
+                targetState = imeVisible || composerVisible,
+                modifier = Modifier.fillMaxWidth(),
+                transitionSpec = {
+                    (fadeIn(animationSpec = spring()) + scaleIn(initialScale = 0.92f))
+                        .togetherWith(fadeOut(animationSpec = spring()) + scaleOut(targetScale = 0.92f))
+                        .using(
+                            SizeTransform(
+                                clip = false,
+                                sizeAnimationSpec = { _, _ ->
+                                    spring(dampingRatio = 0.82f, stiffness = 380f)
+                                }
+                            )
+                        )
+                },
+                label = "quickSendComposerMorph"
+            ) {
+                if (it) {
+                    QuickSendComposerDock(
+                        scheme = scheme,
+                        analysis = analysis,
+                        compactPreview = imeVisible,
+                        status = status,
+                        onSchemeChange = { scheme = it },
+                        onClear = { scheme = "" },
+                        onPaste = {
+                            val clip = clipboard.getText()?.text
+                            if (!clip.isNullOrBlank()) {
+                                scheme = clip.trim()
+                                status = "Pasted scheme"
+                            } else {
+                                status = "Clipboard is empty"
                             }
-                        )
-                    }
-                }
-            }
-        } else {
-            Spacer(modifier = Modifier.weight(1f))
-        }
-
-        QuickSendComposerDock(
-            scheme = scheme,
-            analysis = analysis,
-            compactPreview = imeVisible,
-            historyCount = history.size,
-            status = status,
-            onSchemeChange = { scheme = it },
-            onClear = { scheme = "" },
-            onPaste = {
-                val clip = clipboard.getText()?.text
-                if (!clip.isNullOrBlank()) {
-                    scheme = clip.trim()
-                    status = "Pasted scheme"
+                        },
+                        onSend = { send(scheme, record = true) }
+                    )
                 } else {
-                    status = "Clipboard is empty"
+                    QuickSendCollapsedButton(onClick = ::revealComposerAtTop)
                 }
-            },
-            onShowHistory = { showHistorySheet = true },
-            onSend = { send(scheme, record = true) }
-        )
-    }
-
-    if (showHistorySheet) {
-        QuickSendHistorySheet(
-            entries = history,
-            onDismiss = { showHistorySheet = false },
-            onRerun = { entry: QuickSendEntry ->
-                showHistorySheet = false
-                scheme = entry.scheme
-                send(entry.scheme, record = true)
-            },
-            onSave = { entry: QuickSendEntry ->
-                showHistorySheet = false
-                focusManager.clearFocus()
-                editorScheme = entry.scheme
             }
-        )
+        }
     }
 
     editorScheme?.let { prefill ->
@@ -235,7 +294,60 @@ fun QuickSendScreen(
 }
 
 @Composable
-private fun QuickSendTopBar(onNavigateBack: () -> Unit) {
+private fun QuickSendCollapsedButton(onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val buttonScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isPressed) 0.86f else 1f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 520f),
+        label = "quickSendButtonPress"
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            onClick = onClick,
+            interactionSource = interactionSource,
+            modifier = Modifier
+                .width(228.dp)
+                .height(72.dp)
+                .scale(buttonScale),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            tonalElevation = 3.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 22.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Bolt,
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp)
+                )
+                Column {
+                    Text(
+                        text = "Quick send",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black
+                    )
+                    Text(
+                        text = "Tap to compose",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickSendSheetHeader(onDismiss: () -> Unit, historyCount: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -243,25 +355,25 @@ private fun QuickSendTopBar(onNavigateBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         FilledTonalIconButton(
-            onClick = onNavigateBack,
+            onClick = onDismiss,
             modifier = Modifier.size(48.dp),
             shape = CircleShape,
             colors = IconButtonDefaults.filledTonalIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
             ),
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Icon(Icons.Default.Clear, contentDescription = "Close quick send")
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Quick Send",
+                text = "Quick send",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "Type a scheme · Enter sends",
+                text = "$historyCount recent sends · type below",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -288,12 +400,10 @@ private fun QuickSendComposerDock(
     scheme: String,
     analysis: SequenceAnalysis,
     compactPreview: Boolean,
-    historyCount: Int,
     status: String?,
     onSchemeChange: (String) -> Unit,
     onClear: () -> Unit,
     onPaste: () -> Unit,
-    onShowHistory: () -> Unit,
     onSend: () -> Unit
 ) {
     val focusManager = LocalFocusManager.current
@@ -411,15 +521,6 @@ private fun QuickSendComposerDock(
                     onClick = onPaste,
                     modifier = Modifier.weight(1f)
                 )
-                DockAction(
-                    label = "History",
-                    icon = Icons.Default.History,
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    badge = historyCount.takeIf { it > 0 },
-                    onClick = onShowHistory,
-                    modifier = Modifier.weight(1f)
-                )
                 Button(
                     onClick = onSend,
                     enabled = analysis.canSend,
@@ -459,8 +560,7 @@ private fun DockAction(
     containerColor: Color,
     contentColor: Color,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    badge: Int? = null
+    modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
@@ -482,21 +582,6 @@ private fun DockAction(
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Black
                 )
-            }
-            if (badge != null) {
-                Badge(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 5.dp, end = 5.dp),
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    Text(
-                        text = if (badge > 99) "99+" else badge.toString(),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
             }
         }
     }

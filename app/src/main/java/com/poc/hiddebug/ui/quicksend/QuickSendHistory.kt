@@ -8,10 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,22 +19,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -189,7 +181,6 @@ fun QuickSendHistoryCard(
         }
     }
 }
-
 @Composable
 fun QuickSendHistoryHeader(
     count: Int
@@ -287,123 +278,5 @@ private fun ExampleChip(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun QuickSendHistorySheet(
-    entries: List<QuickSendEntry>,
-    onDismiss: () -> Unit,
-    onRerun: (QuickSendEntry) -> Unit,
-    onSave: (QuickSendEntry) -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.88f)
-                .navigationBarsPadding()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Send history",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = if (entries.isEmpty()) {
-                            "Rerun or save anything you send"
-                        } else {
-                            "${entries.size} schemes available to rerun or save"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                FilledTonalIconButton(
-                    onClick = onDismiss,
-                    shape = CircleShape,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                    )
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close history")
-                }
-            }
-
-            if (entries.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(horizontal = 32.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(72.dp)
-                            .clip(MaterialShapes.ShapeGhostish)
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Bolt,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(30.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = "Nothing sent yet",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Every quick send lands here so you can rerun it or save it as a combo.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(entries, key = { it.createdAt + it.scheme }) { entry ->
-                        QuickSendHistoryCard(
-                            entry = entry,
-                            onRerun = { onRerun(entry) },
-                            onSave = { onSave(entry) }
-                        )
-                    }
-                }
-            }
-        }
     }
 }
