@@ -148,7 +148,10 @@ fun MainAppScaffold(service: HidService?) {
             color = MaterialTheme.colorScheme.background
         ) {
             when (currentScreen) {
-                Screen.Dashboard -> DashboardScreen(service = service)
+                Screen.Dashboard -> DashboardScreen(
+                    service = service,
+                    onNavigateToCombos = { currentScreen = Screen.Combos }
+                )
                 Screen.Combos -> ComboStudioScreen(service = service)
                 Screen.Snippets -> SnippetStudioScreen()
                 Screen.Trackpad -> TrackpadScreen(service = service)

@@ -3,56 +3,88 @@ package com.poc.hiddebug.ui.dashboard
 import android.bluetooth.BluetoothDevice
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.NightsStay
+import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Stars
+import androidx.compose.material.icons.filled.SyncAlt
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -60,352 +92,169 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.poc.hiddebug.GhostHidApp
+import com.poc.hiddebug.domain.model.Combo
 import com.poc.hiddebug.domain.model.ConnectionStatus
+import com.poc.hiddebug.domain.model.HidStep
+import com.poc.hiddebug.domain.parser.ActionSequenceParser
 import com.poc.hiddebug.service.HidService
+import com.poc.hiddebug.ui.theme.MaterialShapes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(service: HidService?) {
-    val connectionState by service?.connectionState?.collectAsState() ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
-    val targetDevice by service?.targetDeviceState?.collectAsState() ?: remember { mutableStateOf(null) }
-    val isRegistered by service?.isRegistered?.collectAsState() ?: remember { mutableStateOf(false) }
-    val logs by service?.logs?.collectAsState() ?: remember { mutableStateOf(emptyList()) }
+fun DashboardScreen(
+    service: HidService?,
+    onNavigateToCombos: (() -> Unit)? = null
+) {
+    val connectionState by service?.connectionState?.collectAsState()
+        ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
+    val targetDevice by service?.targetDeviceState?.collectAsState()
+        ?: remember { mutableStateOf(null) }
+    val isRegistered by service?.isRegistered?.collectAsState()
+        ?: remember { mutableStateOf(false) }
+
+    val comboRepo = GhostHidApp.instance.comboRepository
+    val allCombos by comboRepo.combos.collectAsState()
 
     var showDevicePicker by remember { mutableStateOf(false) }
-    var sleepCountdownActive by remember { mutableStateOf(false) }
-    var sleepProgress by remember { mutableFloatStateOf(1f) }
-    val scope = rememberCoroutineScope()
+    var lastExecutedStatus by remember { mutableStateOf<String?>(null) }
 
-    val logListState = rememberLazyListState()
+    var quickSendText by remember { mutableStateOf("") }
+    val clipboardManager = LocalClipboardManager.current
 
-    LaunchedEffect(logs.size) {
-        if (logs.isNotEmpty()) {
-            logListState.animateScrollToItem(logs.size - 1)
+    val detectedSteps by remember {
+        derivedStateOf {
+            if (quickSendText.isBlank()) emptyList()
+            else ActionSequenceParser.parse(quickSendText)
         }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Status Card
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    LaunchedEffect(lastExecutedStatus) {
+        if (lastExecutedStatus != null) {
+            delay(2800)
+            lastExecutedStatus = null
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+
+            // ==========================================
+            // SECTION 1: DYNAMIC DEVICE DASHBOARD HERO
+            // ==========================================
+            item {
+                ExpressiveDeviceDashboard(
+                    connectionState = connectionState,
+                    isRegistered = isRegistered,
+                    targetDevice = targetDevice,
+                    onConnect = { service?.connectTarget() },
+                    onDisconnect = { service?.disconnectTarget() },
+                    onRegisterSdp = { service?.registerHidApp() },
+                    onSwitchDevice = { showDevicePicker = true }
                 )
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            val pulseAnim = rememberInfiniteTransition(label = "pulse")
-                            val pulseScale by pulseAnim.animateFloat(
-                                initialValue = 0.85f,
-                                targetValue = 1.2f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = tween(1000),
-                                    repeatMode = RepeatMode.Reverse
-                                ),
-                                label = "scale"
-                            )
-
-                            val dotColor = when (connectionState) {
-                                ConnectionStatus.CONNECTED -> Color(0xFF00E676)
-                                ConnectionStatus.CONNECTING -> Color(0xFFFFB300)
-                                else -> Color(0xFFFF5252)
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .scale(if (connectionState == ConnectionStatus.CONNECTED) pulseScale else 1f)
-                                    .clip(CircleShape)
-                                    .background(dotColor)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = connectionState.name,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        Surface(
-                            shape = CircleShape,
-                            color = if (isRegistered) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = if (isRegistered) Icons.Default.Check else Icons.Default.Close,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = if (isRegistered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = if (isRegistered) "SDP Ready" else "SDP Unreg",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (isRegistered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Target Device Box
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = if (connectionState == ConnectionStatus.CONNECTED) Icons.Default.BluetoothConnected else Icons.Default.Bluetooth,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        text = targetDevice?.name ?: "No Target Selected",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        text = targetDevice?.address ?: "Tap 'Switch' to choose PC",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            OutlinedButton(
-                                onClick = { showDevicePicker = true },
-                                shape = CircleShape,
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text("Switch", maxLines = 1)
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Connection Action Buttons
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (connectionState == ConnectionStatus.CONNECTED) {
-                            FilledTonalButton(
-                                onClick = { service?.disconnectTarget() },
-                                modifier = Modifier.weight(1f),
-                                shape = CircleShape
-                            ) {
-                                Text("Disconnect")
-                            }
-                        } else {
-                            Button(
-                                onClick = { service?.connectTarget() },
-                                modifier = Modifier.weight(1f),
-                                shape = CircleShape
-                            ) {
-                                Text("Connect")
-                            }
-                        }
-                        IconButton(
-                            onClick = { service?.registerHidApp() },
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Re-register SDP")
-                        }
-                    }
-                }
             }
-        }
 
-        // Hero Quick Actions
-        item {
-            Text(
-                text = "Instant Host Actions",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 4.dp)
-            )
-        }
+            // ==========================================
+            // SECTION 2: FAVORITE COMBOS (EXPRESSIVE SHAPES COLLAGE)
+            // ==========================================
+            item {
+                ExpressiveFavoriteCombosSection(
+                    combos = allCombos,
+                    onRunCombo = { combo ->
+                        service?.executeCombo(combo.keys)
+                        lastExecutedStatus = "⚡ Executed: ${combo.name}"
+                    },
+                    onEmptySlotClick = { cfg ->
+                        lastExecutedStatus = "⭐ Star a combo in Combos to pin to ${cfg.emptyLabel}"
+                        onNavigateToCombos?.invoke()
+                    }
+                )
+            }
 
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Lock Button
-                Button(
-                    onClick = { service?.sendWinL() },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(64.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                ) {
-                    Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Lock PC\n(Win+L)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
-                }
-
-                // Sleep Button
-                Button(
-                    onClick = {
-                        if (!sleepCountdownActive) {
-                            sleepCountdownActive = true
-                            sleepProgress = 1f
-                            scope.launch {
-                                for (i in 50 downTo 0) {
-                                    if (!sleepCountdownActive) break
-                                    sleepProgress = i / 50f
-                                    delay(100)
-                                }
-                                if (sleepCountdownActive) {
-                                    service?.executeCombo("Sleep")
-                                    sleepCountdownActive = false
-                                }
-                            }
-                        } else {
-                            sleepCountdownActive = false
+            // ==========================================
+            // SECTION 3: QUICK SEND (LARGE INPUT & NO SYNTAX TOKENS)
+            // ==========================================
+            item {
+                ExpressiveQuickSendSection(
+                    quickSendText = quickSendText,
+                    onTextChange = { quickSendText = it },
+                    detectedSteps = detectedSteps,
+                    onPasteFromClipboard = {
+                        val clip = clipboardManager.getText()?.text
+                        if (!clip.isNullOrEmpty()) {
+                            quickSendText = clip.trim()
+                            lastExecutedStatus = "📋 Pasted scheme"
                         }
                     },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(64.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (sleepCountdownActive) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = if (sleepCountdownActive) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) {
-                    Icon(Icons.Default.NightsStay, contentDescription = null, modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (sleepCountdownActive) "Cancel Sleep" else "Sleep PC\n(Win+X u s)",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
-            }
-        }
-
-        // Animated Sleep Progress
-        item {
-            AnimatedVisibility(visible = sleepCountdownActive) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Entering sleep in ${(sleepProgress * 5).toInt() + 1}s... Tap 'Cancel Sleep' to abort",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    LinearProgressIndicator(
-                        progress = { sleepProgress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(CircleShape),
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-        }
-
-        // Live Log Card
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Gateway Terminal Log",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
-                Text(
-                    text = "${logs.size} entries",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
-                )
-            ) {
-                if (logs.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "No log messages yet",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        state = logListState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(12.dp)
-                    ) {
-                        items(logs) { entry ->
-                            Text(
-                                text = "${entry.timestamp} ${entry.message}",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                    onClearText = { quickSendText = "" },
+                    onExecute = {
+                        if (quickSendText.isNotBlank()) {
+                            service?.executeCombo(quickSendText)
+                            lastExecutedStatus = "🚀 Dispatched combo scheme"
                         }
                     }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+
+        // Floating Toast Banner
+        AnimatedVisibility(
+            visible = lastExecutedStatus != null,
+            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 10.dp, start = 16.dp, end = 16.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                shadowElevation = 10.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = lastExecutedStatus ?: "",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -416,15 +265,35 @@ fun DashboardScreen(service: HidService?) {
         val pairedDevices = service?.getPairedDevices() ?: emptyList()
         AlertDialog(
             onDismissRequest = { showDevicePicker = false },
-            title = { Text("Select Target Computer", style = MaterialTheme.typography.titleLarge) },
+            icon = {
+                Icon(
+                    Icons.Default.Bluetooth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Select Target PC",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 if (pairedDevices.isEmpty()) {
-                    Text("No paired Bluetooth devices found. Please pair with target computer in Android Settings first.")
+                    Text(
+                        "No paired Bluetooth devices detected. Pair your phone with your target computer in Android Bluetooth settings first.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
                         items(pairedDevices) { dev ->
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(16.dp),
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 onClick = {
                                     service?.connectTarget(dev.address)
@@ -433,14 +302,38 @@ fun DashboardScreen(service: HidService?) {
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(12.dp),
+                                    modifier = Modifier.padding(14.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.Bluetooth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(dev.name ?: "Unknown", fontWeight = FontWeight.Bold)
-                                        Text(dev.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primaryContainer),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Computer,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(14.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = dev.name ?: "Unknown Device",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = dev.address,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontFamily = FontFamily.Monospace
+                                        )
                                     }
                                 }
                             }
@@ -449,10 +342,915 @@ fun DashboardScreen(service: HidService?) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showDevicePicker = false }) {
+                TextButton(
+                    onClick = { showDevicePicker = false },
+                    shape = CircleShape
+                ) {
                     Text("Close")
                 }
             }
         )
+    }
+}
+
+// =========================================================================
+// SECTION 1: DEVICE DASHBOARD HERO (REACTIVE, DYNAMIC, MATERIAL EXPRESSIVE)
+// =========================================================================
+
+@Composable
+fun ExpressiveDeviceDashboard(
+    connectionState: ConnectionStatus,
+    isRegistered: Boolean,
+    targetDevice: BluetoothDevice?,
+    onConnect: () -> Unit,
+    onDisconnect: () -> Unit,
+    onRegisterSdp: () -> Unit,
+    onSwitchDevice: () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "beaconPulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+    val ringAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 0.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "ringAlpha"
+    )
+
+    val rotationAngle = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+
+    val isConnected = connectionState == ConnectionStatus.CONNECTED
+    val isConnecting = connectionState == ConnectionStatus.CONNECTING
+
+    val statusGlowColor = when {
+        isConnected -> Color(0xFF00E676) // Vivid Emerald
+        isConnecting -> Color(0xFFFFB300) // Amber
+        else -> MaterialTheme.colorScheme.primary // Material You Primary
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(32.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            // Header Row: Pulsing Beacon + Status + SDP Chip
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Pulsing beacon ring
+                    Box(
+                        modifier = Modifier.size(26.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(26.dp)
+                                .scale(pulseScale)
+                                .clip(CircleShape)
+                                .background(statusGlowColor.copy(alpha = ringAlpha))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(statusGlowColor)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Column {
+                        Text(
+                            text = when (connectionState) {
+                                ConnectionStatus.CONNECTED -> "CONNECTED"
+                                ConnectionStatus.CONNECTING -> "LINKING..."
+                                ConnectionStatus.DISCONNECTING -> "DISCONNECTING"
+                                ConnectionStatus.DISCONNECTED, ConnectionStatus.UNKNOWN -> "STANDBY"
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.6.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isConnected) "HID Link Active" else "Ready to Bridge Target",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // SDP Ready Pill
+                Surface(
+                    shape = CircleShape,
+                    color = if (isRegistered) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                    modifier = Modifier.clickable {
+                        scope.launch {
+                            rotationAngle.snapTo(0f)
+                            rotationAngle.animateTo(360f, animationSpec = tween(500, easing = FastOutSlowInEasing))
+                        }
+                        onRegisterSdp()
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isRegistered) Icons.Default.CheckCircle else Icons.Default.Warning,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = if (isRegistered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = if (isRegistered) "SDP Ready" else "SDP Off",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isRegistered) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Target PC Card
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(MaterialShapes.ShapeArch)
+                                .background(
+                                    if (isConnected) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceContainerHigh
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isConnected) Icons.Default.BluetoothConnected else Icons.Default.Computer,
+                                contentDescription = null,
+                                tint = if (isConnected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = targetDevice?.name ?: "No Target Selected",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = targetDevice?.address ?: "Tap 'Switch' to choose PC",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    FilledTonalButton(
+                        onClick = onSwitchDevice,
+                        shape = CircleShape,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.SyncAlt, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Switch", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Action Row: Connect / Disconnect + Refresh
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isConnected) {
+                    FilledTonalButton(
+                        onClick = onDisconnect,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    ) {
+                        Icon(Icons.Default.BluetoothDisabled, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Disconnect", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    }
+                } else if (isConnecting) {
+                    FilledTonalButton(
+                        onClick = onDisconnect,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = CircleShape
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Connecting...", fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Button(
+                        onClick = onConnect,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(Icons.Default.BluetoothConnected, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Connect Target", fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+
+                FilledTonalIconButton(
+                    onClick = {
+                        scope.launch {
+                            rotationAngle.snapTo(0f)
+                            rotationAngle.animateTo(360f, animationSpec = tween(500, easing = FastOutSlowInEasing))
+                        }
+                        onRegisterSdp()
+                    },
+                    modifier = Modifier.size(52.dp),
+                    shape = CircleShape,
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Re-register SDP",
+                        modifier = Modifier.rotate(rotationAngle.value)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// =========================================================================
+// SECTION 2: FAVORITE COMBOS (M3 EXPRESSIVE FLAT SHAPES)
+// =========================================================================
+
+private data class ExpressiveFlatPalette(
+    val container: Color,
+    val content: Color,
+    val border: Color
+)
+
+data class CollageConfig(
+    val slotId: Int,
+    val shapeName: String,
+    val emptyLabel: String,
+    val width: androidx.compose.ui.unit.Dp,
+    val height: androidx.compose.ui.unit.Dp,
+    val align: Alignment,
+    val rot: Float,
+    val shape: Shape,
+    val offsetX: androidx.compose.ui.unit.Dp,
+    val offsetY: androidx.compose.ui.unit.Dp,
+    val containerColor: Color,
+    val contentColor: Color,
+    val border: BorderStroke
+)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ExpressiveFavoriteCombosSection(
+    combos: List<Combo>,
+    onRunCombo: (Combo) -> Unit,
+    onEmptySlotClick: (CollageConfig) -> Unit = {}
+) {
+    val haptic = LocalHapticFeedback.current
+
+    // Exactly the user's top favorite combos (up to 5 for the collage)
+    val distinctFavorites = remember(combos) {
+        val favs = combos.filter { it.favorite }.distinctBy { it.name }
+        if (favs.isNotEmpty()) favs.take(5) else combos.distinctBy { it.name }.take(3)
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Section Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(MaterialShapes.ShapeFlower)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Stars,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Favorite Combos",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "M3 Expressive • Tap to execute",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Text(
+                    text = "${distinctFavorites.size} shortcuts",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // M3 Expressive Flat Collage Layout with 5 distinct shapes & well-spaced gaps
+        val expressivePalettes = listOf(
+            // 0: Deep Royal Violet / Lilac (Center Pill - Login)
+            ExpressiveFlatPalette(
+                container = Color(0xFF4B3280),
+                content = Color(0xFFF3EDF7),
+                border = Color(0xFFD0BCFF)
+            ),
+            // 1: Expressive Jade / Mint (TopStart Squircle - Lock)
+            ExpressiveFlatPalette(
+                container = Color(0xFF00513B),
+                content = Color(0xFFA7F8D6),
+                border = Color(0xFF86F8CE)
+            ),
+            // 2: Expressive Sunset Amber / Peach (BottomEnd 6-Point Star - Sleep)
+            ExpressiveFlatPalette(
+                container = Color(0xFF943C00),
+                content = Color(0xFFFFDCC4),
+                border = Color(0xFFFFB68F)
+            ),
+            // 3: Expressive Ocean Blue (TopEnd Fan - Fan)
+            ExpressiveFlatPalette(
+                container = Color(0xFF004C6E),
+                content = Color(0xFFCCE6FF),
+                border = Color(0xFF92CDFF)
+            ),
+            // 4: Expressive Raspberry / Rose (BottomStart Ghost-ish - Ghost-ish)
+            ExpressiveFlatPalette(
+                container = Color(0xFF8C1D40),
+                content = Color(0xFFFFD9E2),
+                border = Color(0xFFFFB1C8)
+            )
+        )
+
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(290.dp)
+        ) {
+            val p0 = expressivePalettes[0]
+            val p1 = expressivePalettes[1]
+            val p2 = expressivePalettes[2]
+            val p3 = expressivePalettes[3]
+            val p4 = expressivePalettes[4]
+
+            // 5 Expressive shapes: prominent size, snug organic clustering, tighter gaps
+            // 0: Center Tilted Pill
+            // 1: TopStart Squircle (Lock)
+            // 2: BottomEnd 6-Sided Star (Sleep) - prominent & drawn closer
+            // 3: TopEnd Fan (Fan)
+            // 4: BottomStart Ghost-ish (Ghost-ish)
+            val configs = remember {
+                listOf(
+                    // 0: Center Tilted Pill
+                    CollageConfig(
+                        slotId = 0,
+                        shapeName = "Pill",
+                        emptyLabel = "Pill",
+                        width = 110.dp,
+                        height = 172.dp,
+                        align = Alignment.Center,
+                        rot = 40f,
+                        shape = RoundedCornerShape(percent = 50),
+                        offsetX = 0.dp,
+                        offsetY = 0.dp,
+                        containerColor = p0.container,
+                        contentColor = p0.content,
+                        border = BorderStroke(1.5.dp, p0.border.copy(alpha = 0.40f))
+                    ),
+                    // 1: TopStart Squircle (Lock)
+                    CollageConfig(
+                        slotId = 1,
+                        shapeName = "Squircle",
+                        emptyLabel = "Squircle",
+                        width = 114.dp,
+                        height = 114.dp,
+                        align = Alignment.TopStart,
+                        rot = -8f,
+                        shape = RoundedCornerShape(28.dp),
+                        offsetX = 16.dp,
+                        offsetY = 12.dp,
+                        containerColor = p1.container,
+                        contentColor = p1.content,
+                        border = BorderStroke(1.5.dp, p1.border.copy(alpha = 0.40f))
+                    ),
+                    // 2: BottomEnd 6-Sided Rounded Star (Sleep - large & brought snug towards center)
+                    CollageConfig(
+                        slotId = 2,
+                        shapeName = "Flower",
+                        emptyLabel = "Flower",
+                        width = 136.dp,
+                        height = 136.dp,
+                        align = Alignment.BottomEnd,
+                        rot = 0f,
+                        shape = com.poc.hiddebug.ui.theme.RoundedStarShape(sides = 6, curve = 0.09, rotation = 45f),
+                        offsetX = (-22).dp,
+                        offsetY = (-14).dp,
+                        containerColor = p2.container,
+                        contentColor = p2.content,
+                        border = BorderStroke(1.5.dp, p2.border.copy(alpha = 0.40f))
+                    ),
+                    // 3: TopEnd Fan (M3 Expressive ShapeFan)
+                    CollageConfig(
+                        slotId = 3,
+                        shapeName = "Fan",
+                        emptyLabel = "Fan",
+                        width = 112.dp,
+                        height = 112.dp,
+                        align = Alignment.TopEnd,
+                        rot = 0f,
+                        shape = MaterialShapes.ShapeFan,
+                        offsetX = (-16).dp,
+                        offsetY = 12.dp,
+                        containerColor = p3.container,
+                        contentColor = p3.content,
+                        border = BorderStroke(1.5.dp, p3.border.copy(alpha = 0.40f))
+                    ),
+                    // 4: BottomStart Ghost-ish (M3 Expressive ShapeGhostish)
+                    CollageConfig(
+                        slotId = 4,
+                        shapeName = "Ghost-ish",
+                        emptyLabel = "Ghost-ish",
+                        width = 114.dp,
+                        height = 114.dp,
+                        align = Alignment.BottomStart,
+                        rot = 0f,
+                        shape = MaterialShapes.ShapeGhostish,
+                        offsetX = 16.dp,
+                        offsetY = (-12).dp,
+                        containerColor = p4.container,
+                        contentColor = p4.content,
+                        border = BorderStroke(1.5.dp, p4.border.copy(alpha = 0.40f))
+                    )
+                )
+            }
+
+            configs.forEachIndexed { idx, cfg ->
+                val combo = distinctFavorites.getOrNull(idx)
+                if (combo != null) {
+                    CollageShapeButton(
+                        combo = combo,
+                        config = cfg,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onRunCombo(combo)
+                        }
+                    )
+                } else {
+                    CollageEmptyShapeSlot(
+                        config = cfg,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onEmptySlotClick(cfg)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.CollageShapeButton(
+    combo: Combo,
+    config: CollageConfig,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val animatedScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1.0f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "shapeScale"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(config.width, config.height)
+            .align(config.align)
+            .offset(config.offsetX, config.offsetY)
+            .scale(animatedScale)
+            .rotate(config.rot)
+            .shadow(6.dp, config.shape)
+            .clip(config.shape)
+            .background(config.containerColor)
+            .border(config.border, config.shape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .rotate(-config.rot)
+                .padding(6.dp)
+        ) {
+            val emojiSize = when {
+                config.width >= 125.dp || config.height >= 160.dp -> 32.sp
+                config.width >= 105.dp -> 28.sp
+                else -> 24.sp
+            }
+            val titleStyle = when {
+                config.width >= 125.dp || config.height >= 160.dp -> MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp)
+                config.width >= 105.dp -> MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp)
+                else -> MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
+            }
+
+            Text(
+                text = combo.emoji?.ifEmpty { "⚡" } ?: "⚡",
+                fontSize = emojiSize
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = combo.name,
+                style = titleStyle,
+                fontWeight = FontWeight.Bold,
+                color = config.contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.CollageEmptyShapeSlot(
+    config: CollageConfig,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val animatedScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1.0f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "emptyShapeScale"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(config.width, config.height)
+            .align(config.align)
+            .offset(config.offsetX, config.offsetY)
+            .scale(animatedScale)
+            .rotate(config.rot)
+            .shadow(4.dp, config.shape)
+            .clip(config.shape)
+            .background(config.containerColor.copy(alpha = 0.22f))
+            .border(
+                BorderStroke(1.5.dp, config.border.brush.let { config.contentColor.copy(alpha = 0.55f) }),
+                config.shape
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .rotate(-config.rot)
+                .padding(6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add favorite combo to ${config.emptyLabel}",
+                modifier = Modifier.size(26.dp),
+                tint = config.contentColor.copy(alpha = 0.88f)
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = config.emptyLabel,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                fontWeight = FontWeight.Bold,
+                color = config.contentColor.copy(alpha = 0.88f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+// =========================================================================
+// SECTION 3: QUICK SEND (LARGE INPUT, CLEAR PROMPT, NO SYNTAX CHIPS)
+// =========================================================================
+
+@Composable
+fun ExpressiveQuickSendSection(
+    quickSendText: String,
+    onTextChange: (String) -> Unit,
+    detectedSteps: List<HidStep>,
+    onPasteFromClipboard: () -> Unit,
+    onClearText: () -> Unit,
+    onExecute: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(32.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            // Header Row: Expressive Icon + Title + Visible Paste Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(MaterialShapes.ShapeClover4)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Quick Send",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Direct HID combo scheme pipeline",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // High-emphasis Expressive Paste Button
+                Button(
+                    onClick = onPasteFromClipboard,
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.ContentPaste,
+                        contentDescription = "Paste",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Paste",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Large Code-Editor Styled Text Area
+            OutlinedTextField(
+                value = quickSendText,
+                onValueChange = onTextChange,
+                minLines = 5,
+                maxLines = 10,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 160.dp, max = 260.dp),
+                placeholder = {
+                    Text(
+                        text = "win+s ->{0.7} type:cmd ->{0.4} enter",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                },
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp
+                ),
+                shape = RoundedCornerShape(24.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                ),
+                trailingIcon = {
+                    if (quickSendText.isNotEmpty()) {
+                        IconButton(onClick = onClearText) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                        }
+                    }
+                }
+            )
+
+            // Dynamic Step Recognizer Ribbon (if any step detected)
+            if (detectedSteps.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "✓ ${detectedSteps.size} steps",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = detectedSteps.joinToString(" ➔ ") { step ->
+                                when (step) {
+                                    is HidStep.KeyboardChord -> "Key"
+                                    is HidStep.Delay -> "${step.millis}ms"
+                                    is HidStep.TypeText -> "\"${step.text.take(6)}\""
+                                    is HidStep.Variable -> "$${step.name}"
+                                    is HidStep.MouseAction -> "Mouse"
+                                    is HidStep.Directive -> "!${step.name}"
+                                }
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Large Expressive Execute Button
+            Button(
+                onClick = onExecute,
+                enabled = quickSendText.isNotBlank(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Dispatch Combo Scheme",
+                    fontWeight = FontWeight.ExtraBold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+        }
     }
 }

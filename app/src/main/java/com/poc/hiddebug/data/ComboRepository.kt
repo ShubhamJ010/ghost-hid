@@ -70,7 +70,13 @@ class ComboRepository(private val context: Context) {
 
     fun ensureDefaults(): List<Combo> {
         val current = load()
-        if (current.isEmpty()) {
+        // Ensure strictly the 3 built-in combos: Login, Lock, Sleep
+        val hasExactBuiltIns = current.size == 3 &&
+                current.any { it.name.equals("Login", ignoreCase = true) } &&
+                current.any { it.name.equals("Lock", ignoreCase = true) } &&
+                current.any { it.name.equals("Sleep", ignoreCase = true) }
+
+        if (!hasExactBuiltIns) {
             val defaults = listOf(
                 Combo(
                     name = "Login",
