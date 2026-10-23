@@ -10,19 +10,15 @@ import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,7 +42,6 @@ import com.poc.hiddebug.service.HidService
 import com.poc.hiddebug.ui.combos.ComboStudioScreen
 import com.poc.hiddebug.ui.dashboard.DashboardScreen
 import com.poc.hiddebug.ui.navigation.Screen
-import com.poc.hiddebug.ui.snippets.SnippetStudioScreen
 import com.poc.hiddebug.ui.theme.GhostHidTheme
 import com.poc.hiddebug.ui.trackpad.TrackpadScreen
 
@@ -76,7 +71,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+        )
 
         requestRequiredPermissions()
         startAndBindService()
@@ -130,6 +128,8 @@ fun MainAppScaffold(service: HidService?) {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
@@ -155,49 +155,37 @@ fun MainAppScaffold(service: HidService?) {
         Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(bottom = innerPadding.calculateBottomPadding()),
             color = MaterialTheme.colorScheme.background
         ) {
             AnimatedContent(
                 targetState = currentScreen,
                 transitionSpec = {
-                    val modalScreens = setOf(Screen.Snippets)
-                    if (targetState in modalScreens) {
-                        (slideInVertically(
-                            animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow),
-                            initialOffsetY = { it / 3 }
-                        ) + fadeIn(animationSpec = tween(240)) + scaleIn(initialScale = 0.94f)).togetherWith(
-                            fadeOut(animationSpec = tween(180)) + scaleOut(targetScale = 0.96f)
-                        )
-                    } else if (initialState in modalScreens) {
-                        (fadeIn(animationSpec = tween(240)) + scaleIn(initialScale = 0.96f)).togetherWith(
-                            slideOutVertically(
-                                animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow),
-                                targetOffsetY = { it / 3 }
-                            ) + fadeOut(animationSpec = tween(180)) + scaleOut(targetScale = 0.94f)
-                        )
-                    } else {
-                        (fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.98f)).togetherWith(
-                            fadeOut(animationSpec = tween(150))
-                        )
-                    }
+                    (fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.98f)).togetherWith(
+                        fadeOut(animationSpec = tween(150))
+                    )
                 },
                 label = "screenTransition"
             ) { screen ->
                 when (screen) {
-                    Screen.Dashboard -> DashboardScreen(
-                        service = service,
-                        onNavigateToCombos = { currentScreen = Screen.Combos }
-                    )
-                    Screen.Combos -> ComboStudioScreen(
-                        service = service,
-                        onNavigateToSnippets = { currentScreen = Screen.Snippets }
-                    )
-                    Screen.Snippets -> SnippetStudioScreen(
-                        service = service,
-                        onNavigateBack = { currentScreen = Screen.Combos }
-                    )
-                    Screen.Trackpad -> TrackpadScreen(service = service)
+                    Screen.Dashboard -> Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = innerPadding.calculateTopPadding())
+                    ) {
+                        DashboardScreen(
+                            service = service,
+                            onNavigateToCombos = { currentScreen = Screen.Combos }
+                        )
+                    }
+                    Screen.Combos -> ComboStudioScreen(service = service)
+                    Screen.Trackpad -> Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = innerPadding.calculateTopPadding())
+                    ) {
+                        TrackpadScreen(service = service)
+                    }
                 }
             }
         }

@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -105,6 +106,7 @@ import com.poc.hiddebug.domain.model.Snippet
 import com.poc.hiddebug.domain.parser.SequenceAnalyzer
 import com.poc.hiddebug.ui.combos.editor.ComboEditorScreen
 import com.poc.hiddebug.ui.common.sequence.SequencePreview
+import com.poc.hiddebug.ui.snippets.SnippetsShade
 import com.poc.hiddebug.service.HidService
 import com.poc.hiddebug.ui.theme.MaterialShapes
 import kotlinx.coroutines.delay
@@ -120,14 +122,10 @@ private enum class ComboFilterCategory(val label: String) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ComboStudioScreen(
-    service: HidService?,
-    onNavigateToSnippets: (() -> Unit)? = null
+    service: HidService?
 ) {
     val repo = GhostHidApp.instance.comboRepository
     val combos by repo.combos.collectAsState()
-
-    val snippetRepo = GhostHidApp.instance.snippetRepository
-    val snippets by snippetRepo.snippets.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf(ComboFilterCategory.ALL) }
@@ -182,7 +180,10 @@ fun ComboStudioScreen(
     val snippetComboCount = remember(combos) { combos.count { it.keys.contains("$") } }
     val timedComboCount = remember(combos) { combos.count { it.keys.contains("->") } }
 
+    SnippetsShade(service = service) {
     Scaffold(
+        containerColor = Color.Transparent,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = {
@@ -230,15 +231,7 @@ fun ComboStudioScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // ==========================================
-                // SECTION 1: TOP EXPRESSIVE SNIPPET VAULT CARD
-                // ==========================================
-                item {
-                    ExpressiveSnippetsHeaderCard(
-                        snippets = snippets,
-                        onClick = { onNavigateToSnippets?.invoke() }
-                    )
-                }
+
 
                 // ==========================================
                 // SECTION 2: SEARCH & FILTER CHIPS ROW
@@ -429,6 +422,7 @@ fun ComboStudioScreen(
                 }
             }
         }
+    }
     }
 
     // ==========================================

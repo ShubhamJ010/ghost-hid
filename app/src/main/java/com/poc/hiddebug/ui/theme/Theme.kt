@@ -69,7 +69,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun GhostHidTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true, // Material You dynamic Monet color extraction
+    dynamicColor: Boolean = true, // M3 Expressive dynamic color from Material You
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
