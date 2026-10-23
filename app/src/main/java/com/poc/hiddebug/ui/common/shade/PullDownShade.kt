@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -66,6 +67,10 @@ fun PullDownShade(
     dock: @Composable (scope: ShadeScope) -> Unit,
     shade: @Composable (scope: ShadeScope) -> Unit,
     modifier: Modifier = Modifier,
+    dockHeight: Dp = 56.dp,
+    openDockHeight: Dp = dockHeight,
+    openHeight: Dp? = null,
+    pushContentBelowShade: Boolean = false,
     content: @Composable () -> Unit
 ) {
     var isOpen by rememberSaveable { mutableStateOf(false) }
@@ -79,10 +84,12 @@ fun PullDownShade(
         val density = LocalDensity.current
 
         val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val closedHeight = (statusBarHeight + 52.dp).coerceAtLeast(80.dp)
-        val openHeight = (maxHeight - 16.dp).coerceAtLeast(closedHeight + 120.dp)
+        val closedHeight = (statusBarHeight + dockHeight).coerceAtLeast(80.dp)
+        val minOpenHeight = closedHeight + 80.dp
+        val maxOpenHeight = (maxHeight - 16.dp).coerceAtLeast(minOpenHeight)
+        val resolvedOpenHeight = (openHeight ?: maxOpenHeight).coerceIn(minOpenHeight, maxOpenHeight)
 
-        val travelDistancePx = with(density) { (openHeight - closedHeight).toPx() }
+        val travelDistancePx = with(density) { (resolvedOpenHeight - closedHeight).toPx() }
 
         val targetProgress = if (isOpen) 1f else 0f
         val animatedProgress by animateFloatAsState(
@@ -98,7 +105,8 @@ fun PullDownShade(
             label = "shadeProgress"
         )
 
-        val currentHeight = closedHeight + (openHeight - closedHeight) * animatedProgress
+        val currentHeight = closedHeight + (resolvedOpenHeight - closedHeight) * animatedProgress
+        val currentDockHeight = dockHeight + (openDockHeight - dockHeight) * animatedProgress
 
         val shadeScope = remember(animatedProgress, isOpen) {
             ShadeScope(
@@ -109,9 +117,9 @@ fun PullDownShade(
             )
         }
 
-        // Background: Content of the screen (combos studio), starting directly below closedHeight
+        // Screen content can follow the shade down for compact, pushed layouts.
         Column(modifier = Modifier.fillMaxSize()) {
-            Spacer(modifier = Modifier.height(closedHeight))
+            Spacer(modifier = Modifier.height(if (pushContentBelowShade) currentHeight else closedHeight))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -122,7 +130,7 @@ fun PullDownShade(
         }
 
         // Dimming scrim when the shade expands
-        if (animatedProgress > 0.01f) {
+        if (animatedProgress > 0.01f && !pushContentBelowShade) {
             val scrimInteraction = remember { MutableInteractionSource() }
             Box(
                 modifier = Modifier
@@ -185,7 +193,7 @@ fun PullDownShade(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
+                        .height(currentDockHeight)
                         .align(Alignment.BottomCenter)
                 ) {
                     dock(shadeScope)

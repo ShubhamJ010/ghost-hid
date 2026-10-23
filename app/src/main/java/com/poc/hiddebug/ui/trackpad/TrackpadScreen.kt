@@ -1,5 +1,6 @@
 package com.poc.hiddebug.ui.trackpad
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -7,6 +8,13 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +28,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +38,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -36,6 +46,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Mouse
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -61,9 +72,12 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,15 +90,17 @@ import com.poc.hiddebug.service.HidService
 import com.poc.hiddebug.ui.theme.MaterialShapes
 import kotlin.math.abs
 import kotlin.math.hypot
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Virtual trackpad.
+ * Virtual trackpad with notification-style Gestures pull-down shade.
  *
- * Touch model mirrors a hardware trackpad instead of exposing synthetic
- * buttons: drag moves the pointer, tap is a real left click, two quick taps
- * are a real double click. Every report is a plain HID press/release cycle,
- * so Windows and macOS both handle it natively.
+ * Closed: Seamlessly integrated status bar with "gestures" title and drag handle.
+ * When pulled down: reveals the full Gestures Gallery (3-finger & 4-finger precision shortcuts,
+ * practice pad, and OS toggles).
+ * On-pad: The clean, full-size virtual trackpad detects 1-finger pointer motion, taps,
+ * scroll rail inputs, click deck, AND 3/4-finger live swipes.
  */
 @Composable
 fun TrackpadScreen(
@@ -95,108 +111,97 @@ fun TrackpadScreen(
         ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
     val isLinked = connectionState == ConnectionStatus.CONNECTED
     val motion = remember(config) { PointerMotionState(config) }
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        TrackpadHeader()
+    var targetOs by remember { mutableStateOf(TargetOs.WINDOWS) }
+    var activeGestureHud by remember { mutableStateOf<TrackpadGesture?>(null) }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            PointerPad(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                service = service,
-                config = config,
-                motion = motion,
-                isLinked = isLinked
-            )
-            Column(
-                modifier = Modifier
-                    .width(58.dp)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                ScrollStepKey(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
-                    isUp = true,
-                    enabled = isLinked,
-                    onClick = {
-                        service?.sendMouseMove(0, 0, wheel = config.scrollStepNotches)
-                    }
-                )
-                ScrollRail(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    service = service,
-                    config = config
-                )
-                ScrollStepKey(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
-                    isUp = false,
-                    enabled = isLinked,
-                    onClick = {
-                        service?.sendMouseMove(0, 0, wheel = -config.scrollStepNotches)
-                    }
-                )
+    val handleTriggerGesture: (TrackpadGesture) -> Unit = { gesture ->
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        val combo = gesture.comboFor(targetOs)
+        service?.executeCombo(combo)
+        activeGestureHud = gesture
+        scope.launch {
+            delay(2200)
+            if (activeGestureHud == gesture) {
+                activeGestureHud = null
             }
         }
-
-        ClickDeck(
-            enabled = isLinked,
-            onLeftClick = { service?.sendMouseButton(MouseButton.LEFT) },
-            onRightClick = { service?.sendMouseButton(MouseButton.RIGHT) }
-        )
     }
-}
 
-// -----------------------------------------------------------------------------
-// Header
-// -----------------------------------------------------------------------------
-
-@Composable
-private fun TrackpadHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+    GesturesShade(
+        service = service
     ) {
-        Box(
+        Column(
             modifier = Modifier
-                .size(46.dp)
-                .clip(MaterialShapes.ShapeClover4)
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Mouse,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(23.dp)
+            // Main Pointer Pad & Scroll Rail
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PointerPad(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    service = service,
+                    config = config,
+                    motion = motion,
+                    isLinked = isLinked,
+                    activeGestureHud = activeGestureHud,
+                    targetOs = targetOs,
+                    onMultiFingerGesture = handleTriggerGesture
+                )
+                Column(
+                    modifier = Modifier
+                        .width(58.dp)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    ScrollStepKey(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        isUp = true,
+                        enabled = isLinked,
+                        onClick = {
+                            service?.sendMouseMove(0, 0, wheel = config.scrollStepNotches)
+                        }
+                    )
+                    ScrollRail(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        service = service,
+                        config = config
+                    )
+                    ScrollStepKey(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        isUp = false,
+                        enabled = isLinked,
+                        onClick = {
+                            service?.sendMouseMove(0, 0, wheel = -config.scrollStepNotches)
+                        }
+                    )
+                }
+            }
+
+            // Mouse Click Deck
+            ClickDeck(
+                enabled = isLinked,
+                onLeftClick = { service?.sendMouseButton(MouseButton.LEFT) },
+                onRightClick = { service?.sendMouseButton(MouseButton.RIGHT) }
             )
         }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Text(
-            text = "Trackpad",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onSurface
-        )
     }
 }
 
@@ -235,7 +240,10 @@ private fun PointerPad(
     service: HidService?,
     config: TrackpadConfig,
     motion: PointerMotionState,
-    isLinked: Boolean
+    isLinked: Boolean,
+    activeGestureHud: TrackpadGesture?,
+    targetOs: TargetOs,
+    onMultiFingerGesture: (TrackpadGesture) -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
@@ -303,48 +311,31 @@ private fun PointerPad(
                         strokeWidth = 2.4.dp.toPx(),
                         cap = StrokeCap.Round
                     )
-                    drawCornerBrackets(
-                        color = bracketColor,
-                        inset = bracketInset,
-                        arm = bracketArm,
-                        stroke = bracketStroke
-                    )
+                    drawCornerBrackets(bracketColor, bracketInset, bracketArm, bracketStroke)
                 }
             }
             .trackpadGestures(
                 service = service,
-                config = config,
                 motion = motion,
-                onDown = { point ->
-                    touch = point
-                    rippleOrigin = point
-                    pressed = true
-                },
-                onUp = {
-                    pressed = false
-                    touch = null
-                },
-                onTap = {
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    service?.sendMouseButton(MouseButton.LEFT)
+                config = config,
+                isLinked = isLinked,
+                targetOs = targetOs,
+                onPressedChange = { pressed = it },
+                onTouchChange = { touch = it },
+                onTapRipple = { pos ->
+                    rippleOrigin = pos
                     scope.launch {
                         ripple.snapTo(0f)
-                        ripple.animateTo(1f, animationSpec = tween(420, easing = LinearEasing))
+                        ripple.animateTo(1f, tween(360, easing = FastOutSlowInEasing))
                     }
-                }
-            )
+                },
+                onMultiFingerGesture = onMultiFingerGesture
+            ),
+        contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawTouchFeedback(
-                point = touch,
-                strength = glowStrength,
-                color = accent
-            )
-            drawTapRipple(
-                progress = ripple.value,
-                origin = rippleOrigin,
-                color = accent
-            )
+            drawTouchFeedback(touch, glowStrength, accent)
+            drawTapRipple(ripple.value, rippleOrigin, accent)
         }
 
         Column(
@@ -361,14 +352,9 @@ private fun PointerPad(
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Mouse,
-                    contentDescription = null,
-                    tint = accent.copy(alpha = 0.9f),
-                    modifier = Modifier.size(26.dp)
-                )
+                Icon(Icons.Default.Mouse, contentDescription = null, tint = accent.copy(alpha = 0.9f), modifier = Modifier.size(26.dp))
             }
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(Modifier.height(14.dp))
             Text(
                 text = if (isLinked) "Drag to move" else "Not connected",
                 style = MaterialTheme.typography.titleMedium,
@@ -376,62 +362,200 @@ private fun PointerPad(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
             )
         }
+
+        // Animated Gesture HUD Overlay
+        AnimatedVisibility(
+            visible = activeGestureHud != null,
+            enter = scaleIn(spring(stiffness = 500f)) + fadeIn(),
+            exit = scaleOut(spring(stiffness = 500f)) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 18.dp)
+        ) {
+            activeGestureHud?.let { gesture ->
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                    shadowElevation = 8.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(gesture.resolveShape())
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = gesture.resolveIcon(),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        Column {
+                            Text(
+                                text = "${if (gesture.fingers == FingerCount.THREE) "3" else "4"}-Finger ${gesture.title}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = gesture.comboFor(targetOs),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
+/**
+ * Handles pointer events on the trackpad.
+ * Supports:
+ * - 1-finger drag: relative cursor motion
+ * - 1-finger tap: left click
+ * - 1-finger double tap: double left click
+ * - 3-finger & 4-finger swipes (Up, Down, Left, Right)
+ */
 private fun Modifier.trackpadGestures(
     service: HidService?,
-    config: TrackpadConfig,
     motion: PointerMotionState,
-    onDown: (Offset) -> Unit,
-    onUp: () -> Unit,
-    onTap: () -> Unit
-): Modifier = pointerInput(service, config) {
-    val dragThreshold = maxOf(viewConfiguration.touchSlop, config.dragStartDp.dp.toPx())
+    config: TrackpadConfig,
+    isLinked: Boolean,
+    targetOs: TargetOs,
+    onPressedChange: (Boolean) -> Unit,
+    onTouchChange: (Offset?) -> Unit,
+    onTapRipple: (Offset) -> Unit,
+    onMultiFingerGesture: (TrackpadGesture) -> Unit
+): Modifier = pointerInput(isLinked, config, targetOs) {
+    val tapTimeoutMs = config.tapMaxDurationMs
+    val doubleTapTimeoutMs = 300L
+    val slopPx = 10.dp.toPx()
+    val gestureThresholdPx = 45.dp.toPx()
+
+    var lastTapUpTime = 0L
+    var lastTapPos = Offset.Zero
 
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
-        down.consume()
+        onPressedChange(true)
+        onTouchChange(down.position)
         motion.reset()
-        onDown(down.position)
 
-        var previous = down.position
-        var travel = 0f
-        var dragging = false
-        var released = false
-        var lastUptime = down.uptimeMillis
+        val downTime = System.currentTimeMillis()
+        var moved = false
+        var lastPos = down.position
+        val pointerId = down.id
 
-        try {
-            while (true) {
-                val event = awaitPointerEvent()
-                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                lastUptime = change.uptimeMillis
+        // Multi-touch tracking
+        var multiTouchFired = false
+        val initialPointers = mutableMapOf<Long, Offset>()
+        initialPointers[down.id.value] = down.position
 
-                if (!change.pressed && change.previousPressed) {
-                    change.consume()
-                    released = true
-                    break
+        while (true) {
+            val event = awaitPointerEvent()
+            val pressedChanges = event.changes.filter { it.pressed }
+
+            if (pressedChanges.isEmpty()) {
+                onPressedChange(false)
+                onTouchChange(null)
+
+                val upTime = System.currentTimeMillis()
+                val duration = upTime - downTime
+                val totalDist = (lastPos - down.position).getDistance()
+
+                if (!moved && !multiTouchFired && duration <= tapTimeoutMs && totalDist <= slopPx && isLinked) {
+                    val isDouble = (upTime - lastTapUpTime) <= doubleTapTimeoutMs &&
+                        (lastPos - lastTapPos).getDistance() <= slopPx * 2f
+
+                    onTapRipple(lastPos)
+                    if (isDouble) {
+                        service?.sendMouseButton(MouseButton.LEFT)
+                        service?.sendMouseButton(MouseButton.LEFT)
+                        lastTapUpTime = 0L
+                    } else {
+                        service?.sendMouseButton(MouseButton.LEFT)
+                        lastTapUpTime = upTime
+                        lastTapPos = lastPos
+                    }
                 }
+                break
+            }
 
-                val dx = change.position.x - previous.x
-                val dy = change.position.y - previous.y
-                previous = change.position
-                travel += hypot(dx, dy)
-
-                if (!dragging && travel >= dragThreshold) dragging = true
-
-                if (dragging) {
-                    change.consume()
-                    motion.drag(dx, dy) { stepX, stepY -> service?.sendMouseMove(stepX, stepY) }
-                    onDown(change.position)
+            // Record multi-touch points
+            pressedChanges.forEach { change ->
+                if (!initialPointers.containsKey(change.id.value)) {
+                    initialPointers[change.id.value] = change.position
                 }
             }
-        } finally {
-            onUp()
-        }
 
-        val wasTap = released && !dragging && lastUptime - down.uptimeMillis <= config.tapMaxDurationMs
-        if (wasTap) onTap()
+            // Check for 3-finger or 4-finger swipes
+            if (!multiTouchFired && initialPointers.size in 3..4 && pressedChanges.size in 3..4) {
+                var dxSum = 0f
+                var dySum = 0f
+                var validCount = 0
+
+                pressedChanges.forEach { change ->
+                    val origin = initialPointers[change.id.value]
+                    if (origin != null) {
+                        dxSum += (change.position.x - origin.x)
+                        dySum += (change.position.y - origin.y)
+                        validCount++
+                    }
+                }
+
+                if (validCount >= 3) {
+                    val dxAvg = dxSum / validCount
+                    val dyAvg = dySum / validCount
+                    val distance = hypot(dxAvg, dyAvg)
+
+                    if (distance >= gestureThresholdPx) {
+                        val fingerCount = if (validCount >= 4) FingerCount.FOUR else FingerCount.THREE
+                        val direction = if (abs(dyAvg) > abs(dxAvg)) {
+                            if (dyAvg < 0) GestureDirection.UP else GestureDirection.DOWN
+                        } else {
+                            if (dxAvg < 0) GestureDirection.LEFT else GestureDirection.RIGHT
+                        }
+
+                        val gesture = TrackpadGestureRegistry.find(fingerCount, direction)
+                        if (gesture != null) {
+                            multiTouchFired = true
+                            onMultiFingerGesture(gesture)
+                            pressedChanges.forEach { it.consume() }
+                        }
+                    }
+                }
+            }
+
+            // 1-finger relative mouse cursor movement
+            if (!multiTouchFired) {
+                val primaryChange = pressedChanges.firstOrNull { it.id == pointerId } ?: pressedChanges.first()
+                val delta = primaryChange.position - lastPos
+                lastPos = primaryChange.position
+                onTouchChange(primaryChange.position)
+
+                if (delta.getDistance() > 0.5f) {
+                    moved = true
+                    if (isLinked) {
+                        motion.drag(delta.x, delta.y) { dx, dy ->
+                            service?.sendMouseMove(dx, dy)
+                        }
+                    }
+                    primaryChange.consume()
+                }
+            }
+        }
     }
 }
 
@@ -607,19 +731,9 @@ private fun DrawScope.drawScrollThumb(centerY: Float, color: Color) {
 }
 
 // -----------------------------------------------------------------------------
-// Fixed scroll keys
+// Stepped scroll buttons & continuous rail
 // -----------------------------------------------------------------------------
 
-/**
- * Detached M3 Expressive arch cap sitting at either end of the rail. One tap
- * sends a fixed wheel step, the same action the CLI's `scroll-up` /
- * `scroll-down` tokens produce, just in a preset amount
- * ([TrackpadConfig.scrollStepNotches]).
- *
- * The arch keeps its catalog orientation at the top and is mirrored at the
- * bottom so both caps face away from the rail. The press uses a Material 3
- * Expressive spring: the cap squashes on touch-down and springs back.
- */
 @Composable
 private fun ScrollStepKey(
     modifier: Modifier,
@@ -694,7 +808,7 @@ private fun ScrollStepKey(
 }
 
 // -----------------------------------------------------------------------------
-// Click deck
+// Mouse Click Deck
 // -----------------------------------------------------------------------------
 
 @Composable

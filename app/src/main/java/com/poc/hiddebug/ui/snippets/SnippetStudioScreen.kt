@@ -1,6 +1,11 @@
 package com.poc.hiddebug.ui.snippets
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -51,8 +56,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -71,7 +79,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -87,14 +94,15 @@ import androidx.compose.ui.unit.sp
 import com.poc.hiddebug.GhostHidApp
 import com.poc.hiddebug.domain.model.Snippet
 import com.poc.hiddebug.service.HidService
-import com.poc.hiddebug.ui.theme.Clover4Shape
-import com.poc.hiddebug.ui.theme.Scallop12Shape
-import com.poc.hiddebug.ui.theme.Scallop8Shape
-import com.poc.hiddebug.ui.theme.SoftDiamondShape
+import com.poc.hiddebug.ui.theme.MaterialShapes
 import kotlinx.coroutines.delay
 
 /**
  * The full Material 3 Expressive snippet screen inside the morphing notification shade.
+ *
+ * Uses official MaterialShapes catalog for expressive leading icons,
+ * CircleShape (shape.full) for buttons per M3E spec, tonal surface hierarchy,
+ * and spring-based motion for interactive feedback.
  */
 @Composable
 fun SnippetShadeContent(
@@ -142,7 +150,7 @@ fun SnippetShadeContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ==========================================
-            // TOP: NEW SNIPPET PILL BUTTON
+            // TOP: NEW SNIPPET PILL BUTTON (M3E shape.full)
             // ==========================================
             Button(
                 onClick = {
@@ -153,7 +161,7 @@ fun SnippetShadeContent(
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
                     .height(52.dp),
-                shape = RoundedCornerShape(26.dp),
+                shape = CircleShape, // M3E: buttons use shape.full
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
@@ -176,8 +184,15 @@ fun SnippetShadeContent(
             // ==========================================
             AnimatedVisibility(
                 visible = showFilter,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+                enter = expandVertically(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                ) + fadeIn(),
+                exit = shrinkVertically(
+                    animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                ) + fadeOut()
             ) {
                 OutlinedTextField(
                     value = filterQuery,
@@ -228,7 +243,7 @@ fun SnippetShadeContent(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.large, // M3E: search fields use shape.large
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -251,7 +266,7 @@ fun SnippetShadeContent(
                 ) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = MaterialTheme.shapes.extraLarge, // M3E: prominent cards use extraLarge
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         )
@@ -266,7 +281,7 @@ fun SnippetShadeContent(
                             Box(
                                 modifier = Modifier
                                     .size(64.dp)
-                                    .clip(Clover4Shape())
+                                    .clip(MaterialShapes.ShapeClover4) // Official M3E shape
                                     .background(MaterialTheme.colorScheme.primaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -274,7 +289,7 @@ fun SnippetShadeContent(
                                     imageVector = Icons.Default.Key,
                                     contentDescription = null,
                                     modifier = Modifier.size(32.dp),
-                                    tint = MaterialTheme.colorScheme.primary
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
                             Spacer(modifier = Modifier.height(14.dp))
@@ -354,12 +369,18 @@ fun SnippetShadeContent(
         }
 
         // ==========================================
-        // FLOATING ACTION TOAST BANNER
+        // FLOATING ACTION TOAST BANNER (M3E inverseSurface pill)
         // ==========================================
         AnimatedVisibility(
             visible = statusToast != null,
-            enter = fadeIn() + slideInVertically { it / 2 },
-            exit = fadeOut() + slideOutVertically { it / 2 },
+            enter = fadeIn(animationSpec = tween(200)) + slideInVertically(
+                initialOffsetY = { it / 2 },
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ),
+            exit = fadeOut(animationSpec = tween(150)) + slideOutVertically { it / 2 },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 76.dp)
@@ -395,7 +416,23 @@ fun SnippetShadeContent(
 
 // =========================================================================
 // MATERIAL 3 EXPRESSIVE SNIPPET CARD
+//
+// Uses official MaterialShapes catalog for per-card expressive leading icons,
+// CircleShape (shape.full) for action buttons, proper tonal hierarchy,
+// and FilledTonalIconButton for M3-compliant icon actions.
 // =========================================================================
+
+/** Curated M3E shapes for snippet card leading icons, chosen for visual variety. */
+private val snippetLeadingShapes: List<Shape> = listOf(
+    MaterialShapes.ShapeClover4,
+    MaterialShapes.ShapeFlower,
+    MaterialShapes.ShapeDiamond,
+    MaterialShapes.ShapeCookie9,
+    MaterialShapes.ShapeSunny,
+    MaterialShapes.ShapeGhostish,
+    MaterialShapes.ShapeHeart,
+    MaterialShapes.ShapeSoftBurst
+)
 
 @Composable
 fun M3ExpressiveSnippetCard(
@@ -408,14 +445,10 @@ fun M3ExpressiveSnippetCard(
 ) {
     var revealed by remember { mutableStateOf(false) }
 
-    // Dynamic M3 Expressive shape and tonal accents per card index
-    val shape: Shape = when (index % 4) {
-        0 -> Clover4Shape()
-        1 -> Scallop8Shape()
-        2 -> SoftDiamondShape()
-        else -> Scallop12Shape()
-    }
+    // Dynamic M3 Expressive shape from official catalog per card index
+    val shape: Shape = snippetLeadingShapes[index % snippetLeadingShapes.size]
 
+    // Tonal accent rotation using all three M3 container roles + surface highest
     val (containerColor, contentColor) = when (index % 4) {
         0 -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
         1 -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
@@ -423,16 +456,20 @@ fun M3ExpressiveSnippetCard(
         else -> MaterialTheme.colorScheme.surfaceContainerHighest to MaterialTheme.colorScheme.primary
     }
 
+    // Animated border color for visual feedback
+    val borderColor by animateColorAsState(
+        targetValue = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+        animationSpec = tween(300),
+        label = "snippetBorder"
+    )
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.extraLarge, // M3E: 28dp extraLarge for prominent cards
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-        )
+        border = BorderStroke(1.dp, borderColor)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -443,10 +480,10 @@ fun M3ExpressiveSnippetCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Expressive leading icon shape
+                // Expressive leading icon shape from official M3E catalog
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(44.dp) // M3E: 44dp for prominent leading visuals
                         .clip(shape)
                         .background(containerColor),
                     contentAlignment = Alignment.Center
@@ -455,7 +492,7 @@ fun M3ExpressiveSnippetCard(
                         imageVector = if (snippet.secure) Icons.Default.Lock else Icons.Default.Key,
                         contentDescription = null,
                         tint = contentColor,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
@@ -473,12 +510,13 @@ fun M3ExpressiveSnippetCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     if (snippet.secure) {
+                        // M3E: Chip-like badge with CircleShape
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = CircleShape,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
@@ -487,10 +525,10 @@ fun M3ExpressiveSnippetCard(
                                     modifier = Modifier.size(10.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
-                                Spacer(modifier = Modifier.width(3.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = "Keystore Enclave",
-                                    fontSize = 9.sp,
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -498,44 +536,65 @@ fun M3ExpressiveSnippetCard(
                         }
                     } else {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = CircleShape,
                             color = MaterialTheme.colorScheme.surfaceContainerHighest
                         ) {
                             Text(
                                 text = "Plain text",
-                                fontSize = 9.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }
                     }
                 }
 
-                // Action buttons: Copy, Edit, Delete
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onCopy, modifier = Modifier.size(34.dp)) {
+                // Action buttons: M3E FilledTonalIconButton for Copy/Edit, error-toned for Delete
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    FilledTonalIconButton(
+                        onClick = onCopy,
+                        modifier = Modifier.size(34.dp),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
+                        )
+                    ) {
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
                             contentDescription = "Copy snippet",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
-                    IconButton(onClick = onEdit, modifier = Modifier.size(34.dp)) {
+                    FilledTonalIconButton(
+                        onClick = onEdit,
+                        modifier = Modifier.size(34.dp),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
+                        )
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit snippet",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
-                    IconButton(onClick = onDelete, modifier = Modifier.size(34.dp)) {
+                    FilledTonalIconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(34.dp),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                        )
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete snippet",
                             tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -543,7 +602,7 @@ fun M3ExpressiveSnippetCard(
 
             // Monospace Value Preview Box
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = MaterialTheme.shapes.large, // M3E: shape.large (16dp) for inner containers
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -587,11 +646,11 @@ fun M3ExpressiveSnippetCard(
                 }
             }
 
-            // Prominent Full-Width "Type to PC" Action Button
+            // Prominent Full-Width "Type to PC" Action Button (M3E: shape.full for buttons)
             Button(
                 onClick = onType,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
+                shape = CircleShape, // M3E: buttons use shape.full
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -615,6 +674,10 @@ fun M3ExpressiveSnippetCard(
 
 // =========================================================================
 // MATERIAL 3 EXPRESSIVE SNIPPET EDITOR DIALOG
+//
+// Uses M3E shape tokens throughout: extraLarge for dialog, CircleShape for
+// buttons and preset chips, shape.medium for text fields, shape.large for
+// the toggle container. Official MaterialShapes for decorative elements.
 // =========================================================================
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -633,13 +696,13 @@ fun ExpressiveSnippetEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.extraLarge, // M3E: dialogs use shape.extraLarge
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .clip(Clover4Shape())
+                        .clip(MaterialShapes.ShapeClover4) // Official M3E shape
                         .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
@@ -663,7 +726,7 @@ fun ExpressiveSnippetEditorDialog(
                 if (initial == null) {
                     Text(
                         text = "QUICK PRESETS",
-                        fontSize = 10.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         letterSpacing = 0.6.sp
@@ -673,8 +736,9 @@ fun ExpressiveSnippetEditorDialog(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         presetNames.forEach { preset ->
+                            // M3E: Chip-like preset buttons use CircleShape (shape.full)
                             Surface(
-                                shape = RoundedCornerShape(10.dp),
+                                shape = CircleShape,
                                 color = if (name.equals(preset, ignoreCase = true)) {
                                     MaterialTheme.colorScheme.primary
                                 } else {
@@ -689,7 +753,7 @@ fun ExpressiveSnippetEditorDialog(
                             ) {
                                 Text(
                                     text = "$$preset",
-                                    fontSize = 11.sp,
+                                    style = MaterialTheme.typography.labelMedium,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
                                     color = if (name.equals(preset, ignoreCase = true)) {
@@ -697,7 +761,7 @@ fun ExpressiveSnippetEditorDialog(
                                     } else {
                                         MaterialTheme.colorScheme.onSurface
                                     },
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                 )
                             }
                         }
@@ -710,7 +774,7 @@ fun ExpressiveSnippetEditorDialog(
                     label = { Text("Variable Name") },
                     placeholder = { Text("e.g. username or my_password") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = MaterialTheme.shapes.medium, // M3E: text fields use shape.medium (12dp)
                     prefix = { Text("$", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) },
                     enabled = initial == null
                 )
@@ -721,7 +785,7 @@ fun ExpressiveSnippetEditorDialog(
                     label = { Text("Value (Typed on PC)") },
                     placeholder = { Text("Enter string to type") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = MaterialTheme.shapes.medium, // M3E: text fields use shape.medium (12dp)
                     trailingIcon = {
                         IconButton(onClick = { valueVisible = !valueVisible }) {
                             Icon(
@@ -732,8 +796,9 @@ fun ExpressiveSnippetEditorDialog(
                     }
                 )
 
+                // Keystore toggle container
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.large, // M3E: shape.large for containers
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -778,7 +843,7 @@ fun ExpressiveSnippetEditorDialog(
             Button(
                 onClick = { onSave(name.trim(), value, secure) },
                 enabled = name.isNotBlank(),
-                shape = RoundedCornerShape(16.dp),
+                shape = CircleShape, // M3E: buttons use shape.full
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -792,7 +857,7 @@ fun ExpressiveSnippetEditorDialog(
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-                shape = RoundedCornerShape(16.dp)
+                shape = CircleShape // M3E: buttons use shape.full
             ) {
                 Text("Cancel")
             }

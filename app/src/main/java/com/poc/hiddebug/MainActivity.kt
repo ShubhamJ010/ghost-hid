@@ -179,13 +179,7 @@ fun MainAppScaffold(service: HidService?) {
                         )
                     }
                     Screen.Combos -> ComboStudioScreen(service = service)
-                    Screen.Trackpad -> Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = innerPadding.calculateTopPadding())
-                    ) {
-                        TrackpadScreen(service = service)
-                    }
+                    Screen.Trackpad -> TrackpadScreen(service = service)
                 }
             }
         }
