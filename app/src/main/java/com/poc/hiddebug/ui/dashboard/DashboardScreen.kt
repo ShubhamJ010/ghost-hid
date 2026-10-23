@@ -792,7 +792,7 @@ fun ExpressiveFavoriteCombosSection(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(290.dp)
+                .height(305.dp)
         ) {
             val p0 = expressivePalettes[0]
             val p1 = expressivePalettes[1]
@@ -800,15 +800,15 @@ fun ExpressiveFavoriteCombosSection(
             val p3 = expressivePalettes[3]
             val p4 = expressivePalettes[4]
 
-            // 5 Expressive shapes: prominent size, snug organic clustering, tighter gaps
-            // 0: Center Tilted Pill
-            // 1: TopStart Squircle (Lock)
-            // 2: BottomEnd 6-Sided Star (Sleep) - prominent & drawn closer
+            // 5 Expressive shapes: scattered, organic layout with enlarged Lock and downward shifted elements
+            // 0: Center Tilted Pill (Login - shifted down)
+            // 1: TopStart Squircle (Lock - enlarged & shifted down)
+            // 2: BottomEnd 6-Sided Star (Sleep - large & snug)
             // 3: TopEnd Fan (Fan)
-            // 4: BottomStart Ghost-ish (Ghost-ish)
+            // 4: BottomStart Ghost-ish (Ghost-ish - shifted down)
             val configs = remember {
                 listOf(
-                    // 0: Center Tilted Pill
+                    // 0: Center Tilted Pill (Login)
                     CollageConfig(
                         slotId = 0,
                         shapeName = "Pill",
@@ -816,31 +816,31 @@ fun ExpressiveFavoriteCombosSection(
                         width = 110.dp,
                         height = 172.dp,
                         align = Alignment.Center,
-                        rot = 40f,
+                        rot = 42f,
                         shape = RoundedCornerShape(percent = 50),
-                        offsetX = 0.dp,
-                        offsetY = 0.dp,
+                        offsetX = (-6).dp,
+                        offsetY = 14.dp,
                         containerColor = p0.container,
                         contentColor = p0.content,
                         border = BorderStroke(1.5.dp, p0.border.copy(alpha = 0.40f))
                     ),
-                    // 1: TopStart Squircle (Lock)
+                    // 1: TopStart Squircle (Lock - enlarged to 126dp and shifted down)
                     CollageConfig(
                         slotId = 1,
                         shapeName = "Squircle",
                         emptyLabel = "Squircle",
-                        width = 114.dp,
-                        height = 114.dp,
+                        width = 126.dp,
+                        height = 126.dp,
                         align = Alignment.TopStart,
-                        rot = -8f,
-                        shape = RoundedCornerShape(28.dp),
-                        offsetX = 16.dp,
-                        offsetY = 12.dp,
+                        rot = -12f,
+                        shape = RoundedCornerShape(30.dp),
+                        offsetX = 12.dp,
+                        offsetY = 26.dp,
                         containerColor = p1.container,
                         contentColor = p1.content,
                         border = BorderStroke(1.5.dp, p1.border.copy(alpha = 0.40f))
                     ),
-                    // 2: BottomEnd 6-Sided Rounded Star (Sleep - large & brought snug towards center)
+                    // 2: BottomEnd 6-Sided Rounded Star (Sleep - large, scattered & brought snug towards center)
                     CollageConfig(
                         slotId = 2,
                         shapeName = "Flower",
@@ -848,10 +848,10 @@ fun ExpressiveFavoriteCombosSection(
                         width = 136.dp,
                         height = 136.dp,
                         align = Alignment.BottomEnd,
-                        rot = 0f,
+                        rot = 8f,
                         shape = com.poc.hiddebug.ui.theme.RoundedStarShape(sides = 6, curve = 0.09, rotation = 45f),
-                        offsetX = (-22).dp,
-                        offsetY = (-14).dp,
+                        offsetX = (-18).dp,
+                        offsetY = (-10).dp,
                         containerColor = p2.container,
                         contentColor = p2.content,
                         border = BorderStroke(1.5.dp, p2.border.copy(alpha = 0.40f))
@@ -864,15 +864,15 @@ fun ExpressiveFavoriteCombosSection(
                         width = 112.dp,
                         height = 112.dp,
                         align = Alignment.TopEnd,
-                        rot = 0f,
+                        rot = -4f,
                         shape = MaterialShapes.ShapeFan,
-                        offsetX = (-16).dp,
-                        offsetY = 12.dp,
+                        offsetX = (-14).dp,
+                        offsetY = 10.dp,
                         containerColor = p3.container,
                         contentColor = p3.content,
                         border = BorderStroke(1.5.dp, p3.border.copy(alpha = 0.40f))
                     ),
-                    // 4: BottomStart Ghost-ish (M3 Expressive ShapeGhostish)
+                    // 4: BottomStart Ghost-ish (M3 Expressive ShapeGhostish - shifted down & scattered)
                     CollageConfig(
                         slotId = 4,
                         shapeName = "Ghost-ish",
@@ -880,10 +880,10 @@ fun ExpressiveFavoriteCombosSection(
                         width = 114.dp,
                         height = 114.dp,
                         align = Alignment.BottomStart,
-                        rot = 0f,
+                        rot = 6f,
                         shape = MaterialShapes.ShapeGhostish,
-                        offsetX = 16.dp,
-                        offsetY = (-12).dp,
+                        offsetX = 18.dp,
+                        offsetY = 4.dp,
                         containerColor = p4.container,
                         contentColor = p4.content,
                         border = BorderStroke(1.5.dp, p4.border.copy(alpha = 0.40f))
