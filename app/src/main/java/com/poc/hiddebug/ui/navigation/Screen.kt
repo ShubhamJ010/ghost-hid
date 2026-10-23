@@ -1,6 +1,7 @@
 package com.poc.hiddebug.ui.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Key
@@ -16,6 +17,7 @@ enum class Screen(
     Dashboard("dashboard", "Dashboard", Icons.Default.Dashboard, isBottomNav = true),
     Combos("combos", "Combos", Icons.Default.Code, isBottomNav = true),
     Trackpad("trackpad", "Trackpad", Icons.Default.Mouse, isBottomNav = true),
+    QuickSend("quick-send", "Quick Send", Icons.Default.Bolt, isBottomNav = false),
     Snippets("snippets", "Snippets", Icons.Default.Key, isBottomNav = false);
 
     companion object {

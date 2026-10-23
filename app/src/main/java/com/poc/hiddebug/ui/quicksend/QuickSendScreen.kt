@@ -1,0 +1,503 @@
+package com.poc.hiddebug.ui.quicksend
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Badge
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.poc.hiddebug.GhostHidApp
+import com.poc.hiddebug.domain.model.QuickSendEntry
+import com.poc.hiddebug.domain.parser.SequenceAnalysis
+import com.poc.hiddebug.domain.parser.SequenceAnalyzer
+import com.poc.hiddebug.service.HidService
+import com.poc.hiddebug.ui.combos.editor.ComboEditorScreen
+import com.poc.hiddebug.ui.common.sequence.SequencePreview
+import com.poc.hiddebug.ui.common.sequence.formatStepCount
+import com.poc.hiddebug.ui.theme.MaterialShapes
+import kotlinx.coroutines.delay
+
+/**
+ * Dedicated quick-send surface. The composer lives at the bottom and rises with the
+ * keyboard; the live parsed preview is always directly above the field.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun QuickSendScreen(
+    service: HidService?,
+    onNavigateBack: () -> Unit
+) {
+    val historyRepository = GhostHidApp.instance.quickSendHistoryRepository
+    val comboRepository = GhostHidApp.instance.comboRepository
+    val history by historyRepository.entries.collectAsState()
+
+    var scheme by rememberSaveable { mutableStateOf("") }
+    var showHistorySheet by remember { mutableStateOf(false) }
+    var editorScheme by remember { mutableStateOf<String?>(null) }
+    var status by remember { mutableStateOf<String?>(null) }
+
+    val analysis = remember(scheme) { SequenceAnalyzer.analyze(scheme) }
+    val imeVisible = WindowInsets.isImeVisible
+    val clipboard = LocalClipboardManager.current
+    val focusManager = LocalFocusManager.current
+    val haptic = LocalHapticFeedback.current
+
+    BackHandler(onBack = onNavigateBack)
+
+    LaunchedEffect(status) {
+        if (status != null) {
+            delay(2400)
+            status = null
+        }
+    }
+
+    fun send(raw: String, record: Boolean) {
+        val target = SequenceAnalyzer.analyze(raw)
+        if (!target.canSend) {
+            status = target.error ?: "Nothing to send yet"
+            return
+        }
+        if (service == null) {
+            status = "HID service is still binding"
+            return
+        }
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        service.executeCombo(raw)
+        if (record) historyRepository.record(raw)
+        status = "Sent ${formatStepCount(target.steps.size)}"
+        focusManager.clearFocus()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .imePadding()
+    ) {
+        QuickSendTopBar(onNavigateBack = onNavigateBack)
+
+        if (!imeVisible) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item {
+                    QuickSendHistoryHeader(
+                        count = history.take(6).size
+                    )
+                }
+
+                if (history.isEmpty()) {
+                    item {
+                        QuickSendEmptyState(
+                            onPickExample = { picked -> scheme = picked },
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                } else {
+                    items(history.take(6), key = { it.createdAt + it.scheme }) { entry ->
+                        QuickSendHistoryCard(
+                            entry = entry,
+                            onRerun = {
+                                scheme = entry.scheme
+                                send(entry.scheme, record = true)
+                            },
+                            onSave = {
+                                focusManager.clearFocus()
+                                editorScheme = entry.scheme
+                            }
+                        )
+                    }
+                }
+            }
+        } else {
+            Spacer(modifier = Modifier.weight(1f))
+        }
+
+        QuickSendComposerDock(
+            scheme = scheme,
+            analysis = analysis,
+            compactPreview = imeVisible,
+            historyCount = history.size,
+            status = status,
+            onSchemeChange = { scheme = it },
+            onClear = { scheme = "" },
+            onPaste = {
+                val clip = clipboard.getText()?.text
+                if (!clip.isNullOrBlank()) {
+                    scheme = clip.trim()
+                    status = "Pasted scheme"
+                } else {
+                    status = "Clipboard is empty"
+                }
+            },
+            onShowHistory = { showHistorySheet = true },
+            onSend = { send(scheme, record = true) }
+        )
+    }
+
+    if (showHistorySheet) {
+        QuickSendHistorySheet(
+            entries = history,
+            onDismiss = { showHistorySheet = false },
+            onRerun = { entry: QuickSendEntry ->
+                showHistorySheet = false
+                scheme = entry.scheme
+                send(entry.scheme, record = true)
+            },
+            onSave = { entry: QuickSendEntry ->
+                showHistorySheet = false
+                focusManager.clearFocus()
+                editorScheme = entry.scheme
+            }
+        )
+    }
+
+    editorScheme?.let { prefill ->
+        ComboEditorScreen(
+            initial = null,
+            initialScheme = prefill,
+            service = service,
+            onDismiss = { editorScheme = null },
+            onSave = { combo ->
+                comboRepository.addOrUpdate(combo)
+                status = "Saved ${combo.name}"
+                editorScheme = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun QuickSendTopBar(onNavigateBack: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        FilledTonalIconButton(
+            onClick = onNavigateBack,
+            modifier = Modifier.size(48.dp),
+            shape = CircleShape,
+            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            ),
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Quick Send",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Type a scheme · Enter sends",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(MaterialShapes.ShapeClover4)
+                .background(MaterialTheme.colorScheme.tertiaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Bolt,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.size(23.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickSendComposerDock(
+    scheme: String,
+    analysis: SequenceAnalysis,
+    compactPreview: Boolean,
+    historyCount: Int,
+    status: String?,
+    onSchemeChange: (String) -> Unit,
+    onClear: () -> Unit,
+    onPaste: () -> Unit,
+    onShowHistory: () -> Unit,
+    onSend: () -> Unit
+) {
+    val focusManager = LocalFocusManager.current
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shadowElevation = 10.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            SequencePreview(
+                analysis = analysis,
+                compact = compactPreview,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            )
+
+            AnimatedVisibility(
+                visible = status != null,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.inverseSurface,
+                    contentColor = MaterialTheme.colorScheme.inverseOnSurface
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.inversePrimary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = status.orEmpty(),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                value = scheme,
+                onValueChange = onSchemeChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = {
+                    Text(
+                        text = "win+r ->{0.6} type:cmd",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                    )
+                },
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 15.sp
+                ),
+                singleLine = true,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Keyboard,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                trailingIcon = {
+                    if (scheme.isNotEmpty()) {
+                        IconButton(onClick = onClear) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear scheme", modifier = Modifier.size(18.dp))
+                        }
+                    }
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(
+                    onSend = {
+                        onSend()
+                        focusManager.clearFocus()
+                    }
+                ),
+                shape = RoundedCornerShape(18.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                )
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                DockAction(
+                    label = "Paste",
+                    icon = Icons.Default.ContentPaste,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    onClick = onPaste,
+                    modifier = Modifier.weight(1f)
+                )
+                DockAction(
+                    label = "History",
+                    icon = Icons.Default.History,
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    badge = historyCount.takeIf { it > 0 },
+                    onClick = onShowHistory,
+                    modifier = Modifier.weight(1f)
+                )
+                Button(
+                    onClick = onSend,
+                    enabled = analysis.canSend,
+                    modifier = Modifier
+                        .weight(1.45f)
+                        .height(64.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Send",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DockAction(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    containerColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    badge: Int? = null
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(64.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = containerColor,
+        contentColor = contentColor
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(22.dp))
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            if (badge != null) {
+                Badge(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 5.dp, end = 5.dp),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Text(
+                        text = if (badge > 99) "99+" else badge.toString(),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}

@@ -2,7 +2,6 @@ package com.poc.hiddebug.ui.dashboard
 
 import android.bluetooth.BluetoothDevice
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -36,7 +35,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -48,16 +46,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothDisabled
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stars
@@ -77,15 +72,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,7 +93,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -112,9 +103,7 @@ import androidx.compose.ui.unit.sp
 import com.poc.hiddebug.GhostHidApp
 import com.poc.hiddebug.domain.model.Combo
 import com.poc.hiddebug.domain.model.ConnectionStatus
-import com.poc.hiddebug.domain.model.HidStep
 import com.poc.hiddebug.domain.model.Snippet
-import com.poc.hiddebug.domain.parser.ActionSequenceParser
 import com.poc.hiddebug.service.HidService
 import com.poc.hiddebug.ui.theme.Clover4Shape
 import com.poc.hiddebug.ui.theme.MaterialShapes
@@ -125,7 +114,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun DashboardScreen(
     service: HidService?,
-    onNavigateToCombos: (() -> Unit)? = null
+    onNavigateToCombos: (() -> Unit)? = null,
+    onNavigateToQuickSend: () -> Unit = {}
 ) {
     val connectionState by service?.connectionState?.collectAsState()
         ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
@@ -139,16 +129,6 @@ fun DashboardScreen(
 
     var showDevicePicker by remember { mutableStateOf(false) }
     var lastExecutedStatus by remember { mutableStateOf<String?>(null) }
-
-    var quickSendText by remember { mutableStateOf("") }
-    val clipboardManager = LocalClipboardManager.current
-
-    val detectedSteps by remember {
-        derivedStateOf {
-            if (quickSendText.isBlank()) emptyList()
-            else ActionSequenceParser.parse(quickSendText)
-        }
-    }
 
     LaunchedEffect(lastExecutedStatus) {
         if (lastExecutedStatus != null) {
@@ -181,7 +161,14 @@ fun DashboardScreen(
             }
 
             // ==========================================
-            // SECTION 2: FAVORITE COMBOS (EXPRESSIVE SHAPES COLLAGE)
+            // SECTION 2: QUICK SEND ENTRY (DEDICATED COMPOSER)
+            // ==========================================
+            item {
+                QuickSendLaunchCard(onClick = onNavigateToQuickSend)
+            }
+
+            // ==========================================
+            // SECTION 3: FAVORITE COMBOS (EXPRESSIVE SHAPES COLLAGE)
             // ==========================================
             item {
                 ExpressiveFavoriteCombosSection(
@@ -193,31 +180,6 @@ fun DashboardScreen(
                     onEmptySlotClick = { cfg ->
                         lastExecutedStatus = "⭐ Star a combo in Combos to pin to ${cfg.emptyLabel}"
                         onNavigateToCombos?.invoke()
-                    }
-                )
-            }
-
-            // ==========================================
-            // SECTION 3: QUICK SEND (LARGE INPUT & NO SYNTAX TOKENS)
-            // ==========================================
-            item {
-                ExpressiveQuickSendSection(
-                    quickSendText = quickSendText,
-                    onTextChange = { quickSendText = it },
-                    detectedSteps = detectedSteps,
-                    onPasteFromClipboard = {
-                        val clip = clipboardManager.getText()?.text
-                        if (!clip.isNullOrEmpty()) {
-                            quickSendText = clip.trim()
-                            lastExecutedStatus = "📋 Pasted scheme"
-                        }
-                    },
-                    onClearText = { quickSendText = "" },
-                    onExecute = {
-                        if (quickSendText.isNotBlank()) {
-                            service?.executeCombo(quickSendText)
-                            lastExecutedStatus = "🚀 Dispatched combo scheme"
-                        }
                     }
                 )
             }
@@ -356,7 +318,6 @@ fun DashboardScreen(
         )
     }
 }
-
 // =========================================================================
 // SECTION 1: DEVICE DASHBOARD HERO (REACTIVE, DYNAMIC, MATERIAL EXPRESSIVE)
 // =========================================================================
@@ -657,7 +618,6 @@ fun ExpressiveDeviceDashboard(
         }
     }
 }
-
 // =========================================================================
 // SECTION 2: FAVORITE COMBOS (M3 EXPRESSIVE FLAT SHAPES)
 // =========================================================================
@@ -962,7 +922,6 @@ private fun BoxScope.CollageShapeButton(
         }
     }
 }
-
 @Composable
 private fun BoxScope.CollageEmptyShapeSlot(
     config: CollageConfig,
@@ -1024,212 +983,3 @@ private fun BoxScope.CollageEmptyShapeSlot(
     }
 }
 
-// =========================================================================
-// SECTION 3: QUICK SEND (LARGE INPUT, CLEAR PROMPT, NO SYNTAX CHIPS)
-// =========================================================================
-
-@Composable
-fun ExpressiveQuickSendSection(
-    quickSendText: String,
-    onTextChange: (String) -> Unit,
-    detectedSteps: List<HidStep>,
-    onPasteFromClipboard: () -> Unit,
-    onClearText: () -> Unit,
-    onExecute: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
-            // Header Row: Expressive Icon + Title + Visible Paste Button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(MaterialShapes.ShapeClover4)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Bolt,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Quick Send",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Direct HID combo scheme pipeline",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // High-emphasis Expressive Paste Button
-                Button(
-                    onClick = onPasteFromClipboard,
-                    shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Icon(
-                        Icons.Default.ContentPaste,
-                        contentDescription = "Paste",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Paste",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Large Code-Editor Styled Text Area
-            OutlinedTextField(
-                value = quickSendText,
-                onValueChange = onTextChange,
-                minLines = 5,
-                maxLines = 10,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 160.dp, max = 260.dp),
-                placeholder = {
-                    Text(
-                        text = "win+s ->{0.7} type:cmd ->{0.4} enter",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
-                },
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp
-                ),
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                ),
-                trailingIcon = {
-                    if (quickSendText.isNotEmpty()) {
-                        IconButton(onClick = onClearText) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
-                        }
-                    }
-                }
-            )
-
-            // Dynamic Step Recognizer Ribbon (if any step detected)
-            if (detectedSteps.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Text(
-                                text = "✓ ${detectedSteps.size} steps",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = detectedSteps.joinToString(" ➔ ") { step ->
-                                when (step) {
-                                    is HidStep.KeyboardChord -> "Key"
-                                    is HidStep.Delay -> "${step.millis}ms"
-                                    is HidStep.TypeText -> "\"${step.text.take(6)}\""
-                                    is HidStep.Variable -> "$${step.name}"
-                                    is HidStep.MouseAction -> "Mouse"
-                                    is HidStep.Directive -> "!${step.name}"
-                                }
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Large Expressive Execute Button
-            Button(
-                onClick = onExecute,
-                enabled = quickSendText.isNotBlank(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "Dispatch Combo Scheme",
-                    fontWeight = FontWeight.ExtraBold,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
-    }
-}

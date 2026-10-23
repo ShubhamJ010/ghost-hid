@@ -46,6 +46,7 @@ import com.poc.hiddebug.service.HidService
 import com.poc.hiddebug.ui.combos.ComboStudioScreen
 import com.poc.hiddebug.ui.dashboard.DashboardScreen
 import com.poc.hiddebug.ui.navigation.Screen
+import com.poc.hiddebug.ui.quicksend.QuickSendScreen
 import com.poc.hiddebug.ui.snippets.SnippetStudioScreen
 import com.poc.hiddebug.ui.theme.GhostHidTheme
 import com.poc.hiddebug.ui.trackpad.TrackpadScreen
@@ -131,23 +132,25 @@ fun MainAppScaffold(service: HidService?) {
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer
-            ) {
-                Screen.bottomNavScreens.forEach { screen ->
-                    NavigationBarItem(
-                        selected = currentScreen == screen,
-                        onClick = { currentScreen = screen },
-                        icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        label = {
-                            Text(
-                                text = screen.title,
-                                maxLines = 1,
-                                fontSize = 11.sp,
-                                softWrap = false
-                            )
-                        }
-                    )
+            if (currentScreen != Screen.QuickSend) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Screen.bottomNavScreens.forEach { screen ->
+                        NavigationBarItem(
+                            selected = currentScreen == screen,
+                            onClick = { currentScreen = screen },
+                            icon = { Icon(screen.icon, contentDescription = screen.title) },
+                            label = {
+                                Text(
+                                    text = screen.title,
+                                    maxLines = 1,
+                                    fontSize = 11.sp,
+                                    softWrap = false
+                                )
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -161,14 +164,15 @@ fun MainAppScaffold(service: HidService?) {
             AnimatedContent(
                 targetState = currentScreen,
                 transitionSpec = {
-                    if (targetState == Screen.Snippets) {
+                    val modalScreens = setOf(Screen.Snippets, Screen.QuickSend)
+                    if (targetState in modalScreens) {
                         (slideInVertically(
                             animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow),
                             initialOffsetY = { it / 3 }
                         ) + fadeIn(animationSpec = tween(240)) + scaleIn(initialScale = 0.94f)).togetherWith(
                             fadeOut(animationSpec = tween(180)) + scaleOut(targetScale = 0.96f)
                         )
-                    } else if (initialState == Screen.Snippets) {
+                    } else if (initialState in modalScreens) {
                         (fadeIn(animationSpec = tween(240)) + scaleIn(initialScale = 0.96f)).togetherWith(
                             slideOutVertically(
                                 animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow),
@@ -186,11 +190,16 @@ fun MainAppScaffold(service: HidService?) {
                 when (screen) {
                     Screen.Dashboard -> DashboardScreen(
                         service = service,
-                        onNavigateToCombos = { currentScreen = Screen.Combos }
+                        onNavigateToCombos = { currentScreen = Screen.Combos },
+                        onNavigateToQuickSend = { currentScreen = Screen.QuickSend }
                     )
                     Screen.Combos -> ComboStudioScreen(
                         service = service,
                         onNavigateToSnippets = { currentScreen = Screen.Snippets }
+                    )
+                    Screen.QuickSend -> QuickSendScreen(
+                        service = service,
+                        onNavigateBack = { currentScreen = Screen.Dashboard }
                     )
                     Screen.Snippets -> SnippetStudioScreen(
                         service = service,

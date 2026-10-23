@@ -45,7 +45,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
@@ -54,21 +53,15 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Mouse
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -76,14 +69,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -98,7 +89,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -111,11 +101,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.poc.hiddebug.GhostHidApp
 import com.poc.hiddebug.domain.model.Combo
-import com.poc.hiddebug.domain.model.HidStep
 import com.poc.hiddebug.domain.model.Snippet
-import com.poc.hiddebug.domain.parser.ActionSequenceParser
+import com.poc.hiddebug.domain.parser.SequenceAnalyzer
+import com.poc.hiddebug.ui.combos.editor.ComboEditorScreen
+import com.poc.hiddebug.ui.common.sequence.SequencePreview
 import com.poc.hiddebug.service.HidService
-import com.poc.hiddebug.ui.theme.Clover4Shape
 import com.poc.hiddebug.ui.theme.MaterialShapes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -127,7 +117,7 @@ private enum class ComboFilterCategory(val label: String) {
     TIMED("Timed")
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ComboStudioScreen(
     service: HidService?,
@@ -511,9 +501,9 @@ fun ComboStudioScreen(
     // BOTTOM SHEET: COMBO EDITOR & TESTER
     // ==========================================
     if (showEditorSheet) {
-        ComboEditorBottomSheet(
+        ComboEditorScreen(
             initial = editingCombo,
-            availableSnippets = snippets,
+            service = service,
             onDismiss = {
                 showEditorSheet = false
             },
@@ -586,11 +576,7 @@ fun ComboCard(
         label = "favScale"
     )
 
-    // Parse steps and compute total estimated delay
-    val steps = remember(combo.keys) { ActionSequenceParser.parse(combo.keys) }
-    val totalDelayMs = remember(steps) {
-        steps.filterIsInstance<HidStep.Delay>().sumOf { it.millis }
-    }
+    val analysis = remember(combo.keys) { SequenceAnalyzer.analyze(combo.keys) }
 
     // Expressive shape mapping per combo name to give visual variety
     val expressiveShape = remember(combo.name) {
@@ -662,20 +648,6 @@ fun ComboCard(
                                 overflow = TextOverflow.Ellipsis
                             )
 
-                            if (totalDelayMs > 0) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.surfaceContainerHighest
-                                ) {
-                                    Text(
-                                        text = "~${"%.1f".format(totalDelayMs / 1000.0)}s",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
                         }
 
                         if (!combo.description.isNullOrEmpty()) {
@@ -704,16 +676,11 @@ fun ComboCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Step Badges Flow
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                steps.forEach { step ->
-                    StepBadge(step = step)
-                }
-            }
+            SequencePreview(
+                analysis = analysis,
+                compact = true,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            )
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -794,79 +761,6 @@ fun ComboCard(
         }
     }
 }
-
-// =========================================================================
-// STEP BADGE (RICH AST TOKENS WITH SEMANTIC ICONS & TONAL ROLES)
-// =========================================================================
-
-@Composable
-fun StepBadge(step: HidStep) {
-    val (icon, label, bg, fg) = when (step) {
-        is HidStep.KeyboardChord -> Quadruple(
-            Icons.Default.Keyboard,
-            step.label,
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer
-        )
-        is HidStep.TypeText -> Quadruple(
-            Icons.Default.TextFields,
-            "\"${step.text}\"",
-            MaterialTheme.colorScheme.secondaryContainer,
-            MaterialTheme.colorScheme.onSecondaryContainer
-        )
-        is HidStep.Variable -> Quadruple(
-            Icons.Default.Key,
-            "$${step.name}",
-            MaterialTheme.colorScheme.tertiaryContainer,
-            MaterialTheme.colorScheme.onTertiaryContainer
-        )
-        is HidStep.Delay -> Quadruple(
-            Icons.Default.Timer,
-            "${"%.1f".format(step.millis / 1000.0)}s",
-            MaterialTheme.colorScheme.surfaceContainerHighest,
-            MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        is HidStep.MouseAction -> Quadruple(
-            Icons.Default.Mouse,
-            step.action,
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer
-        )
-        is HidStep.Directive -> Quadruple(
-            Icons.Default.Warning,
-            "!${step.name}",
-            MaterialTheme.colorScheme.errorContainer,
-            MaterialTheme.colorScheme.onErrorContainer
-        )
-    }
-
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = bg
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = fg,
-                modifier = Modifier.size(12.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = label,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = fg
-            )
-        }
-    }
-}
-
-private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 // =========================================================================
 // EMPTY STATE COMPONENT
@@ -1081,303 +975,6 @@ fun ExpressiveSnippetsHeaderCard(
                             )
                         }
                     }
-                }
-            }
-        }
-    }
-}
-
-// =========================================================================
-// COMBO EDITOR BOTTOM SHEET (LIVE AST PREVIEW & TOKEN CHIPS INJECTOR)
-// =========================================================================
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Composable
-fun ComboEditorBottomSheet(
-    initial: Combo?,
-    availableSnippets: List<Snippet>,
-    onDismiss: () -> Unit,
-    onSave: (Combo) -> Unit
-) {
-    var name by remember { mutableStateOf(initial?.name ?: "") }
-    var emoji by remember { mutableStateOf(initial?.emoji ?: "⚡") }
-    var description by remember { mutableStateOf(initial?.description ?: "") }
-    var keys by remember { mutableStateOf(initial?.keys ?: "") }
-
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val scope = rememberCoroutineScope()
-
-    val quickEmojis = listOf("⚡", "🔑", "🔒", "🌙", "💻", "🚀", "🛡️", "🎮", "⚙️", "🖱️")
-
-    val validationResult = remember(keys) { ActionSequenceParser.validate(keys) }
-    val parsedSteps = remember(keys) {
-        if (keys.isBlank()) emptyList()
-        else ActionSequenceParser.parse(keys)
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Sheet Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (initial == null) "New Combo" else "Edit Combo",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                // Validation badge
-                if (keys.isNotBlank()) {
-                    Surface(
-                        shape = CircleShape,
-                        color = if (validationResult.isSuccess) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (validationResult.isSuccess) Icons.Default.Check else Icons.Default.Warning,
-                                contentDescription = null,
-                                modifier = Modifier.size(12.dp),
-                                tint = if (validationResult.isSuccess) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (validationResult.isSuccess) "Syntax OK" else "Syntax Error",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (validationResult.isSuccess) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Quick emoji selector row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                quickEmojis.forEach { em ->
-                    val isSelected = emoji == em
-                    Surface(
-                        onClick = { emoji = em },
-                        shape = CircleShape,
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                        border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(text = em, fontSize = 20.sp)
-                        }
-                    }
-                }
-            }
-
-            // Name & Emoji text inputs
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedTextField(
-                    value = emoji,
-                    onValueChange = { emoji = it },
-                    label = { Text("Icon") },
-                    modifier = Modifier.width(76.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Combo Name") },
-                    placeholder = { Text("e.g. Open Terminal") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                    singleLine = true
-                )
-            }
-
-            // Description
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text("Description (Optional)") },
-                placeholder = { Text("Short note on what this combo does") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                singleLine = true
-            )
-
-            // Keys Sequence Grammar Input
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedTextField(
-                    value = keys,
-                    onValueChange = { keys = it },
-                    label = { Text("Keys Grammar Sequence") },
-                    placeholder = { Text("win+r ->{0.5} type:cmd ->{0.3} enter") },
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = validationResult.isFailure && keys.isNotEmpty(),
-                    supportingText = {
-                        if (validationResult.isFailure && keys.isNotEmpty()) {
-                            Text(
-                                text = validationResult.exceptionOrNull()?.message ?: "Invalid syntax",
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        } else {
-                            Text(
-                                "Delays: ->{sec} | Strings: type:<text> | Vault: \$VAR | Chords: win+l",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    },
-                    shape = RoundedCornerShape(14.dp)
-                )
-
-                // Quick Token Injector Chips Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val quickTokens = listOf(
-                        "win+r",
-                        "->{0.5}",
-                        "enter",
-                        "tab",
-                        "esc",
-                        "ctrl+alt+del",
-                        "win+l",
-                        "type:"
-                    )
-
-                    quickTokens.forEach { token ->
-                        Surface(
-                            onClick = {
-                                keys = if (keys.isBlank()) token
-                                else if (token.startsWith("->")) "$keys $token"
-                                else if (keys.endsWith("->{0.5}") || keys.endsWith("->")) "$keys $token"
-                                else "$keys ->{0.3} $token"
-                            },
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainerHighest
-                        ) {
-                            Text(
-                                text = "+ $token",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-
-                    // Available snippets injection
-                    availableSnippets.forEach { snip ->
-                        Surface(
-                            onClick = {
-                                val varToken = "$${snip.name}"
-                                keys = if (keys.isBlank()) varToken else "$keys $varToken"
-                            },
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.tertiaryContainer
-                        ) {
-                            Text(
-                                text = "+ $${snip.name}",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Live AST Step Badges Preview
-            if (parsedSteps.isNotEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "LIVE AST PREVIEW",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            parsedSteps.forEach { step ->
-                                StepBadge(step = step)
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Action Buttons: Cancel and Save
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(
-                    onClick = {
-                        scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
-                    },
-                    shape = CircleShape
-                ) {
-                    Text("Cancel")
-                }
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                Button(
-                    onClick = {
-                        onSave(
-                            Combo(
-                                name = name.trim(),
-                                emoji = emoji.trim(),
-                                description = description.trim(),
-                                keys = keys.trim(),
-                                favorite = initial?.favorite ?: false,
-                                createdAt = initial?.createdAt ?: ""
-                            )
-                        )
-                    },
-                    enabled = name.isNotBlank() && validationResult.isSuccess,
-                    shape = CircleShape
-                ) {
-                    Text("Save Combo", fontWeight = FontWeight.Bold)
                 }
             }
         }
