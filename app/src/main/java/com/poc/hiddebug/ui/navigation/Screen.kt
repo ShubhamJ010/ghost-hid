@@ -10,10 +10,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 enum class Screen(
     val route: String,
     val title: String,
-    val icon: ImageVector
+    val icon: ImageVector,
+    val isBottomNav: Boolean = true
 ) {
-    Dashboard("dashboard", "Dashboard", Icons.Default.Dashboard),
-    Combos("combos", "Combos", Icons.Default.Code),
-    Snippets("snippets", "Snippets", Icons.Default.Key),
-    Trackpad("trackpad", "Trackpad", Icons.Default.Mouse)
+    Dashboard("dashboard", "Dashboard", Icons.Default.Dashboard, isBottomNav = true),
+    Combos("combos", "Combos", Icons.Default.Code, isBottomNav = true),
+    Trackpad("trackpad", "Trackpad", Icons.Default.Mouse, isBottomNav = true),
+    Snippets("snippets", "Snippets", Icons.Default.Key, isBottomNav = false);
+
+    companion object {
+        val bottomNavScreens: List<Screen>
+            get() = entries.filter { it.isBottomNav }
+    }
 }
+

@@ -32,6 +32,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -74,16 +75,21 @@ fun ComboStudioScreen(service: HidService?) {
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(
+            LargeFloatingActionButton(
                 onClick = {
                     editingCombo = null
                     showEditorSheet = true
                 },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = CircleShape
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier.size(88.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Combo")
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Add Combo",
+                    modifier = Modifier.size(40.dp)
+                )
             }
         }
     ) { padding ->
@@ -212,7 +218,7 @@ fun ComboCard(
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Run Macro", fontWeight = FontWeight.Bold)
+                    Text("Run Combo", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -267,7 +273,7 @@ fun ComboEditorBottomSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = if (initial == null) "New Combo Macro" else "Edit Combo",
+                text = if (initial == null) "New Combo" else "Edit Combo",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )

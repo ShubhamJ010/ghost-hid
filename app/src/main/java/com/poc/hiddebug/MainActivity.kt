@@ -13,6 +13,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -123,7 +134,7 @@ fun MainAppScaffold(service: HidService?) {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
             ) {
-                Screen.values().forEach { screen ->
+                Screen.bottomNavScreens.forEach { screen ->
                     NavigationBarItem(
                         selected = currentScreen == screen,
                         onClick = { currentScreen = screen },
@@ -147,14 +158,44 @@ fun MainAppScaffold(service: HidService?) {
                 .padding(innerPadding),
             color = MaterialTheme.colorScheme.background
         ) {
-            when (currentScreen) {
-                Screen.Dashboard -> DashboardScreen(
-                    service = service,
-                    onNavigateToCombos = { currentScreen = Screen.Combos }
-                )
-                Screen.Combos -> ComboStudioScreen(service = service)
-                Screen.Snippets -> SnippetStudioScreen()
-                Screen.Trackpad -> TrackpadScreen(service = service)
+            AnimatedContent(
+                targetState = currentScreen,
+                transitionSpec = {
+                    if (targetState == Screen.Snippets) {
+                        (slideInVertically(
+                            animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow),
+                            initialOffsetY = { it / 3 }
+                        ) + fadeIn(animationSpec = tween(240)) + scaleIn(initialScale = 0.94f)).togetherWith(
+                            fadeOut(animationSpec = tween(180)) + scaleOut(targetScale = 0.96f)
+                        )
+                    } else if (initialState == Screen.Snippets) {
+                        (fadeIn(animationSpec = tween(240)) + scaleIn(initialScale = 0.96f)).togetherWith(
+                            slideOutVertically(
+                                animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow),
+                                targetOffsetY = { it / 3 }
+                            ) + fadeOut(animationSpec = tween(180)) + scaleOut(targetScale = 0.94f)
+                        )
+                    } else {
+                        (fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.98f)).togetherWith(
+                            fadeOut(animationSpec = tween(150))
+                        )
+                    }
+                },
+                label = "screenTransition"
+            ) { screen ->
+                when (screen) {
+                    Screen.Dashboard -> DashboardScreen(
+                        service = service,
+                        onNavigateToCombos = { currentScreen = Screen.Combos },
+                        onNavigateToSnippets = { currentScreen = Screen.Snippets }
+                    )
+                    Screen.Combos -> ComboStudioScreen(service = service)
+                    Screen.Snippets -> SnippetStudioScreen(
+                        service = service,
+                        onNavigateBack = { currentScreen = Screen.Dashboard }
+                    )
+                    Screen.Trackpad -> TrackpadScreen(service = service)
+                }
             }
         }
     }
