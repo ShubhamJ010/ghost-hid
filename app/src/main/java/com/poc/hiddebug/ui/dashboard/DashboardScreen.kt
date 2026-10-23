@@ -119,15 +119,22 @@ fun DashboardScreen(
         ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
     val targetDevice by service?.targetDeviceState?.collectAsState()
         ?: remember { mutableStateOf(null) }
-    val isRegistered by service?.isRegistered?.collectAsState()
+    val targetSelectionReady by service?.targetSelectionReady?.collectAsState()
         ?: remember { mutableStateOf(false) }
-
+    val needsInitialTargetSelection by service?.needsInitialTargetSelection?.collectAsState()
+        ?: remember { mutableStateOf(false) }
     val comboRepo = GhostHidApp.instance.comboRepository
     val allCombos by comboRepo.combos.collectAsState()
 
     var showDevicePicker by remember { mutableStateOf(false) }
     var showQuickSend by remember { mutableStateOf(false) }
     var lastExecutedStatus by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(service, targetSelectionReady, needsInitialTargetSelection) {
+        if (service != null && targetSelectionReady && needsInitialTargetSelection) {
+            showDevicePicker = true
+        }
+    }
 
     LaunchedEffect(lastExecutedStatus) {
         if (lastExecutedStatus != null) {
@@ -138,31 +145,24 @@ fun DashboardScreen(
 
     PullDownShade(
         dock = { scope ->
-            DashboardDeviceDock(
-                scope = scope,
+            MorphingDeviceCard(
+                progress = scope.progress,
                 connectionState = connectionState,
                 targetDevice = targetDevice,
                 onConnect = { service?.connectTarget() },
                 onDisconnect = { service?.disconnectTarget() },
-                onSwitchDevice = { showDevicePicker = true }
-            )
-        },
-        shade = {
-            ExpressiveDeviceDashboard(
-                connectionState = connectionState,
-                isRegistered = isRegistered,
-                targetDevice = targetDevice,
-                onConnect = { service?.connectTarget() },
-                onDisconnect = { service?.disconnectTarget() },
-                onRegisterSdp = { service?.registerHidApp() },
                 onSwitchDevice = { showDevicePicker = true },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                onOpen = { scope.open() },
+                onDismiss = { scope.dismiss() }
             )
         },
+        shade = {},
         dockHeight = 104.dp,
-        openDockHeight = 56.dp,
-        openHeight = 320.dp,
-        pushContentBelowShade = true
+        openDockHeight = 220.dp,
+        openHeight = 240.dp,
+        pushContentBelowShade = true,
+        drawBorder = false,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
       Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -259,7 +259,10 @@ fun DashboardScreen(
     if (showDevicePicker) {
         val pairedDevices = service?.getPairedDevices() ?: emptyList()
         AlertDialog(
-            onDismissRequest = { showDevicePicker = false },
+            onDismissRequest = {
+                service?.markTargetSelectionComplete()
+                showDevicePicker = false
+            },
             icon = {
                 Icon(
                     Icons.Default.Bluetooth,
@@ -291,7 +294,7 @@ fun DashboardScreen(
                                 shape = RoundedCornerShape(16.dp),
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 onClick = {
-                                    service?.connectTarget(dev.address)
+                                    service?.selectTarget(dev.address)
                                     showDevicePicker = false
                                 },
                                 modifier = Modifier.fillMaxWidth()
@@ -338,7 +341,10 @@ fun DashboardScreen(
             },
             confirmButton = {
                 TextButton(
-                    onClick = { showDevicePicker = false },
+                    onClick = {
+                        service?.markTargetSelectionComplete()
+                        showDevicePicker = false
+                    },
                     shape = CircleShape
                 ) {
                     Text("Close")
@@ -348,518 +354,6 @@ fun DashboardScreen(
     }
 }
 
-// =========================================================================
-// HEADER & DEVICE DASHBOARD HERO (MINIMAL, MATERIAL 3 EXPRESSIVE, SOLID & DRY)
-// =========================================================================
-
-private data class DeviceStatusVisual(
-    val label: String,
-    val indicatorColor: Color,
-    val icon: ImageVector
-)
-
-@Composable
-private fun resolveDeviceStatusVisual(status: ConnectionStatus): DeviceStatusVisual {
-    val colorScheme = MaterialTheme.colorScheme
-    return when (status) {
-        ConnectionStatus.CONNECTED -> DeviceStatusVisual(
-            label = "Connected",
-            indicatorColor = colorScheme.primary,
-            icon = Icons.Default.BluetoothConnected
-        )
-        ConnectionStatus.CONNECTING -> DeviceStatusVisual(
-            label = "Connecting…",
-            indicatorColor = colorScheme.tertiary,
-            icon = Icons.Default.SyncAlt
-        )
-        ConnectionStatus.DISCONNECTING -> DeviceStatusVisual(
-            label = "Disconnecting",
-            indicatorColor = colorScheme.error,
-            icon = Icons.Default.BluetoothDisabled
-        )
-        ConnectionStatus.DISCONNECTED, ConnectionStatus.UNKNOWN -> DeviceStatusVisual(
-            label = "Ready to connect",
-            indicatorColor = colorScheme.outline,
-            icon = Icons.Default.Bluetooth
-        )
-    }
-}
-
-@Composable
-private fun DashboardDeviceDock(
-    scope: ShadeScope,
-    connectionState: ConnectionStatus,
-    targetDevice: BluetoothDevice?,
-    onConnect: () -> Unit,
-    onDisconnect: () -> Unit,
-    onSwitchDevice: () -> Unit
-) {
-    val status = resolveDeviceStatusVisual(connectionState)
-    val isConnected = connectionState == ConnectionStatus.CONNECTED
-    val isBusy = connectionState == ConnectionStatus.CONNECTING || connectionState == ConnectionStatus.DISCONNECTING
-    Surface(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable {
-                if (scope.progress > 0.5f) scope.dismiss() else scope.open()
-            },
-        color = Color.Transparent
-    ) {
-        if (scope.progress > 0.5f) {
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(width = 34.dp, height = 4.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = "Device Controls",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowUp,
-                    contentDescription = "Close device controls",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(status.icon, contentDescription = status.label, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(23.dp))
-                }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = "Device",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                    Text(
-                        text = targetDevice?.name ?: "No host selected",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Button(
-                    onClick = {
-                        when {
-                            targetDevice == null -> {
-                                scope.open()
-                                onSwitchDevice()
-                            }
-                            isConnected -> onDisconnect()
-                            else -> onConnect()
-                        }
-                    },
-                    enabled = !isBusy,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-                ) {
-                    Text(
-                        text = when {
-                            isBusy -> status.label
-                            targetDevice == null -> "Select"
-                            isConnected -> "Disconnect"
-                            else -> "Connect"
-                        },
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ExpressiveDeviceDashboard(
-    connectionState: ConnectionStatus,
-    isRegistered: Boolean,
-    targetDevice: BluetoothDevice?,
-    onConnect: () -> Unit,
-    onDisconnect: () -> Unit,
-    onRegisterSdp: () -> Unit,
-    onSwitchDevice: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val statusVisual = resolveDeviceStatusVisual(connectionState)
-    val isConnected = connectionState == ConnectionStatus.CONNECTED
-
-    val rotationAngle = remember { Animatable(0f) }
-    val scope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
-
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Header Row: Status Indicator & Consolidated SDP Chip
-            DeviceStatusHeader(
-                statusVisual = statusVisual,
-                isRegistered = isRegistered,
-                rotationAngle = rotationAngle.value,
-                onSdpClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    scope.launch {
-                        rotationAngle.snapTo(0f)
-                        rotationAngle.animateTo(
-                            targetValue = 360f,
-                            animationSpec = tween(500, easing = FastOutSlowInEasing)
-                        )
-                    }
-                    onRegisterSdp()
-                }
-            )
-
-            // Middle: Target PC Card
-            DeviceTargetHostCard(
-                targetDevice = targetDevice,
-                isConnected = isConnected,
-                onSwitchDevice = onSwitchDevice
-            )
-
-            // Bottom: Connection Action
-            DeviceConnectionActionButton(
-                connectionState = connectionState,
-                hasTarget = targetDevice != null,
-                onConnect = onConnect,
-                onDisconnect = onDisconnect
-            )
-        }
-    }
-}
-
-@Composable
-private fun DeviceStatusHeader(
-    statusVisual: DeviceStatusVisual,
-    isRegistered: Boolean,
-    rotationAngle: Float,
-    onSdpClick: () -> Unit
-) {
-    val animatedIndicatorColor by animateColorAsState(
-        targetValue = statusVisual.indicatorColor,
-        animationSpec = tween(300),
-        label = "indicatorColor"
-    )
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
-        ) {
-            Box(
-                modifier = Modifier.size(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(animatedIndicatorColor.copy(alpha = 0.16f))
-                )
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(animatedIndicatorColor)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Column {
-                Text(
-                    text = statusVisual.label,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
-
-        // Consolidated SDP Status Chip (Single source of truth for SDP status & action)
-        Surface(
-            shape = CircleShape,
-            color = if (isRegistered) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerHighest
-            },
-            modifier = Modifier
-                .clip(CircleShape)
-                .clickable(onClick = onSdpClick)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (isRegistered) Icons.Default.CheckCircle else Icons.Default.Warning,
-                    contentDescription = if (isRegistered) "SDP Registered - Tap to re-register" else "SDP Inactive - Tap to register",
-                    modifier = Modifier
-                        .size(15.dp)
-                        .rotate(rotationAngle),
-                    tint = if (isRegistered) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    }
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = if (isRegistered) "SDP Ready" else "SDP Off",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isRegistered) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun DeviceTargetHostCard(
-    targetDevice: BluetoothDevice?,
-    isConnected: Boolean,
-    onSwitchDevice: () -> Unit
-) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(MaterialShapes.ShapeArch)
-                        .background(
-                            if (isConnected) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainerHigh
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (isConnected) {
-                            Icons.Default.BluetoothConnected
-                        } else {
-                            Icons.Default.Computer
-                        },
-                        contentDescription = null,
-                        tint = if (isConnected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = targetDevice?.name ?: "No Target Selected",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = targetDevice?.address ?: "Tap Switch to pick host PC",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontFamily = if (targetDevice != null) FontFamily.Monospace else FontFamily.Default,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            FilledTonalButton(
-                onClick = onSwitchDevice,
-                shape = CircleShape,
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                ),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.SyncAlt,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "Switch",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun DeviceConnectionActionButton(
-    connectionState: ConnectionStatus,
-    hasTarget: Boolean,
-    onConnect: () -> Unit,
-    onDisconnect: () -> Unit
-) {
-    when (connectionState) {
-        ConnectionStatus.CONNECTED -> {
-            FilledTonalButton(
-                onClick = onDisconnect,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.BluetoothDisabled,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Disconnect",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
-        ConnectionStatus.CONNECTING -> {
-            FilledTonalButton(
-                onClick = onDisconnect,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                )
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Connecting…",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
-        ConnectionStatus.DISCONNECTING -> {
-            FilledTonalButton(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = CircleShape
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.error
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Disconnecting…",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
-        ConnectionStatus.DISCONNECTED, ConnectionStatus.UNKNOWN -> {
-            Button(
-                onClick = onConnect,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.BluetoothConnected,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (hasTarget) "Connect" else "Select Device",
-                    fontWeight = FontWeight.ExtraBold,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
-    }
-}
 
 // =========================================================================
 // SECTION 2: FAVORITE COMBOS (M3 EXPRESSIVE FLAT SHAPES)

@@ -59,6 +59,12 @@ class HidService : Service() {
     private val _targetDeviceState = MutableStateFlow<BluetoothDevice?>(null)
     val targetDeviceState: StateFlow<BluetoothDevice?> = _targetDeviceState.asStateFlow()
 
+    private val _targetSelectionReady = MutableStateFlow(false)
+    val targetSelectionReady: StateFlow<Boolean> = _targetSelectionReady.asStateFlow()
+
+    private val _needsInitialTargetSelection = MutableStateFlow(false)
+    val needsInitialTargetSelection: StateFlow<Boolean> = _needsInitialTargetSelection.asStateFlow()
+
     private val _isRegistered = MutableStateFlow(false)
     val isRegistered: StateFlow<Boolean> = _isRegistered.asStateFlow()
 
@@ -73,6 +79,10 @@ class HidService : Service() {
         const val ACTION_CMD = "com.poc.hiddebug.ACTION_CMD"
         const val ACTION_LOCK = "com.poc.hiddebug.ACTION_LOCK"
         const val ACTION_TYPE = "com.poc.hiddebug.ACTION_TYPE"
+        private const val TARGET_PREFERENCES = "ghosthid_target"
+        private const val KEY_LAST_CONNECTED_ADDRESS = "last_connected_address"
+        private const val KEY_SELECTED_ADDRESS = "selected_address"
+        private const val KEY_TARGET_SETUP_COMPLETE = "target_setup_complete"
 
         const val MOUSE_REPORT_ID = 2
         const val KEYBOARD_REPORT_ID = 1
@@ -168,6 +178,7 @@ class HidService : Service() {
             return
         }
         log("Bluetooth enabled=${adapter?.isEnabled}, LocalName=${adapter?.name}")
+        restoreTargetSelection()
         adapter?.getProfileProxy(this, profileListener, BluetoothProfile.HID_DEVICE)
     }
 
@@ -219,6 +230,14 @@ class HidService : Service() {
             if (state == BluetoothProfile.STATE_CONNECTED) {
                 targetDevice = device
                 _targetDeviceState.value = device
+                device?.address?.let { address ->
+                    targetPreferences().edit()
+                        .putString(KEY_LAST_CONNECTED_ADDRESS, address)
+                        .putString(KEY_SELECTED_ADDRESS, address)
+                        .putBoolean(KEY_TARGET_SETUP_COMPLETE, true)
+                        .apply()
+                }
+                _needsInitialTargetSelection.value = false
                 updateNotification("Connected to $name")
             } else {
                 updateNotification("Gateway Status: $status")
@@ -262,28 +281,60 @@ class HidService : Service() {
     fun refreshDevices(specificAddress: String?) {
         val a = adapter ?: return
         try {
-            val paired = a.bondedDevices
-            if (paired != null) {
-                for (d in paired) {
-                    val name = d.name
-                    val addr = d.address
-                    if (specificAddress != null && specificAddress.equals(addr, ignoreCase = true)) {
-                        targetDevice = d
-                        _targetDeviceState.value = d
-                        log("Target explicitly selected: $name [$addr]")
-                        break
-                    }
-                    if (name != null && (name.startsWith("LP-") || name.contains("TZD") || addr.equals("38:FC:98:E8:E3:87", ignoreCase = true))) {
-                        targetDevice = d
-                        _targetDeviceState.value = d
-                        log("Target matched: $name [$addr]")
-                    }
+            if (specificAddress == null) {
+                restoreTargetSelection()
+            } else {
+                val device = a.bondedDevices?.firstOrNull {
+                    it.address.equals(specificAddress, ignoreCase = true)
+                }
+                targetDevice = device
+                _targetDeviceState.value = device
+                if (device != null) {
+                    targetPreferences().edit()
+                        .putString(KEY_SELECTED_ADDRESS, device.address)
+                        .putBoolean(KEY_TARGET_SETUP_COMPLETE, true)
+                        .apply()
+                    _needsInitialTargetSelection.value = false
+                    log("Target explicitly selected: ${device.name} [${device.address}]")
                 }
             }
         } catch (e: Exception) {
             log("refreshDevices error: ${e.message}")
         }
         writeStatusFile()
+    }
+
+    fun markTargetSelectionComplete() {
+        targetPreferences().edit().putBoolean(KEY_TARGET_SETUP_COMPLETE, true).apply()
+        _needsInitialTargetSelection.value = false
+    }
+
+    fun selectTarget(address: String) {
+        refreshDevices(address)
+    }
+
+    private fun targetPreferences() = getSharedPreferences(TARGET_PREFERENCES, Context.MODE_PRIVATE)
+
+    private fun restoreTargetSelection() {
+        val preferences = targetPreferences()
+        try {
+            val preferredAddresses = listOfNotNull(
+                preferences.getString(KEY_LAST_CONNECTED_ADDRESS, null),
+                preferences.getString(KEY_SELECTED_ADDRESS, null)
+            ).distinct()
+            val pairedDevices = adapter?.bondedDevices.orEmpty()
+            val device = preferredAddresses.firstNotNullOfOrNull { address ->
+                pairedDevices.firstOrNull { it.address.equals(address, ignoreCase = true) }
+            }
+            targetDevice = device
+            _targetDeviceState.value = device
+            _needsInitialTargetSelection.value = device == null &&
+                !preferences.getBoolean(KEY_TARGET_SETUP_COMPLETE, false)
+            _targetSelectionReady.value = true
+        } catch (e: Exception) {
+            log("restoreTargetSelection error: ${e.message}")
+            _targetSelectionReady.value = true
+        }
     }
 
     fun connectTarget(specificAddress: String? = null) {

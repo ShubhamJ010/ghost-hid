@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -71,6 +72,12 @@ fun PullDownShade(
     openDockHeight: Dp = dockHeight,
     openHeight: Dp? = null,
     pushContentBelowShade: Boolean = false,
+    floatBelowStatusBar: Boolean = false,
+    horizontalInset: Dp = 0.dp,
+    topGap: Dp = 8.dp,
+    cornerRadius: Dp = 28.dp,
+    drawBorder: Boolean = true,
+    containerColor: Color? = null,
     content: @Composable () -> Unit
 ) {
     var isOpen by rememberSaveable { mutableStateOf(false) }
@@ -84,9 +91,19 @@ fun PullDownShade(
         val density = LocalDensity.current
 
         val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val closedHeight = (statusBarHeight + dockHeight).coerceAtLeast(80.dp)
+        val topOffset = if (floatBelowStatusBar) statusBarHeight + topGap else 0.dp
+        val closedHeight = if (floatBelowStatusBar) {
+            dockHeight
+        } else {
+            (statusBarHeight + dockHeight).coerceAtLeast(80.dp)
+        }
         val minOpenHeight = closedHeight + 80.dp
-        val maxOpenHeight = (maxHeight - 16.dp).coerceAtLeast(minOpenHeight)
+        val availableHeight = if (floatBelowStatusBar) {
+            maxHeight - topOffset - 16.dp
+        } else {
+            maxHeight - 16.dp
+        }
+        val maxOpenHeight = availableHeight.coerceAtLeast(minOpenHeight)
         val resolvedOpenHeight = (openHeight ?: maxOpenHeight).coerceIn(minOpenHeight, maxOpenHeight)
 
         val travelDistancePx = with(density) { (resolvedOpenHeight - closedHeight).toPx() }
@@ -117,9 +134,12 @@ fun PullDownShade(
             )
         }
 
+        val shadeBottom = topOffset + currentHeight
+        val restingBottom = topOffset + closedHeight
+
         // Screen content can follow the shade down for compact, pushed layouts.
         Column(modifier = Modifier.fillMaxSize()) {
-            Spacer(modifier = Modifier.height(if (pushContentBelowShade) currentHeight else closedHeight))
+            Spacer(modifier = Modifier.height(if (pushContentBelowShade) shadeBottom else restingBottom))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -145,9 +165,24 @@ fun PullDownShade(
             )
         }
 
-        // Morphing Surface: Connected to the status bar (y=0) and expanding downwards
+        val shape = if (floatBelowStatusBar) {
+            RoundedCornerShape(cornerRadius)
+        } else {
+            RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+        }
+        val cardColor = containerColor ?: MaterialTheme.colorScheme.surfaceContainer
+
+        // Morphing surface. Attached shades grow out of the status bar.
+        // Floating cards sit below it and keep the same rounded shape as they grow.
         Surface(
             modifier = Modifier
+                .then(
+                    if (floatBelowStatusBar) {
+                        Modifier.padding(top = topOffset, start = horizontalInset, end = horizontalInset)
+                    } else {
+                        Modifier
+                    }
+                )
                 .fillMaxWidth()
                 .height(currentHeight)
                 .pointerInput(isOpen) {
@@ -166,14 +201,18 @@ fun PullDownShade(
                         }
                     )
                 },
-            shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            border = BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-            ),
+            shape = shape,
+            color = cardColor,
+            border = if (drawBorder) {
+                BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                )
+            } else {
+                null
+            },
             tonalElevation = 2.dp,
-            shadowElevation = (12 * animatedProgress).dp + 2.dp
+            shadowElevation = if (floatBelowStatusBar) 8.dp else (12 * animatedProgress).dp + 2.dp
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 // Open shade body: smoothly fades in as the surface morphs downward
