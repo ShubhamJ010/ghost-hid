@@ -186,13 +186,15 @@ fun MainAppScaffold(service: HidService?) {
                 when (screen) {
                     Screen.Dashboard -> DashboardScreen(
                         service = service,
-                        onNavigateToCombos = { currentScreen = Screen.Combos },
+                        onNavigateToCombos = { currentScreen = Screen.Combos }
+                    )
+                    Screen.Combos -> ComboStudioScreen(
+                        service = service,
                         onNavigateToSnippets = { currentScreen = Screen.Snippets }
                     )
-                    Screen.Combos -> ComboStudioScreen(service = service)
                     Screen.Snippets -> SnippetStudioScreen(
                         service = service,
-                        onNavigateBack = { currentScreen = Screen.Dashboard }
+                        onNavigateBack = { currentScreen = Screen.Combos }
                     )
                     Screen.Trackpad -> TrackpadScreen(service = service)
                 }

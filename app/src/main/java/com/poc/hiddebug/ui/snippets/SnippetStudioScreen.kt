@@ -1,18 +1,15 @@
 package com.poc.hiddebug.ui.snippets
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,35 +19,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -59,6 +45,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -68,27 +56,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.poc.hiddebug.GhostHidApp
-import com.poc.hiddebug.domain.model.ConnectionStatus
 import com.poc.hiddebug.domain.model.Snippet
 import com.poc.hiddebug.service.HidService
-import com.poc.hiddebug.ui.theme.Clover4Shape
-import com.poc.hiddebug.ui.theme.Scallop8Shape
 import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SnippetStudioScreen(
     service: HidService? = null,
@@ -97,25 +77,47 @@ fun SnippetStudioScreen(
     val repo = GhostHidApp.instance.snippetRepository
     val snippets by repo.snippets.collectAsState()
 
-    val connectionState by service?.connectionState?.collectAsState()
-        ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
-    val isConnected = connectionState == ConnectionStatus.CONNECTED
-
     var showEditDialog by remember { mutableStateOf(false) }
     var editingSnippet by remember { mutableStateOf<Snippet?>(null) }
     var statusToast by remember { mutableStateOf<String?>(null) }
 
     val haptic = LocalHapticFeedback.current
-    val clipboardManager = LocalClipboardManager.current
 
     LaunchedEffect(statusToast) {
         if (statusToast != null) {
-            delay(2500)
+            delay(2200)
             statusToast = null
         }
     }
 
+    if (onNavigateBack != null) {
+        BackHandler(onBack = onNavigateBack)
+    }
+
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Snippets",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                },
+                navigationIcon = {
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        },
         floatingActionButton = {
             LargeFloatingActionButton(
                 onClick = {
@@ -129,7 +131,7 @@ fun SnippetStudioScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "Create Snippet Button",
+                    contentDescription = "New snippet",
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -140,218 +142,36 @@ fun SnippetStudioScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // ==========================================
-                // HEADER ROW WITH BACK NAVIGATION
-                // ==========================================
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (onNavigateBack != null) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                modifier = Modifier.size(44.dp),
-                                onClick = onNavigateBack
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Back to Dashboard",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(14.dp))
-                        }
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                                ) {
-                                    Text(
-                                        text = "EXPRESSIVE BUTTONS",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                        letterSpacing = 0.8.sp
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isConnected) Color(0xFF00E676).copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceContainerHighest
-                                ) {
-                                    Text(
-                                        text = if (isConnected) "● PC LINKED" else "○ DISCONNECTED",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isConnected) Color(0xFF00E676) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Snippet Buttons",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                            Text(
-                                text = "Tap any snippet button to inject text directly to target PC",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                // ==========================================
-                // SECTION 1: ONE-TAP SNIPPET BUTTONS (EXPRESSIVE GRID)
-                // ==========================================
-                if (snippets.isNotEmpty()) {
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(
-                                text = "ONE-TAP BUTTONS",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                snippets.forEachIndexed { index, snippet ->
-                                    ExpressiveSnippetActionButton(
-                                        snippet = snippet,
-                                        index = index,
-                                        isConnected = isConnected,
-                                        onTapToType = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            val textToType = snippet.value ?: ""
-                                            if (textToType.isNotEmpty()) {
-                                                service?.typeText(textToType)
-                                                statusToast = "⚡ Typed $${snippet.name} to target PC"
-                                            } else {
-                                                statusToast = "⚠️ Snippet $${snippet.name} is empty"
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ==========================================
-                // SECTION 2: SNIPPET VAULT & VARIABLES DETAILS
-                // ==========================================
-                item {
-                    Spacer(modifier = Modifier.height(4.dp))
+            if (snippets.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = "MANAGE SNIPPET VAULT",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        color = MaterialTheme.colorScheme.primary
+                        text = "No snippets yet. Tap + to add one.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
-                if (snippets.isEmpty()) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(32.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(64.dp)
-                                        .clip(Clover4Shape())
-                                        .background(MaterialTheme.colorScheme.primaryContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Key,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(32.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(14.dp))
-                                Text(
-                                    text = "No Snippet Buttons Yet",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Create quick-typing buttons for passwords, emails, usernames, and bash commands.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 16.dp),
-                                    lineHeight = 18.sp
-                                )
-                                Spacer(modifier = Modifier.height(18.dp))
-                                Button(
-                                    onClick = {
-                                        editingSnippet = null
-                                        showEditDialog = true
-                                    },
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Create First Snippet Button", fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    itemsIndexed(snippets, key = { _, s -> s.name }) { index, snippet ->
-                        SnippetDetailCard(
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(snippets, key = { it.name }) { snippet ->
+                        SnippetRow(
                             snippet = snippet,
-                            index = index,
-                            isConnected = isConnected,
                             onType = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                val textToType = snippet.value ?: ""
-                                if (textToType.isNotEmpty()) {
-                                    service?.typeText(textToType)
-                                    statusToast = "⚡ Typed $${snippet.name} to PC"
+                                val text = snippet.value ?: ""
+                                if (text.isNotEmpty()) {
+                                    service?.typeText(text)
+                                    statusToast = "Typed $${snippet.name}"
                                 } else {
-                                    statusToast = "⚠️ Snippet $${snippet.name} is empty"
+                                    statusToast = "$${snippet.name} is empty"
                                 }
-                            },
-                            onCopy = {
-                                val valToCopy = snippet.value ?: ""
-                                clipboardManager.setText(AnnotatedString(valToCopy))
-                                statusToast = "📋 Copied $${snippet.name} to clipboard"
                             },
                             onEdit = {
                                 editingSnippet = snippet
@@ -359,18 +179,15 @@ fun SnippetStudioScreen(
                             },
                             onDelete = {
                                 repo.delete(snippet.name)
-                                statusToast = "🗑️ Deleted $${snippet.name}"
                             }
                         )
                     }
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(80.dp))
+                    item {
+                        Spacer(modifier = Modifier.height(100.dp))
+                    }
                 }
             }
 
-            // Floating Toast Banner
             AnimatedVisibility(
                 visible = statusToast != null,
                 enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
@@ -383,327 +200,118 @@ fun SnippetStudioScreen(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.inverseSurface,
                     contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                    shadowElevation = 8.dp
+                    shadowElevation = 6.dp
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Bolt,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = statusToast ?: "",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    Text(
+                        text = statusToast ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                    )
                 }
             }
         }
     }
 
     if (showEditDialog) {
-        ExpressiveSnippetEditorDialog(
+        SnippetEditorDialog(
             initial = editingSnippet,
             onDismiss = { showEditDialog = false },
             onSave = { name, value, secure ->
                 repo.set(name, value, secure)
                 showEditDialog = false
-                statusToast = "✅ Saved snippet button $${name}"
             }
         )
     }
 }
 
-// =========================================================================
-// ONE-TAP EXPRESSIVE SNIPPET ACTION BUTTON
-// =========================================================================
-
 @Composable
-fun ExpressiveSnippetActionButton(
+fun SnippetRow(
     snippet: Snippet,
-    index: Int,
-    isConnected: Boolean,
-    onTapToType: () -> Unit
-) {
-    // Cycle vibrant expressive colors
-    val (containerColor, contentColor, accentColor) = when (index % 4) {
-        0 -> Triple(
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer,
-            MaterialTheme.colorScheme.primary
-        )
-        1 -> Triple(
-            MaterialTheme.colorScheme.secondaryContainer,
-            MaterialTheme.colorScheme.onSecondaryContainer,
-            MaterialTheme.colorScheme.secondary
-        )
-        2 -> Triple(
-            MaterialTheme.colorScheme.tertiaryContainer,
-            MaterialTheme.colorScheme.onTertiaryContainer,
-            MaterialTheme.colorScheme.tertiary
-        )
-        else -> Triple(
-            MaterialTheme.colorScheme.surfaceContainerHighest,
-            MaterialTheme.colorScheme.onSurface,
-            MaterialTheme.colorScheme.primary
-        )
-    }
-
-    Surface(
-        shape = RoundedCornerShape(22.dp),
-        color = containerColor,
-        border = BorderStroke(1.2.dp, accentColor.copy(alpha = 0.45f)),
-        shadowElevation = 3.dp,
-        modifier = Modifier
-            .clickable(onClick = onTapToType)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(Clover4Shape())
-                    .background(accentColor.copy(alpha = 0.25f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (snippet.secure) Icons.Default.Lock else Icons.Default.Bolt,
-                    contentDescription = null,
-                    tint = contentColor,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "$${snippet.name}",
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 13.5.sp,
-                        color = contentColor
-                    )
-                    if (snippet.secure) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.Security,
-                            contentDescription = "Encrypted",
-                            tint = contentColor.copy(alpha = 0.8f),
-                            modifier = Modifier.size(11.dp)
-                        )
-                    }
-                }
-                Text(
-                    text = if (isConnected) "TAP TO TYPE ⚡" else "TYPE (OFFLINE)",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.6.sp,
-                    color = contentColor.copy(alpha = 0.75f)
-                )
-            }
-        }
-    }
-}
-
-// =========================================================================
-// DETAILED SNIPPET VAULT CARD (REVEAL, EDIT, SEND, DELETE)
-// =========================================================================
-
-@Composable
-fun SnippetDetailCard(
-    snippet: Snippet,
-    index: Int,
-    isConnected: Boolean,
     onType: () -> Unit,
-    onCopy: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     var revealed by remember { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onType),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Header Row: Name + Keystore Badge + Actions
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(Scallop8Shape())
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Key,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "$${snippet.name}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                            if (snippet.secure) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Security,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(10.dp),
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Text(
-                                            text = "Keystore",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            maxLines = 1,
-                                            softWrap = false
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onCopy, modifier = Modifier.size(34.dp)) {
-                        Icon(
-                            Icons.Default.ContentCopy,
-                            contentDescription = "Copy",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(17.dp)
-                        )
-                    }
-                    IconButton(onClick = onEdit, modifier = Modifier.size(34.dp)) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "Edit",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(17.dp)
-                        )
-                    }
-                    IconButton(onClick = onDelete, modifier = Modifier.size(34.dp)) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(17.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Value preview box
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val displayValue = if (snippet.secure && !revealed) {
-                        if (!snippet.value.isNullOrEmpty()) "••••••••••••" else "(empty secret)"
-                    } else {
-                        if (!snippet.value.isNullOrEmpty()) snippet.value else "(empty value)"
-                    }
-
                     Text(
-                        text = displayValue,
+                        text = "$${snippet.name}",
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 12.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                        color = if (snippet.value.isNullOrEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
                     )
-
                     if (snippet.secure) {
-                        IconButton(onClick = { revealed = !revealed }, modifier = Modifier.size(30.dp)) {
-                            Icon(
-                                imageVector = if (revealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = if (revealed) "Hide" else "Reveal",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Encrypted",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(13.dp)
+                        )
                     }
                 }
+                Spacer(modifier = Modifier.height(2.dp))
+                val displayValue = if (snippet.secure && !revealed) {
+                    if (!snippet.value.isNullOrEmpty()) "••••••••" else "(empty)"
+                } else {
+                    if (!snippet.value.isNullOrEmpty()) snippet.value else "(empty)"
+                }
+                Text(
+                    text = displayValue,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (snippet.secure) {
+                    IconButton(onClick = { revealed = !revealed }) {
+                        Icon(
+                            imageVector = if (revealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = "Toggle visibility",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
-            // Direct Type Button
-            Button(
-                onClick = onType,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            ) {
-                Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Type \"$${snippet.name}\" to PC",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.5.sp
-                )
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }
 }
 
-// =========================================================================
-// EXPRESSIVE SNIPPET EDITOR DIALOG (WITH PRESETS & KEYSTORE)
-// =========================================================================
-
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ExpressiveSnippetEditorDialog(
+fun SnippetEditorDialog(
     initial: Snippet?,
     onDismiss: () -> Unit,
     onSave: (name: String, value: String, secure: Boolean) -> Unit
@@ -711,82 +319,19 @@ fun ExpressiveSnippetEditorDialog(
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var value by remember { mutableStateOf(initial?.value ?: "") }
     var secure by remember { mutableStateOf(initial?.secure ?: false) }
-    var valueVisible by remember { mutableStateOf(!secure) }
-
-    val presetNames = listOf("username", "password", "email", "sudo_pass", "token", "wifi_key")
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(Clover4Shape())
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Key,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = if (initial == null) "New Snippet Button" else "Edit Snippet Button",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleLarge
-                )
-            }
-        },
+        title = { Text(if (initial == null) "New snippet" else "Edit snippet") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (initial == null) {
-                    Text(
-                        text = "QUICK PRESETS",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        letterSpacing = 0.6.sp
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        presetNames.forEach { preset ->
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (name.equals(preset, ignoreCase = true)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                onClick = {
-                                    name = preset
-                                    if (preset.contains("pass") || preset.contains("token") || preset.contains("key")) {
-                                        secure = true
-                                    }
-                                }
-                            ) {
-                                Text(
-                                    text = "$$preset",
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (name.equals(preset, ignoreCase = true)) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Variable Name") },
-                    placeholder = { Text("e.g. username or my_password") },
+                    label = { Text("Variable name") },
+                    placeholder = { Text("e.g. username") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(12.dp),
                     prefix = { Text("$", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) },
                     enabled = initial == null
                 )
@@ -794,82 +339,46 @@ fun ExpressiveSnippetEditorDialog(
                 OutlinedTextField(
                     value = value,
                     onValueChange = { value = it },
-                    label = { Text("Value (Typed on PC)") },
-                    placeholder = { Text("Enter string to type") },
+                    label = { Text("Value") },
+                    placeholder = { Text("Text to type on PC") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    trailingIcon = {
-                        IconButton(onClick = { valueVisible = !valueVisible }) {
-                            Icon(
-                                imageVector = if (valueVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = if (valueVisible) "Hide" else "Show"
-                            )
-                        }
-                    }
+                    shape = RoundedCornerShape(12.dp)
                 )
 
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Security,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Hardware Keystore Enclave",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Encrypt secret with AES-256 in secure hardware",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = secure,
-                            onCheckedChange = { secure = it }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Encrypt in Keystore",
+                            fontWeight = FontWeight.Medium,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Hardware AES-256 enclave",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    Switch(
+                        checked = secure,
+                        onCheckedChange = { secure = it }
+                    )
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = { onSave(name.trim(), value, secure) },
-                enabled = name.isNotBlank(),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                enabled = name.isNotBlank()
             ) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Save Button", fontWeight = FontWeight.Bold)
+                Text("Save")
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(16.dp)
-            ) {
+            TextButton(onClick = onDismiss) {
                 Text("Cancel")
             }
         }

@@ -1,6 +1,8 @@
 package com.poc.hiddebug.ui.combos
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,11 +21,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -50,6 +54,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -58,15 +64,23 @@ import androidx.compose.ui.unit.sp
 import com.poc.hiddebug.GhostHidApp
 import com.poc.hiddebug.domain.model.Combo
 import com.poc.hiddebug.domain.model.HidStep
+import com.poc.hiddebug.domain.model.Snippet
 import com.poc.hiddebug.domain.parser.ActionSequenceParser
 import com.poc.hiddebug.service.HidService
+import com.poc.hiddebug.ui.theme.Clover4Shape
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ComboStudioScreen(service: HidService?) {
+fun ComboStudioScreen(
+    service: HidService?,
+    onNavigateToSnippets: (() -> Unit)? = null
+) {
     val repo = GhostHidApp.instance.comboRepository
     val combos by repo.combos.collectAsState()
+
+    val snippetRepo = GhostHidApp.instance.snippetRepository
+    val snippets by snippetRepo.snippets.collectAsState()
 
     var showEditorSheet by remember { mutableStateOf(false) }
     var editingCombo by remember { mutableStateOf<Combo?>(null) }
@@ -100,6 +114,16 @@ fun ComboStudioScreen(service: HidService?) {
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // ==========================================
+            // TOP CARD: EXPRESSIVE SNIPPET VAULT & BUTTONS
+            // ==========================================
+            item {
+                ExpressiveSnippetsHeaderCard(
+                    snippets = snippets,
+                    onClick = { onNavigateToSnippets?.invoke() }
+                )
+            }
+
             // Sort: favorites first, then alphabetically
             val sorted = combos.sortedWith(compareByDescending<Combo> { it.favorite }.thenBy { it.name })
 
@@ -350,6 +374,70 @@ fun ComboEditorBottomSheet(
                     Text("Save Combo")
                 }
             }
+        }
+    }
+}
+
+// =========================================================================
+// TOP CARD: SNIPPETS
+// =========================================================================
+
+@Composable
+fun ExpressiveSnippetsHeaderCard(
+    snippets: List<Snippet>,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Key,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Snippets",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "${snippets.size} variables",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }
