@@ -1,6 +1,10 @@
 package com.sj010.ghid.ui.dashboard
 
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -385,6 +389,7 @@ fun DashboardScreen(
 
     // Bluetooth Device Picker Dialog
     if (showDevicePicker) {
+        val context = LocalContext.current
         val pairedDevices = service?.getPairedDevices() ?: emptyList()
         AlertDialog(
             onDismissRequest = {
@@ -408,10 +413,45 @@ fun DashboardScreen(
             },
             text = {
                 if (pairedDevices.isEmpty()) {
-                    Text(
-                        "No paired Bluetooth devices detected. Pair your phone with your target computer in Android Bluetooth settings first.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Column(
+                        modifier = Modifier.padding(top = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Text(
+                            "No paired Bluetooth devices detected. Put your computer in Bluetooth discovery, then pair your phone.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS).apply {
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Bluetooth Settings", fontSize = 11.sp, maxLines = 1)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                                        putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120)
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Discoverable", fontSize = 11.sp, maxLines = 1)
+                            }
+                        }
+                    }
                 } else {
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -423,6 +463,7 @@ fun DashboardScreen(
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 onClick = {
                                     service?.selectTarget(dev.address)
+                                    service?.connectTarget(dev.address)
                                     showDevicePicker = false
                                 },
                                 modifier = Modifier.fillMaxWidth()
