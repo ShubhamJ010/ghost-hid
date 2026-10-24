@@ -357,6 +357,7 @@ fun DashboardScreen(
     if (showQuickSend) {
         QuickSendOverlay(
             service = service,
+            initialTargetOs = connectedOs, targetDeviceOverride = targetDevice,
             onDismiss = { showQuickSend = false }
         )
     }

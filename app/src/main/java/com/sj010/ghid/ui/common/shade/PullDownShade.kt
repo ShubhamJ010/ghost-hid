@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -92,6 +93,7 @@ fun PullDownShade(
         val density = LocalDensity.current
 
         val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val topOffset = if (floatBelowStatusBar) statusBarHeight + topGap else 0.dp
         val closedHeight = if (floatBelowStatusBar) {
             dockHeight
@@ -100,9 +102,9 @@ fun PullDownShade(
         }
         val minOpenHeight = closedHeight + 80.dp
         val availableHeight = if (floatBelowStatusBar) {
-            maxHeight - topOffset - 16.dp
+            maxHeight - topOffset - navBarBottom - 16.dp
         } else {
-            maxHeight - 16.dp
+            maxHeight - navBarBottom - 16.dp
         }
         val maxOpenHeight = availableHeight.coerceAtLeast(minOpenHeight)
         val resolvedOpenHeight = (openHeight ?: maxOpenHeight).coerceIn(minOpenHeight, maxOpenHeight)

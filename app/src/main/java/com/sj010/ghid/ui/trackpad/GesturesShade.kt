@@ -27,13 +27,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DesktopWindows
-import androidx.compose.material.icons.filled.Laptop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,37 +49,37 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
+import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.service.HidService
+import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.shade.PullDownShade
-import com.sj010.ghid.ui.theme.MaterialShapes
 
 /**
- * Gestures pull-down shade morphing directly out of the status bar on the Trackpad screen,
- * exactly matching the Snippets pull-down shade on the Combos screen.
+ * Gestures pull-down shade morphing directly out of the status bar on the Trackpad screen.
  *
  * Closed: Seamlessly integrated into status bar (y=0, "gestures" title with drag handle pill below it).
- * Open: Morphs downward, drag handle animates to ABOVE "Gestures", OS toggle diamond and close button appear.
+ * Open: Morphs downward, drag handle animates to ABOVE "Gestures", OS toggle button and close button appear.
  */
 @Composable
 fun GesturesShade(
     service: HidService?,
     modifier: Modifier = Modifier,
+    targetOs: TargetOs = service?.effectiveTargetOs?.collectAsState()?.value ?: TargetOs.WINDOWS,
+    onToggleOs: () -> Unit = {},
     content: @Composable () -> Unit
 ) {
-    var targetOs by rememberSaveable { mutableStateOf(TargetOs.WINDOWS) }
     var selectedFilter by rememberSaveable { mutableStateOf<FingerCount?>(null) }
-
     val haptic = LocalHapticFeedback.current
 
     PullDownShade(
         modifier = modifier,
+        dockHeight = 56.dp,
+        openDockHeight = 56.dp,
         dock = { shadeScope ->
             GestureMorphingDock(
                 progress = shadeScope.progress,
                 targetOs = targetOs,
-                onToggleOs = {
-                    targetOs = if (targetOs == TargetOs.WINDOWS) TargetOs.MACOS else TargetOs.WINDOWS
-                },
+                onToggleOs = onToggleOs,
                 onDismiss = { shadeScope.dismiss() },
                 onOpen = { shadeScope.open() },
                 dragHandleModifier = shadeScope.dragHandleModifier
@@ -97,9 +96,7 @@ fun GesturesShade(
                 GestureShadeBody(
                     service = service,
                     targetOs = targetOs,
-                    onToggleOs = {
-                        targetOs = if (targetOs == TargetOs.WINDOWS) TargetOs.MACOS else TargetOs.WINDOWS
-                    },
+                    onToggleOs = onToggleOs,
                     selectedFilter = selectedFilter,
                     onFilterSelected = { selectedFilter = it },
                     onTriggerGesture = { gesture ->
@@ -139,7 +136,7 @@ fun GestureShadeBody(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp),
-        contentPadding = PaddingValues(bottom = 76.dp),
+        contentPadding = PaddingValues(bottom = 84.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -157,6 +154,7 @@ fun GestureShadeBody(
         items(filteredGestures, key = { it.id }) { gesture ->
             GestureCard(
                 gesture = gesture,
+                targetOs = targetOs,
                 onTrigger = { onTriggerGesture(gesture) }
             )
         }
@@ -181,13 +179,13 @@ private fun GestureShadeControls(
         ) {
             Column {
                 Text(
-                    text = "Trackpad Gestures",
+                    text = "System Gestures",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "3 & 4 finger precision shortcuts",
+                    text = "Targeting ${targetOs.label} desktop shortcuts",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -204,26 +202,25 @@ private fun GestureShadeControls(
 }
 
 /**
- * Morphing dock element anchored at the bottom edge of the shade surface.
+ * Morphing Dock bar positioned at the bottom edge of the shade surface.
  *
  * In closed state (progress = 0):
  * - Text "gestures" is on top (y=4.dp), drag bar is directly BELOW the text (y=28.dp).
  * - Side buttons are invisible (scale = 0, alpha = 0).
  *
  * In open state (progress = 1):
- * - Left: Diamond OS button toggling Windows / macOS.
+ * - Left: Circular OS button toggling Windows / macOS / Linux.
  * - Center: Drag bar animates to directly ABOVE the text "Gestures" (bar y=4.dp, text y=16.dp).
  * - Right: Circular close button.
  */
 @Composable
-fun GestureMorphingDock(
+private fun GestureMorphingDock(
     progress: Float,
     targetOs: TargetOs,
     onToggleOs: () -> Unit,
     onDismiss: () -> Unit,
     onOpen: () -> Unit,
-    dragHandleModifier: Modifier,
-    modifier: Modifier = Modifier
+    dragHandleModifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
     val isClosed = progress < 0.15f
@@ -238,7 +235,7 @@ fun GestureMorphingDock(
     val openTextAlpha = ((progress - 0.4f) * 2.5f).coerceIn(0f, 1f)
 
     Surface(
-        modifier = modifier
+        modifier = dragHandleModifier
             .fillMaxWidth()
             .height(56.dp)
             .clickable(
@@ -259,7 +256,7 @@ fun GestureMorphingDock(
                 .padding(horizontal = 20.dp, vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
-            // LEFT: Diamond OS toggle button (appears as progress increases)
+            // LEFT: OS toggle button (appears as progress increases)
             if (progress > 0.08f) {
                 Surface(
                     onClick = {
@@ -269,22 +266,22 @@ fun GestureMorphingDock(
                     enabled = isOpen,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
-                        .size(46.dp)
+                        .size(44.dp)
                         .graphicsLayer {
                             alpha = sideProgress
                             scaleX = 0.3f + 0.7f * sideProgress
                             scaleY = 0.3f + 0.7f * sideProgress
                         },
-                    shape = MaterialShapes.ShapeDiamond,
+                    shape = CircleShape,
                     color = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                     tonalElevation = 3.dp
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = if (targetOs == TargetOs.WINDOWS) Icons.Default.DesktopWindows else Icons.Default.Laptop,
-                            contentDescription = "Toggle target OS",
+                        OsGlyph(
+                            os = targetOs,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.size(20.dp)
                         )
                     }

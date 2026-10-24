@@ -1,6 +1,7 @@
 package com.sj010.ghid.domain.parser
 
 import com.sj010.ghid.domain.model.HidStep
+import com.sj010.ghid.domain.model.TargetOs
 import java.util.regex.Pattern
 
 object ActionSequenceParser {
@@ -104,7 +105,7 @@ object ActionSequenceParser {
     /**
      * Validates that a combo string is syntactically well-formed.
      */
-    fun validate(keys: String, targetOs: com.sj010.ghid.domain.model.TargetOs = com.sj010.ghid.domain.model.TargetOs.WINDOWS): Result<Unit> {
+    fun validate(keys: String, targetOs: TargetOs = TargetOs.WINDOWS): Result<Unit> {
         val trimmed = keys.trim()
         if (trimmed.isEmpty()) return Result.failure(IllegalArgumentException("Combo has no steps"))
 
@@ -114,13 +115,20 @@ object ActionSequenceParser {
         for (step in steps) {
             when (step) {
                 is HidStep.KeyboardChord -> {
-                    if (targetOs != com.sj010.ghid.domain.model.TargetOs.MACOS) {
-                        for (token in step.label.split("+")) {
-                            val t = token.trim()
-                            if (KeyTokens.isMacAlias(t)) {
-                                return Result.failure(IllegalArgumentException("\"$t\" is a macOS key name; use a Windows key such as win, ctrl or alt"))
+                    val parts = step.label.split("+").map { it.trim() }
+                    if (step.label.endsWith("+") || parts.any { it.isEmpty() }) {
+                        return Result.failure(IllegalArgumentException("Incomplete chord; specify a key after '+'"))
+                    }
+                    if (targetOs == TargetOs.WINDOWS || targetOs == TargetOs.LINUX) {
+                        for (token in parts) {
+                            if (KeyTokens.isMacAlias(token)) {
+                                return Result.failure(IllegalArgumentException("\"$token\" is a macOS key name; use a Windows key such as win, ctrl or alt"))
                             }
                         }
+                    }
+                    if (step.keyCode == 0.toByte() && !parts.all { KeyTokens.isModifier(it) }) {
+                        val unknown = parts.firstOrNull { !KeyTokens.isModifier(it) } ?: step.label
+                        return Result.failure(IllegalArgumentException("Unknown key \"$unknown\""))
                     }
                 }
                 is HidStep.RawReport -> Unit

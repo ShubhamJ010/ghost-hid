@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.domain.model.QuickSendEntry
 import com.sj010.ghid.domain.model.QuickSendTime
+import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.parser.SequenceAnalyzer
 import com.sj010.ghid.ui.common.sequence.SequencePreview
 import com.sj010.ghid.ui.common.sequence.formatSequenceDuration
@@ -53,9 +54,10 @@ fun QuickSendHistoryCard(
     entry: QuickSendEntry,
     onRerun: () -> Unit,
     onSave: () -> Unit,
+    targetOs: TargetOs = TargetOs.WINDOWS,
     modifier: Modifier = Modifier
 ) {
-    val analysis = remember(entry.scheme) { SequenceAnalyzer.analyze(entry.scheme) }
+    val analysis = remember(entry.scheme, targetOs) { SequenceAnalyzer.analyze(entry.scheme, targetOs) }
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -181,6 +183,7 @@ fun QuickSendHistoryCard(
         }
     }
 }
+
 @Composable
 fun QuickSendHistoryHeader(
     count: Int

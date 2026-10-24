@@ -23,9 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.DesktopWindows
-import androidx.compose.material.icons.filled.Laptop
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -36,23 +35,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.sj010.ghid.domain.model.TargetOs
+import com.sj010.ghid.ui.common.os.OsGlyph
 
+/**
+ * Gestures reference gallery and test bench.
+ */
 @Composable
-fun ExpressiveGesturesGallery(
+fun GestureGallery(
+    targetOs: TargetOs,
+    onOsToggled: () -> Unit,
     onTriggerGesture: (TrackpadGesture) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedFilter by remember { mutableStateOf<FingerCount?>(null) }
-    var targetOs by remember { mutableStateOf(TargetOs.WINDOWS) }
+    var selectedFilter by rememberSaveable { mutableStateOf<FingerCount?>(null) }
 
     val filteredGestures = remember(selectedFilter) {
         if (selectedFilter == null) {
@@ -64,25 +72,28 @@ fun ExpressiveGesturesGallery(
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // Section Header: OS Selector + Filter Chips
         item(span = { GridItemSpan(2) }) {
-            GestureGalleryControlBar(
+            GestureGalleryHeader(
                 selectedFilter = selectedFilter,
                 onFilterSelected = { selectedFilter = it },
                 targetOs = targetOs,
-                onOsToggled = {
-                    targetOs = if (targetOs == TargetOs.WINDOWS) TargetOs.MACOS else TargetOs.WINDOWS
-                }
+                onOsToggled = onOsToggled
             )
         }
 
+        // Gesture Cards (3 & 4 finger swipes)
         items(filteredGestures, key = { it.id }) { gesture ->
             GestureCard(
                 gesture = gesture,
+                targetOs = targetOs,
                 onTrigger = { onTriggerGesture(gesture) }
             )
         }
@@ -90,16 +101,14 @@ fun ExpressiveGesturesGallery(
 }
 
 @Composable
-fun GestureGalleryControlBar(
+private fun GestureGalleryHeader(
     selectedFilter: FingerCount?,
     onFilterSelected: (FingerCount?) -> Unit,
     targetOs: TargetOs,
     onOsToggled: () -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
@@ -109,13 +118,13 @@ fun GestureGalleryControlBar(
         ) {
             Column {
                 Text(
-                    text = "Touch Gestures",
+                    text = "Trackpad Gestures",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "3 & 4 finger precision swipes",
+                    text = "3 & 4 finger shortcuts for ${targetOs.label}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -146,15 +155,10 @@ internal fun OsToggleChip(targetOs: TargetOs, onToggle: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Icon(
-                imageVector = if (targetOs == TargetOs.WINDOWS) {
-                    Icons.Default.DesktopWindows
-                } else {
-                    Icons.Default.Laptop
-                },
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(15.dp)
+            OsGlyph(
+                os = targetOs,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary
             )
             Text(
                 text = targetOs.label,
@@ -218,16 +222,19 @@ private fun GestureFilterChip(
 }
 
 /**
- * One gesture card: expressive badge, what the gesture does, and a single run action.
- * The underlying desktop shortcut is deliberately not surfaced here.
+ * One gesture card: expressive badge, what the gesture does, shortcut preview, and a single run action.
  */
 @Composable
 fun GestureCard(
     gesture: TrackpadGesture,
+    targetOs: TargetOs = TargetOs.WINDOWS,
     onTrigger: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val actionName = gesture.actionNameFor(targetOs)
+    val desc = gesture.descriptionFor(targetOs)
+    val shortcut = gesture.shortcutFor(targetOs)
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -239,16 +246,16 @@ fun GestureCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(46.dp)
                         .clip(gesture.resolveShape())
                         .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
@@ -263,35 +270,57 @@ fun GestureCard(
 
                 Surface(
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    modifier = Modifier.padding(top = 2.dp)
                 ) {
                     Text(
                         text = gesture.fingers.label,
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = gesture.actionName,
+                    text = actionName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = gesture.title,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = gesture.title,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = shortcut,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
+
+            Text(
+                text = desc,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                minLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
 
             Button(
                 onClick = {
@@ -300,9 +329,8 @@ fun GestureCard(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(42.dp),
-                shape = CircleShape,
-                contentPadding = PaddingValues(horizontal = 12.dp)
+                    .height(38.dp),
+                shape = CircleShape
             ) {
                 Icon(
                     imageVector = Icons.Default.Bolt,
@@ -311,7 +339,7 @@ fun GestureCard(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Execute",
+                    text = "Trigger",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold
                 )

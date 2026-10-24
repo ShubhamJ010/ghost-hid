@@ -49,11 +49,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,6 +85,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.domain.model.ConnectionStatus
+import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.pointer.MouseButton
 import com.sj010.ghid.domain.pointer.PointerMath
 import com.sj010.ghid.domain.pointer.WheelAccumulator
@@ -114,7 +117,16 @@ fun TrackpadScreen(
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
 
-    var targetOs by remember { mutableStateOf(TargetOs.WINDOWS) }
+    val detectedOs by service?.effectiveTargetOs?.collectAsState()
+        ?: remember { mutableStateOf(TargetOs.WINDOWS) }
+    var targetOs by rememberSaveable { mutableStateOf(TargetOs.WINDOWS) }
+
+    LaunchedEffect(detectedOs) {
+        if (detectedOs.isKnown) {
+            targetOs = detectedOs
+        }
+    }
+
     var activeGestureHud by remember { mutableStateOf<TrackpadGesture?>(null) }
 
     val handleTriggerGesture: (TrackpadGesture) -> Unit = { gesture ->
@@ -131,7 +143,11 @@ fun TrackpadScreen(
     }
 
     GesturesShade(
-        service = service
+        service = service,
+        targetOs = targetOs,
+        onToggleOs = {
+            targetOs = if (targetOs == TargetOs.WINDOWS) TargetOs.MACOS else TargetOs.WINDOWS
+        }
     ) {
         Column(
             modifier = Modifier

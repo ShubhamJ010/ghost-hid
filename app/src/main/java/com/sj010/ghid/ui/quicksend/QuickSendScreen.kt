@@ -1,5 +1,6 @@
 package com.sj010.ghid.ui.quicksend
 
+import android.bluetooth.BluetoothDevice
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
@@ -8,6 +9,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -42,7 +44,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Keyboard
@@ -61,7 +62,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -78,6 +78,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -85,10 +86,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.GhostHidApp
+import com.sj010.ghid.R
+import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.parser.SequenceAnalysis
 import com.sj010.ghid.domain.parser.SequenceAnalyzer
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.combos.editor.ComboEditorScreen
+import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.sequence.SequencePreview
 import com.sj010.ghid.ui.common.sequence.formatStepCount
 import com.sj010.ghid.ui.theme.MaterialShapes
@@ -102,16 +106,26 @@ import kotlinx.coroutines.launch
 @Composable
 fun QuickSendOverlay(
     service: HidService?,
+    initialTargetOs: TargetOs? = null,
+    targetDeviceOverride: BluetoothDevice? = null,
     onDismiss: () -> Unit
 ) {
     val historyRepository = GhostHidApp.instance.quickSendHistoryRepository
     val comboRepository = GhostHidApp.instance.comboRepository
     val history by historyRepository.entries.collectAsState()
 
+    val serviceTargetDevice by service?.targetDeviceState?.collectAsState()
+        ?: remember { mutableStateOf(null) }
+    val targetDevice = targetDeviceOverride ?: serviceTargetDevice
+
+    val detectedOs by service?.effectiveTargetOs?.collectAsState()
+        ?: remember { mutableStateOf(initialTargetOs ?: TargetOs.WINDOWS) }
+    val currentOs = detectedOs
+
     var scheme by rememberSaveable { mutableStateOf("") }
     var editorScheme by remember { mutableStateOf<String?>(null) }
 
-    val analysis = remember(scheme) { SequenceAnalyzer.analyze(scheme) }
+    val analysis = remember(scheme, currentOs) { SequenceAnalyzer.analyze(scheme, currentOs) }
     val imeVisible = WindowInsets.isImeVisible
     val clipboard = LocalClipboardManager.current
     val focusManager = LocalFocusManager.current
@@ -152,7 +166,7 @@ fun QuickSendOverlay(
     }
 
     fun send(raw: String, record: Boolean) {
-        val target = SequenceAnalyzer.analyze(raw)
+        val target = SequenceAnalyzer.analyze(raw, currentOs)
         if (!target.canSend) {
             return
         }
@@ -179,7 +193,12 @@ fun QuickSendOverlay(
                 .imePadding()
                 .navigationBarsPadding()
         ) {
-            QuickSendSheetHeader(onDismiss = onDismiss, historyCount = history.size)
+            QuickSendSheetHeader(
+                targetOs = currentOs,
+                targetDevice = targetDevice,
+                onDismiss = onDismiss,
+                historyCount = history.size
+            )
 
             if (!imeVisible) {
                 LazyColumn(
@@ -213,7 +232,8 @@ fun QuickSendOverlay(
                                 onSave = {
                                     focusManager.clearFocus()
                                     editorScheme = entry.scheme
-                                }
+                                },
+                                targetOs = currentOs
                             )
                         }
                     }
@@ -244,6 +264,7 @@ fun QuickSendOverlay(
                         scheme = scheme,
                         analysis = analysis,
                         compactPreview = imeVisible,
+                        targetOs = currentOs,
                         onSchemeChange = { scheme = it },
                         onClear = { scheme = "" },
                         onPaste = {
@@ -255,7 +276,11 @@ fun QuickSendOverlay(
                         onSend = { send(scheme, record = true) }
                     )
                 } else {
-                    QuickSendCollapsedButton(onClick = ::revealComposerAtTop)
+                    QuickSendCollapsedButton(
+                        targetOs = currentOs,
+                        targetDevice = targetDevice,
+                        onClick = ::revealComposerAtTop
+                    )
                 }
             }
         }
@@ -265,6 +290,7 @@ fun QuickSendOverlay(
         ComboEditorScreen(
             initial = null,
             initialScheme = prefill,
+            defaultOs = currentOs,
             service = service,
             onDismiss = { editorScheme = null },
             onSave = { combo ->
@@ -276,7 +302,11 @@ fun QuickSendOverlay(
 }
 
 @Composable
-private fun QuickSendCollapsedButton(onClick: () -> Unit) {
+private fun QuickSendCollapsedButton(
+    targetOs: TargetOs,
+    targetDevice: BluetoothDevice?,
+    onClick: () -> Unit
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val buttonScale by androidx.compose.animation.core.animateFloatAsState(
@@ -299,28 +329,51 @@ private fun QuickSendCollapsedButton(onClick: () -> Unit) {
                 .scale(buttonScale),
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            tonalElevation = 3.dp
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)),
+            shadowElevation = 8.dp
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 22.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 22.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Bolt,
-                    contentDescription = null,
-                    modifier = Modifier.size(30.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(MaterialShapes.ShapeClover4)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (targetDevice != null) {
+                        OsGlyph(
+                            os = targetOs,
+                            contentDescription = targetOs.label,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_notification_ghost),
+                            contentDescription = "GhostHID",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
                         text = "Quick send",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        text = "Tap to compose",
-                        style = MaterialTheme.typography.labelMedium
+                        text = "Tap to reopen dock",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
                     )
                 }
             }
@@ -329,7 +382,12 @@ private fun QuickSendCollapsedButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun QuickSendSheetHeader(onDismiss: () -> Unit, historyCount: Int) {
+private fun QuickSendSheetHeader(
+    targetOs: TargetOs,
+    targetDevice: BluetoothDevice?,
+    onDismiss: () -> Unit,
+    historyCount: Int
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -354,25 +412,39 @@ private fun QuickSendSheetHeader(onDismiss: () -> Unit, historyCount: Int) {
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            val subtitle = if (targetDevice != null) {
+                "$historyCount recent sends · ${targetOs.label}"
+            } else {
+                "$historyCount recent sends · Ghost"
+            }
             Text(
-                text = "$historyCount recent sends · type below",
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Box(
             modifier = Modifier
-                .size(46.dp)
+                .size(44.dp)
                 .clip(MaterialShapes.ShapeClover4)
                 .background(MaterialTheme.colorScheme.tertiaryContainer),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Bolt,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.size(23.dp)
-            )
+            if (targetDevice != null) {
+                OsGlyph(
+                    os = targetOs,
+                    contentDescription = targetOs.label,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.size(22.dp)
+                )
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.ic_notification_ghost),
+                    contentDescription = "GhostHID",
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
     }
 }
@@ -382,6 +454,7 @@ private fun QuickSendComposerDock(
     scheme: String,
     analysis: SequenceAnalysis,
     compactPreview: Boolean,
+    targetOs: TargetOs = TargetOs.WINDOWS,
     onSchemeChange: (String) -> Unit,
     onClear: () -> Unit,
     onPaste: () -> Unit,
@@ -413,7 +486,7 @@ private fun QuickSendComposerDock(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
-                        text = "win+r ->{0.6} type:cmd",
+                        text = if (targetOs == TargetOs.MACOS) "cmd+space ->{0.6} type:term" else "win+r ->{0.6} type:cmd",
                         fontFamily = FontFamily.Monospace,
                         fontSize = 14.sp,
                         maxLines = 1,

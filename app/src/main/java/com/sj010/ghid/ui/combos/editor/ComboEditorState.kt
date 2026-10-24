@@ -15,10 +15,11 @@ import com.sj010.ghid.domain.parser.SequenceAnalyzer
  */
 class ComboEditorState(
     private val initial: Combo?,
-    initialScheme: String = ""
+    initialScheme: String = "",
+    defaultOs: TargetOs = TargetOs.WINDOWS
 ) {
     var name by mutableStateOf(initial?.name.orEmpty())
-    var os by mutableStateOf(TargetOs.fromComboTag(initial?.os))
+    var os by mutableStateOf(if (initial != null) TargetOs.fromComboTag(initial.os) else defaultOs)
     var description by mutableStateOf(initial?.description.orEmpty())
     var scheme by mutableStateOf(initial?.keys ?: initialScheme)
 

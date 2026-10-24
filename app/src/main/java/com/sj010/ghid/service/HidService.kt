@@ -11,6 +11,7 @@ import android.bluetooth.BluetoothHidDeviceAppSdpSettings
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -22,6 +23,7 @@ import com.sj010.ghid.domain.model.ConnectionStatus
 import com.sj010.ghid.domain.model.HidStep
 import com.sj010.ghid.domain.model.HostOsFingerprint
 import com.sj010.ghid.domain.model.LogEntry
+import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.os.HostOsClassifier
 import com.sj010.ghid.domain.parser.ActionSequenceParser
 import com.sj010.ghid.domain.parser.KeyTokens
@@ -80,6 +82,10 @@ class HidService : Service() {
     private val _targetOs = MutableStateFlow(HostOsFingerprint.Unknown)
     val targetOs: StateFlow<HostOsFingerprint> = _targetOs.asStateFlow()
 
+    // Effective target OS resolved across fingerprint, cache, OUI, and device name
+    private val _effectiveTargetOs = MutableStateFlow(TargetOs.WINDOWS)
+    val effectiveTargetOs: StateFlow<TargetOs> = _effectiveTargetOs.asStateFlow()
+
     private val deviceOsCache: DeviceOsCache
         get() = GhostHidApp.instance.deviceOsCache
 
@@ -89,6 +95,9 @@ class HidService : Service() {
     private var ledHandshakeSeen = false
 
     companion object {
+        var instance: HidService? = null
+            private set
+
         const val TAG = "GHOST_HID"
         const val CHANNEL_ID = "ghost_hid_gateway"
         const val ACTION_CMD = "com.sj010.ghid.ACTION_CMD"
@@ -108,13 +117,13 @@ class HidService : Service() {
         // A click must be long enough for every host stack to sample it, and
         // the two cycles must sit inside the OS double-click window (~500 ms).
         // The gaps are generous because some Bluetooth stacks coalesce reports
-        // that arrive only a few milliseconds apart.
-        private const val TARGET_SWITCH_SETTLE_MS = 800L
-        private const val CLICK_PRESS_MS = 48L
-        private const val CLICK_SETTLE_MS = 30L
+        // aggressively when the radio is busy.
+        private const val CLICK_PRESS_MS = 28L
+        private const val CLICK_SETTLE_MS = 36L
         private const val CLICK_GAP_MS = 90L
         private const val WHEEL_SETTLE_MS = 14L
         private const val MOVE_CHUNK_GAP_MS = 6L
+        private const val TARGET_SWITCH_SETTLE_MS = 350L
 
         private val HID_DESCRIPTOR = byteArrayOf(
             // Mouse collection (Report ID 2)
@@ -176,19 +185,51 @@ class HidService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         try {
             logFile = File(getExternalFilesDir(null), "gateway.log")
         } catch (ignored: Exception) {}
 
         createNotificationChannel()
         try {
-            startForeground(1001, buildNotification("Ready"))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    1001,
+                    buildNotification("Ready"),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                )
+            } else {
+                startForeground(1001, buildNotification("Ready"))
+            }
         } catch (e: SecurityException) {
             log("Deferred foreground start: missing connectedDevice permission")
+        } catch (e: Exception) {
+            try {
+                startForeground(1001, buildNotification("Ready"))
+            } catch (ignored: Exception) {}
         }
 
         log("GhostHID Service started.")
         initBluetooth()
+    }
+
+    fun resolveEffectiveOs(): TargetOs {
+        val fp = _targetOs.value
+        if (fp.isKnown) return fp.os
+
+        val device = targetDevice
+        if (device != null) {
+            val cached = device.address?.let { deviceOsCache.get(it) }
+            if (cached?.isKnown == true) return cached.os
+            if (HostOsClassifier.isAppleOui(device.address)) return TargetOs.MACOS
+            val byName = HostOsClassifier.fromName(safeDeviceName(device))
+            if (byName?.isKnown == true) return byName.os
+        }
+        return TargetOs.WINDOWS
+    }
+
+    fun updateEffectiveTargetOs() {
+        _effectiveTargetOs.value = resolveEffectiveOs()
     }
 
     private fun createNotificationChannel() {
@@ -297,6 +338,7 @@ class HidService : Service() {
                 stopOsDetection()
                 updateNotification("Status: $status")
             }
+            updateEffectiveTargetOs()
             writeStatusFile()
         }
 
@@ -364,6 +406,7 @@ class HidService : Service() {
         } catch (e: Exception) {
             log("refreshDevices error: ${e.message}")
         }
+        updateEffectiveTargetOs()
         writeStatusFile()
     }
 
@@ -394,6 +437,7 @@ class HidService : Service() {
             log("restoreTargetSelection error: ${e.message}")
             _targetSelectionReady.value = true
         }
+        updateEffectiveTargetOs()
     }
 
     fun connectTarget(specificAddress: String? = null) {
@@ -466,30 +510,42 @@ class HidService : Service() {
                 _targetDeviceState.value = null
                 _connectionState.value = ConnectionStatus.DISCONNECTED
                 stopOsDetection()
+                updateEffectiveTargetOs()
                 writeStatusFile()
             }
         } catch (e: Exception) {
-            log("Unpair error: ${e.message}")
+            log("unpairTarget error: ${e.message}")
         }
     }
 
-    fun sendRawReport(report: ByteArray) {
-        val reportId = when (report.size) {
-            1 -> SYSTEM_REPORT_ID
-            2 -> CONSUMER_REPORT_ID
-            4 -> MOUSE_REPORT_ID
-            8 -> KEYBOARD_REPORT_ID
-            else -> KEYBOARD_REPORT_ID
-        }
-        sendRawReport(reportId, report)
-    }
-
-    fun sendRawReport(reportId: Int, report: ByteArray) {
+    fun sendRawReport(bytes: ByteArray) {
         val hid = hidDevice ?: return
         val target = targetDevice ?: return
         executor.execute {
-            val ok = hid.sendReport(target, reportId, report)
-            log("sendRawReport(id=$reportId, len=${report.size}) -> $ok")
+            log(">>> Executing Raw Report (${bytes.size} bytes)...")
+            // Map common payload lengths to their standard report IDs:
+            // 1 byte  -> System Control (0x03)
+            // 2 bytes -> Consumer Control (0x04)
+            // 4 bytes -> Mouse (0x02)
+            // 8 bytes -> Keyboard (0x01)
+            val reportId = when (bytes.size) {
+                1 -> SYSTEM_REPORT_ID
+                2 -> CONSUMER_REPORT_ID
+                4 -> MOUSE_REPORT_ID
+                8 -> KEYBOARD_REPORT_ID
+                else -> KEYBOARD_REPORT_ID
+            }
+            sendRawReport(reportId, bytes)
+        }
+    }
+
+    fun sendRawReport(reportId: Int, bytes: ByteArray) {
+        val hid = hidDevice ?: return
+        val target = targetDevice ?: return
+        executor.execute {
+            log(">>> Executing Raw Report ID $reportId (${bytes.size} bytes)...")
+            val ok = hid.sendReport(target, reportId, bytes)
+            log("sendReport(id=$reportId) returned: $ok")
         }
     }
 
@@ -498,8 +554,8 @@ class HidService : Service() {
         val target = targetDevice ?: return
         executor.execute {
             log(">>> Executing System Sleep (Report $SYSTEM_REPORT_ID)...")
-            val down = byteArrayOf(0x02.toByte())
-            val up = byteArrayOf(0x00.toByte())
+            val down = byteArrayOf(0x02) // Bit 1 is System Sleep (0x02)
+            val up = byteArrayOf(0x00)
             val r1 = hid.sendReport(target, SYSTEM_REPORT_ID, down)
             try { Thread.sleep(60) } catch (ignored: Exception) {}
             val r2 = hid.sendReport(target, SYSTEM_REPORT_ID, up)
@@ -521,6 +577,28 @@ class HidService : Service() {
         }
     }
 
+    fun sendLock() {
+        val os = resolveEffectiveOs()
+        if (os == TargetOs.MACOS) {
+            sendMacLock()
+        } else {
+            sendWinL()
+        }
+    }
+
+    fun sendMacLock() {
+        val hid = hidDevice ?: return
+        val target = targetDevice ?: return
+        executor.execute {
+            log(">>> Executing macOS Lock (Cmd+Ctrl+Q)...")
+            val down = byteArrayOf(0x09.toByte(), 0x00, 0x14.toByte(), 0, 0, 0, 0, 0)
+            val up = ByteArray(8)
+            hid.sendReport(target, KEYBOARD_REPORT_ID, down)
+            try { Thread.sleep(70) } catch (ignored: Exception) {}
+            hid.sendReport(target, KEYBOARD_REPORT_ID, up)
+        }
+    }
+
     fun sendWinL() {
         val hid = hidDevice ?: return
         val target = targetDevice ?: return
@@ -528,9 +606,9 @@ class HidService : Service() {
             log(">>> Executing Win+L...")
             val down = byteArrayOf(0x08.toByte(), 0x00, 0x0F.toByte(), 0, 0, 0, 0, 0)
             val up = ByteArray(8)
-            hid.sendReport(target, 1, down)
+            hid.sendReport(target, KEYBOARD_REPORT_ID, down)
             try { Thread.sleep(70) } catch (ignored: Exception) {}
-            hid.sendReport(target, 1, up)
+            hid.sendReport(target, KEYBOARD_REPORT_ID, up)
         }
     }
 
@@ -540,9 +618,9 @@ class HidService : Service() {
         executor.execute {
             val down = byteArrayOf(modifier, 0, keyCode, 0, 0, 0, 0, 0)
             val up = ByteArray(8)
-            hid.sendReport(target, 1, down)
+            hid.sendReport(target, KEYBOARD_REPORT_ID, down)
             try { Thread.sleep(if (durationMs > 0) durationMs else 40) } catch (ignored: Exception) {}
-            hid.sendReport(target, 1, up)
+            hid.sendReport(target, KEYBOARD_REPORT_ID, up)
             try { Thread.sleep(20) } catch (ignored: Exception) {}
         }
     }
@@ -559,9 +637,9 @@ class HidService : Service() {
                 if (code != 0.toByte()) {
                     val down = byteArrayOf(modifier, 0, code, 0, 0, 0, 0, 0)
                     val up = ByteArray(8)
-                    hid.sendReport(target, 1, down)
+                    hid.sendReport(target, KEYBOARD_REPORT_ID, down)
                     try { Thread.sleep(25) } catch (ignored: Exception) {}
-                    hid.sendReport(target, 1, up)
+                    hid.sendReport(target, KEYBOARD_REPORT_ID, up)
                     try { Thread.sleep(25) } catch (ignored: Exception) {}
                 }
             }
@@ -752,7 +830,7 @@ class HidService : Service() {
                             typeText(value)
                             delay(value.length * 50L + 50L)
                         } else {
-                            log("Variable $${step.name} empty or unresolved")
+                            log("Variable \$${step.name} empty or unresolved")
                         }
                     }
                     is HidStep.MouseAction -> {
@@ -845,6 +923,7 @@ class HidService : Service() {
         // Unknown while the LED window is open; the timer or a SET_REPORT
         // resolves it within 500 ms.
         _targetOs.value = HostOsFingerprint.Unknown
+        updateEffectiveTargetOs()
         osDetectionJob = scope.launch {
             delay(HostOsClassifier.LED_HANDSHAKE_WINDOW_MS)
             val classified = HostOsClassifier.classify(
@@ -863,6 +942,7 @@ class HidService : Service() {
         osDetectionJob = null
         ledHandshakeSeen = false
         _targetOs.value = HostOsFingerprint.Unknown
+        updateEffectiveTargetOs()
     }
 
     private fun publishFingerprint(
@@ -873,6 +953,7 @@ class HidService : Service() {
         if (fingerprint.isKnown && deviceAddress != null) {
             deviceOsCache.put(deviceAddress, fingerprint)
         }
+        updateEffectiveTargetOs()
         log(
             "Host OS: ${fingerprint.os.label} " +
                 "(${fingerprint.confidence.token} confidence via ${fingerprint.method})"
@@ -893,55 +974,65 @@ class HidService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent != null) {
-            val action = intent.action
-            val cmd = intent.getStringExtra("cmd")
+            handleIntent(intent)
+        }
+        return START_STICKY
+    }
 
-            when {
-                "stop".equals(cmd, ignoreCase = true) -> stopSelf()
-                ACTION_LOCK == action || "lock".equals(cmd, ignoreCase = true) -> sendWinL()
-                "sleep".equals(cmd, ignoreCase = true) -> sendSystemSleep()
-                "raw".equals(cmd, ignoreCase = true) -> {
-                    val hex = intent.getStringExtra("hex")
-                    val hasExplicitId = intent.hasExtra("id")
-                    if (!hex.isNullOrEmpty()) {
-                        val cleanHex = hex.replace(" ", "")
-                        if (cleanHex.length % 2 == 0) {
-                            val bytes = ByteArray(cleanHex.length / 2) { i ->
-                                cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
-                            }
-                            if (hasExplicitId) {
-                                sendRawReport(intent.getIntExtra("id", KEYBOARD_REPORT_ID), bytes)
-                            } else {
-                                sendRawReport(bytes)
-                            }
+    fun handleIntent(intent: Intent) {
+        val action = intent.action
+        val cmd = intent.getStringExtra("cmd")
+
+        when {
+            "stop".equals(cmd, ignoreCase = true) -> stopSelf()
+            ACTION_LOCK == action || "lock".equals(cmd, ignoreCase = true) -> sendLock()
+            "sleep".equals(cmd, ignoreCase = true) -> {
+                if (resolveEffectiveOs() == TargetOs.MACOS) {
+                    executeCombo("cmd+ctrl+q ->{0.5} esc")
+                } else {
+                    sendSystemSleep()
+                }
+            }
+            "raw".equals(cmd, ignoreCase = true) -> {
+                val hex = intent.getStringExtra("hex")
+                val hasExplicitId = intent.hasExtra("id")
+                if (!hex.isNullOrEmpty()) {
+                    val cleanHex = hex.replace(" ", "")
+                    if (cleanHex.length % 2 == 0) {
+                        val bytes = ByteArray(cleanHex.length / 2) { i ->
+                            cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+                        }
+                        if (hasExplicitId) {
+                            sendRawReport(intent.getIntExtra("id", KEYBOARD_REPORT_ID), bytes)
+                        } else {
+                            sendRawReport(bytes)
                         }
                     }
                 }
-                "media".equals(cmd, ignoreCase = true) -> {
-                    val key = intent.getStringExtra("key")?.lowercase(Locale.ROOT)
-                    when (key) {
-                        "play", "pause", "playpause" -> sendConsumerKey(0x00CD)
-                        "next", "next-track" -> sendConsumerKey(0x00B5)
-                        "prev", "prev-track" -> sendConsumerKey(0x00B6)
-                        "volup", "volume-up" -> sendConsumerKey(0x00E9)
-                        "voldown", "volume-down" -> sendConsumerKey(0x00EA)
-                        "mute" -> sendConsumerKey(0x00E2)
-                    }
-                }
-                ACTION_TYPE == action || "type".equals(cmd, ignoreCase = true) -> typeText(intent.getStringExtra("text"))
-                "combo".equals(cmd, ignoreCase = true) -> {
-                    val keys = intent.getStringExtra("keys")
-                    if (!keys.isNullOrEmpty()) executeCombo(keys)
-                }
-                "mouse".equals(cmd, ignoreCase = true) -> sendMouse(intent.getStringExtra("action"))
-                "connect".equals(cmd, ignoreCase = true) -> connectTarget(intent.getStringExtra("address"))
-                "disconnect".equals(cmd, ignoreCase = true) -> disconnectTarget()
-                "unpair".equals(cmd, ignoreCase = true) -> unpairTarget(intent.getStringExtra("address"))
-                "register".equals(cmd, ignoreCase = true) -> registerHidApp()
-                "status".equals(cmd, ignoreCase = true) -> writeStatusFile()
             }
+            "media".equals(cmd, ignoreCase = true) -> {
+                val key = intent.getStringExtra("key")?.lowercase(Locale.ROOT)
+                when (key) {
+                    "play", "pause", "playpause" -> sendConsumerKey(0x00CD)
+                    "next", "next-track" -> sendConsumerKey(0x00B5)
+                    "prev", "prev-track" -> sendConsumerKey(0x00B6)
+                    "volup", "volume-up" -> sendConsumerKey(0x00E9)
+                    "voldown", "volume-down" -> sendConsumerKey(0x00EA)
+                    "mute" -> sendConsumerKey(0x00E2)
+                }
+            }
+            ACTION_TYPE == action || "type".equals(cmd, ignoreCase = true) -> typeText(intent.getStringExtra("text"))
+            "combo".equals(cmd, ignoreCase = true) -> {
+                val keys = intent.getStringExtra("keys")
+                if (!keys.isNullOrEmpty()) executeCombo(keys)
+            }
+            "mouse".equals(cmd, ignoreCase = true) -> sendMouse(intent.getStringExtra("action"))
+            "connect".equals(cmd, ignoreCase = true) -> connectTarget(intent.getStringExtra("address"))
+            "disconnect".equals(cmd, ignoreCase = true) -> disconnectTarget()
+            "unpair".equals(cmd, ignoreCase = true) -> unpairTarget(intent.getStringExtra("address"))
+            "register".equals(cmd, ignoreCase = true) -> registerHidApp()
+            "status".equals(cmd, ignoreCase = true) -> writeStatusFile()
         }
-        return START_STICKY
     }
 
     fun log(msg: String) {
@@ -963,6 +1054,9 @@ class HidService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (instance == this) {
+            instance = null
+        }
         stopForeground(STOP_FOREGROUND_REMOVE)
         hidDevice?.let { hid ->
             try { hid.unregisterApp() } catch (ignored: Exception) {}

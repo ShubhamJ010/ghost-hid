@@ -45,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,10 +79,16 @@ fun ComboEditorScreen(
     initial: Combo?,
     initialScheme: String = "",
     service: HidService?,
+    defaultOs: TargetOs? = null,
     onDismiss: () -> Unit,
     onSave: (Combo) -> Unit
 ) {
-    val state = remember(initial, initialScheme) { ComboEditorState(initial, initialScheme) }
+    val detectedOs by service?.effectiveTargetOs?.collectAsState()
+        ?: remember { mutableStateOf(defaultOs ?: TargetOs.WINDOWS) }
+    val resolvedDefaultOs = defaultOs ?: (if (detectedOs.isKnown) detectedOs else TargetOs.WINDOWS)
+    val state = remember(initial, initialScheme, resolvedDefaultOs) {
+        ComboEditorState(initial, initialScheme, resolvedDefaultOs)
+    }
     val clipboard = LocalClipboardManager.current
     val haptic = LocalHapticFeedback.current
 
