@@ -1036,7 +1036,7 @@ class HidService : Service() {
     }
 
     fun log(msg: String) {
-        val line = "[\${timeFormat.format(Date())}] $msg"
+        val line = "[${timeFormat.format(Date())}] $msg"
         Log.d(TAG, msg)
         val entry = LogEntry(timeFormat.format(Date()), msg)
         _logs.value = (_logs.value + entry).takeLast(100)
