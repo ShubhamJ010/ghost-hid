@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Material You color attributes declared so they can be resolved
+      across all API levels in styles and drawables.
+    -->
+    <attr name="colorPrimary" format="color" />
+    <attr name="colorOnPrimary" format="color" />
+</resources>

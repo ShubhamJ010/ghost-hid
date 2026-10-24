@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      Splash screen theme for GhostHID.
+      Follows Material You Expressive guidelines with androidx.core:core-splashscreen.
+      On Android 12+ (API 31+), windowSplashScreenAnimatedIcon plays the expressive
+      AnimatedVectorDrawable within the system's dynamic Monet palette circle.
+    -->
+    <style name="Theme.GhostHid" parent="Theme.SplashScreen">
+        <!-- Pre-Android 12 Fallback Colors -->
+        <item name="colorPrimary">@color/splash_primary</item>
+        <item name="colorOnPrimary">@color/splash_on_primary</item>
+
+        <!-- Expressive Animated Vector Icon (Ghost floating & phantom-tapping the keyboard) -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/avd_splash_ghost_keyboard</item>
+
+        <!-- Material You dynamic background for splash icon circle -->
+        <item name="windowSplashScreenIconBackgroundColor">@color/splash_icon_background</item>
+        <item name="windowSplashScreenAnimationDuration">800</item>
+
+        <!-- Handoff to main application theme once splash finishes -->
+        <item name="postSplashScreenTheme">@style/Theme.GhostHid.Main</item>
+
+        <!-- AndroidX splash screen background for API < 31 -->
+        <item name="windowSplashScreenBackground">@color/splash_window_background</item>
+
+        <!-- Dynamic system splash screen background for API 31+ -->
+        <item name="android:windowSplashScreenBackground">?android:attr/colorBackground</item>
+    </style>
+
+    <!-- Post-splash theme: Seamlessly matches previous theme for Jetpack Compose -->
+    <style name="Theme.GhostHid.Main" parent="@android:style/Theme.Material.NoActionBar" />
+
+</resources>

@@ -1,6 +1,22 @@
 <resources>
+    <!-- Launcher Icon Colors -->
     <color name="ic_launcher_background">#002621</color>
     <color name="ic_launcher_foreground_color">#B2DFDB</color>
     <color name="ic_launcher_keyboard">#004D40</color>
     <color name="ic_launcher_keyboard_accent">#80CBC4</color>
+
+    <!-- Splash Theme Material 3 Cyberpunk Palette (Pre-API 31 Fallback) -->
+    <color name="splash_primary">#00E5FF</color>
+    <color name="splash_on_primary">#00363D</color>
+    <color name="splash_window_background">#0F1416</color>
+    <color name="splash_icon_background">#002621</color>
+    <color name="splash_halo">#00E5FF</color>
+    <color name="splash_ghost_fill">#8CF4FF</color>
+    <color name="splash_ghost_pulse">#FFFFFF</color>
+    <color name="splash_ghost_stroke">#00E5FF</color>
+    <color name="splash_keyboard_body">#003830</color>
+    <color name="splash_keyboard_stroke">#00E5FF</color>
+    <color name="splash_keyboard_keys">#80CBC4</color>
+    <color name="splash_keyboard_keys_active">#FFFFFF</color>
+    <color name="splash_signal">#00E5FF</color>
 </resources>

@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="108dp"
+            android:height="108dp"
+            android:viewportWidth="108"
+            android:viewportHeight="108">
+
+            <!-- 1. Ambient Material 3 Expressive Aura (Soft squircle behind ghost) -->
+            <group
+                android:name="haloGroup"
+                android:pivotX="54"
+                android:pivotY="44"
+                android:scaleX="1.0"
+                android:scaleY="1.0">
+                <path
+                    android:name="path_halo"
+                    android:fillColor="@color/splash_halo"
+                    android:fillAlpha="0.22"
+                    android:pathData="M54,24 C65,24 74,33 74,44 C74,55 65,64 54,64 C43,64 34,55 34,44 C34,33 43,24 54,24 Z" />
+            </group>
+
+            <!-- 2. Phantom Wireless Energy Beams (Transmitting from ghost to keyboard) -->
+            <group
+                android:name="signalGroup"
+                android:pivotX="54"
+                android:pivotY="56"
+                android:scaleX="0.85"
+                android:scaleY="0.85">
+                <path
+                    android:name="path_signal_1"
+                    android:fillColor="@android:color/transparent"
+                    android:strokeColor="@color/splash_signal"
+                    android:strokeWidth="1.2"
+                    android:strokeLineCap="round"
+                    android:strokeAlpha="0.0"
+                    android:pathData="M48,54 C52,52 56,52 60,54" />
+                <path
+                    android:name="path_signal_2"
+                    android:fillColor="@android:color/transparent"
+                    android:strokeColor="@color/splash_signal"
+                    android:strokeWidth="1.0"
+                    android:strokeLineCap="round"
+                    android:strokeAlpha="0.0"
+                    android:pathData="M45,57 C51,54 57,54 63,57" />
+            </group>
+
+            <!-- 3. Reactive Keyboard Subsystem -->
+            <!-- Local Center: (12, 12), Scaled 2.1x, Canvas Position: (54, 68) -->
+            <group
+                android:name="keyboardGroup"
+                android:pivotX="12"
+                android:pivotY="12"
+                android:scaleX="2.1"
+                android:scaleY="2.1"
+                android:translateX="42"
+                android:translateY="56">
+
+                <!-- Keyboard Body Base -->
+                <path
+                    android:name="path_keyboard_body"
+                    android:fillColor="@color/splash_keyboard_body"
+                    android:strokeColor="@color/splash_keyboard_stroke"
+                    android:strokeWidth="0.75"
+                    android:strokeLineJoin="round"
+                    android:pathData="M17,6C18.8856,6 19.8284,6 20.4142,6.58579C21,7.17157 21,8.11438 21,10L21,12L21,14C21,15.8856 21,16.8284 20.4142,17.4142C19.8284,18 18.8856,18 17,18L12,18L7,18C5.11438,18 4.17157,18 3.58579,17.4142C3,16.8284 3,15.8856 3,14L3,12L3,10C3,8.11438 3,7.17157 3.58579,6.58579C4.17157,6 5.11438,6 7,6L12,6L17,6Z" />
+
+                <!-- Keyboard Keys & Spacebar -->
+                <path
+                    android:name="path_keyboard_keys"
+                    android:fillColor="@android:color/transparent"
+                    android:strokeColor="@color/splash_keyboard_keys"
+                    android:strokeWidth="0.9"
+                    android:strokeLineCap="round"
+                    android:strokeLineJoin="round"
+                    android:pathData="M10,14L14,14M17.5,10L17.5,10.01M14,9.99L14,10M17.5,13.99L17.5,14M6.5,14L6.5,14.01M10,10L10,10.01M6.5,10L6.5,10.01" />
+            </group>
+
+            <!-- 4. Floating & Tapping Ghost Subsystem -->
+            <!-- Local Center: (16, 16), Scaled 1.25x, Canvas Position: (54, 44) -->
+            <group
+                android:name="ghostGroup"
+                android:pivotX="16"
+                android:pivotY="16"
+                android:scaleX="1.25"
+                android:scaleY="1.25"
+                android:translateX="38"
+                android:translateY="28"
+                android:rotation="0">
+
+                <!-- Ghost Body & Cutout Face (Eyes + Mouth) -->
+                <path
+                    android:name="path_ghost_body"
+                    android:fillColor="@color/splash_ghost_fill"
+                    android:pathData="M29.8,27.4l-3.6,-4.8C24.1,19.9 23,16.4 23,13c0,-5.5 -4.5,-10 -10,-10S3,7.5 3,13v6.1c0,5.4 4.4,9.9 9.9,9.9H29c0.4,0 0.7,-0.2 0.9,-0.6C30.1,28.1 30,27.7 29.8,27.4zM12,9c0,-0.6 0.4,-1 1,-1s1,0.4 1,1v2c0,0.6 -0.4,1 -1,1s-1,-0.4 -1,-1V9zM8,9c0,-0.6 0.4,-1 1,-1s1,0.4 1,1v2c0,0.6 -0.4,1 -1,1s-1,-0.4 -1,-1V9zM15,20c0,0.6 -0.4,1 -1,1H8c-0.6,0 -1,-0.4 -1,-1v-3c0,-2.2 1.8,-4 4,-4s4,1.8 4,4V20z" />
+            </group>
+
+        </vector>
+    </aapt:attr>
+
+    <!-- ANIMATION TARGETS -->
+
+    <!-- Ghost Floating, Dipping, and Hover Bounce Animation -->
+    <target android:name="ghostGroup">
+        <aapt:attr name="android:animation">
+            <set>
+                <!-- Translate Y: Float down, tap keyboard, spring back up -->
+                <set>
+                    <objectAnimator
+                        android:duration="320"
+                        android:propertyName="translateY"
+                        android:valueFrom="28"
+                        android:valueTo="32"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <objectAnimator
+                        android:duration="100"
+                        android:startOffset="320"
+                        android:propertyName="translateY"
+                        android:valueFrom="32"
+                        android:valueTo="32" />
+                    <objectAnimator
+                        android:duration="380"
+                        android:startOffset="420"
+                        android:propertyName="translateY"
+                        android:valueFrom="32"
+                        android:valueTo="28"
+                        android:interpolator="@android:anim/overshoot_interpolator" />
+                </set>
+
+                <!-- Rotation: Ethereal sway -->
+                <set>
+                    <objectAnimator
+                        android:duration="280"
+                        android:propertyName="rotation"
+                        android:valueFrom="0"
+                        android:valueTo="-4.5"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <objectAnimator
+                        android:duration="270"
+                        android:startOffset="280"
+                        android:propertyName="rotation"
+                        android:valueFrom="-4.5"
+                        android:valueTo="3.5"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <objectAnimator
+                        android:duration="250"
+                        android:startOffset="550"
+                        android:propertyName="rotation"
+                        android:valueFrom="3.5"
+                        android:valueTo="0"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                </set>
+
+                <!-- Scale X: Squash & Stretch Physics -->
+                <set>
+                    <objectAnimator
+                        android:duration="320"
+                        android:propertyName="scaleX"
+                        android:valueFrom="1.25"
+                        android:valueTo="1.18"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <objectAnimator
+                        android:duration="120"
+                        android:startOffset="320"
+                        android:propertyName="scaleX"
+                        android:valueFrom="1.18"
+                        android:valueTo="1.32"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <objectAnimator
+                        android:duration="360"
+                        android:startOffset="440"
+                        android:propertyName="scaleX"
+                        android:valueFrom="1.32"
+                        android:valueTo="1.25"
+                        android:interpolator="@android:anim/overshoot_interpolator" />
+                </set>
+
+                <!-- Scale Y: Squash & Stretch Physics -->
+                <set>
+                    <objectAnimator
+                        android:duration="320"
+                        android:propertyName="scaleY"
+                        android:valueFrom="1.25"
+                        android:valueTo="1.33"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <objectAnimator
+                        android:duration="120"
+                        android:startOffset="320"
+                        android:propertyName="scaleY"
+                        android:valueFrom="1.33"
+                        android:valueTo="1.18"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <objectAnimator
+                        android:duration="360"
+                        android:startOffset="440"
+                        android:propertyName="scaleY"
+                        android:valueFrom="1.18"
+                        android:valueTo="1.25"
+                        android:interpolator="@android:anim/overshoot_interpolator" />
+                </set>
+            </set>
+        </aapt:attr>
+    </target>
+
+    <!-- Ghost Color Pulse on Keystroke Impact -->
+    <target android:name="path_ghost_body">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:duration="180"
+                    android:startOffset="300"
+                    android:propertyName="fillColor"
+                    android:valueFrom="@color/splash_ghost_fill"
+                    android:valueTo="@color/splash_ghost_pulse" />
+                <objectAnimator
+                    android:duration="320"
+                    android:startOffset="480"
+                    android:propertyName="fillColor"
+                    android:valueFrom="@color/splash_ghost_pulse"
+                    android:valueTo="@color/splash_ghost_fill" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <!-- Keyboard Reactive Bounce -->
+    <target android:name="keyboardGroup">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:duration="130"
+                    android:startOffset="310"
+                    android:propertyName="translateY"
+                    android:valueFrom="56"
+                    android:valueTo="57.5"
+                    android:interpolator="@android:interpolator/fast_out_slow_in" />
+                <objectAnimator
+                    android:duration="360"
+                    android:startOffset="440"
+                    android:propertyName="translateY"
+                    android:valueFrom="57.5"
+                    android:valueTo="56"
+                    android:interpolator="@android:anim/overshoot_interpolator" />
+
+                <!-- Subtle width compression -->
+                <objectAnimator
+                    android:duration="130"
+                    android:startOffset="310"
+                    android:propertyName="scaleX"
+                    android:valueFrom="2.1"
+                    android:valueTo="2.14" />
+                <objectAnimator
+                    android:duration="360"
+                    android:startOffset="440"
+                    android:propertyName="scaleX"
+                    android:valueFrom="2.14"
+                    android:valueTo="2.1"
+                    android:interpolator="@android:anim/overshoot_interpolator" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <!-- Keyboard Keycaps Electric Light-Up on Ghost Tap -->
+    <target android:name="path_keyboard_keys">
+        <aapt:attr name="android:animation">
+            <set>
+                <!-- Color shift to brilliant active keystroke hue -->
+                <objectAnimator
+                    android:duration="160"
+                    android:startOffset="290"
+                    android:propertyName="strokeColor"
+                    android:valueFrom="@color/splash_keyboard_keys"
+                    android:valueTo="@color/splash_keyboard_keys_active" />
+                <objectAnimator
+                    android:duration="350"
+                    android:startOffset="450"
+                    android:propertyName="strokeColor"
+                    android:valueFrom="@color/splash_keyboard_keys_active"
+                    android:valueTo="@color/splash_keyboard_keys" />
+
+                <!-- Stroke width glow pulse -->
+                <objectAnimator
+                    android:duration="160"
+                    android:startOffset="290"
+                    android:propertyName="strokeWidth"
+                    android:valueFrom="0.9"
+                    android:valueTo="1.35" />
+                <objectAnimator
+                    android:duration="350"
+                    android:startOffset="450"
+                    android:propertyName="strokeWidth"
+                    android:valueFrom="1.35"
+                    android:valueTo="0.9" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <!-- Wireless Phantom HID Signal Wave Pulse -->
+    <target android:name="signalGroup">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:duration="350"
+                    android:startOffset="280"
+                    android:propertyName="scaleX"
+                    android:valueFrom="0.85"
+                    android:valueTo="1.25"
+                    android:interpolator="@android:interpolator/fast_out_slow_in" />
+                <objectAnimator
+                    android:duration="350"
+                    android:startOffset="280"
+                    android:propertyName="scaleY"
+                    android:valueFrom="0.85"
+                    android:valueTo="1.25"
+                    android:interpolator="@android:interpolator/fast_out_slow_in" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <target android:name="path_signal_1">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:duration="120"
+                    android:startOffset="280"
+                    android:propertyName="strokeAlpha"
+                    android:valueFrom="0.0"
+                    android:valueTo="0.9" />
+                <objectAnimator
+                    android:duration="230"
+                    android:startOffset="400"
+                    android:propertyName="strokeAlpha"
+                    android:valueFrom="0.9"
+                    android:valueTo="0.0" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <target android:name="path_signal_2">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:duration="140"
+                    android:startOffset="320"
+                    android:propertyName="strokeAlpha"
+                    android:valueFrom="0.0"
+                    android:valueTo="0.8" />
+                <objectAnimator
+                    android:duration="240"
+                    android:startOffset="460"
+                    android:propertyName="strokeAlpha"
+                    android:valueFrom="0.8"
+                    android:valueTo="0.0" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <!-- Halo / Aura Subtle Expansion -->
+    <target android:name="haloGroup">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:duration="250"
+                    android:startOffset="250"
+                    android:propertyName="scaleX"
+                    android:valueFrom="1.0"
+                    android:valueTo="1.18"
+                    android:interpolator="@android:interpolator/fast_out_slow_in" />
+                <objectAnimator
+                    android:duration="300"
+                    android:startOffset="500"
+                    android:propertyName="scaleX"
+                    android:valueFrom="1.18"
+                    android:valueTo="1.0"
+                    android:interpolator="@android:interpolator/fast_out_slow_in" />
+                <objectAnimator
+                    android:duration="250"
+                    android:startOffset="250"
+                    android:propertyName="scaleY"
+                    android:valueFrom="1.0"
+                    android:valueTo="1.18"
+                    android:interpolator="@android:interpolator/fast_out_slow_in" />
+                <objectAnimator
+                    android:duration="300"
+                    android:startOffset="500"
+                    android:propertyName="scaleY"
+                    android:valueFrom="1.18"
+                    android:valueTo="1.0"
+                    android:interpolator="@android:interpolator/fast_out_slow_in" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <target android:name="path_halo">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:duration="200"
+                    android:startOffset="250"
+                    android:propertyName="fillAlpha"
+                    android:valueFrom="0.22"
+                    android:valueTo="0.5" />
+                <objectAnimator
+                    android:duration="350"
+                    android:startOffset="450"
+                    android:propertyName="fillAlpha"
+                    android:valueFrom="0.5"
+                    android:valueTo="0.22" />
+            </set>
+        </aapt:attr>
+    </target>
+
+</animated-vector>
