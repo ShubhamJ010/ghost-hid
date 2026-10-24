@@ -1,22 +1,26 @@
 <resources>
-    <!-- Launcher Icon Colors (Dynamic Monet) -->
-    <color name="ic_launcher_background">@android:color/system_accent1_900</color>
+    <!-- Launcher Icon Colors (Material You Multi-Tone Palette) -->
+    <!-- Deep dark neutral canvas (like WaifuPX background) -->
+    <color name="ic_launcher_background">@android:color/system_neutral1_900</color>
+    <!-- Luminous primary Monet accent for the floating ghost -->
     <color name="ic_launcher_foreground_color">@android:color/system_accent1_100</color>
-    <color name="ic_launcher_keyboard">@android:color/system_accent1_800</color>
-    <color name="ic_launcher_keyboard_accent">@android:color/system_accent1_200</color>
+    <!-- Elevated secondary/neutral container for the keyboard body -->
+    <color name="ic_launcher_keyboard">@android:color/system_neutral2_800</color>
+    <!-- Contrasting tertiary Monet accent (sage/olive) for keycaps & stroke -->
+    <color name="ic_launcher_keyboard_accent">@android:color/system_accent3_200</color>
 
     <!-- Splash Theme Material You Dynamic Monet Palette (API 31+) -->
     <color name="splash_primary">@android:color/system_accent1_100</color>
     <color name="splash_on_primary">@android:color/system_accent1_900</color>
     <color name="splash_window_background">@android:color/system_neutral1_900</color>
-    <color name="splash_icon_background">@android:color/system_accent1_900</color>
-    <color name="splash_halo">@android:color/system_accent1_700</color>
+    <color name="splash_icon_background">@android:color/system_neutral1_900</color>
+    <color name="splash_halo">@android:color/system_accent2_800</color>
     <color name="splash_ghost_fill">@android:color/system_accent1_100</color>
     <color name="splash_ghost_pulse">@android:color/system_accent1_0</color>
     <color name="splash_ghost_stroke">@android:color/system_accent1_200</color>
-    <color name="splash_keyboard_body">@android:color/system_accent1_800</color>
+    <color name="splash_keyboard_body">@android:color/system_neutral2_800</color>
     <color name="splash_keyboard_stroke">@android:color/system_accent1_300</color>
-    <color name="splash_keyboard_keys">@android:color/system_accent1_200</color>
+    <color name="splash_keyboard_keys">@android:color/system_accent3_200</color>
     <color name="splash_keyboard_keys_active">@android:color/system_accent1_0</color>
-    <color name="splash_signal">@android:color/system_accent2_200</color>
+    <color name="splash_signal">@android:color/system_accent3_200</color>
 </resources>
