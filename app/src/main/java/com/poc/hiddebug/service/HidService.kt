@@ -132,7 +132,11 @@ class HidService : Service() {
         } catch (ignored: Exception) {}
 
         createNotificationChannel()
-        startForeground(1001, buildNotification("GhostHID Gateway: Ready"))
+        try {
+            startForeground(1001, buildNotification("GhostHID Gateway: Ready"))
+        } catch (e: SecurityException) {
+            log("Deferred foreground start: missing connectedDevice permission")
+        }
 
         log("GhostHID Service started.")
         initBluetooth()

@@ -67,7 +67,9 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        // Permissions handled
+        if (hasRequiredBluetoothPermission()) {
+            startAndBindService()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,8 +83,11 @@ class MainActivity : ComponentActivity() {
         )
         preferHighRefreshRate()
 
-        requestRequiredPermissions()
-        startAndBindService()
+        if (hasRequiredBluetoothPermission()) {
+            startAndBindService()
+        } else {
+            requestRequiredPermissions()
+        }
 
         setContent {
             GhostHidTheme {
@@ -106,14 +111,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startAndBindService() {
-        val intent = Intent(this, HidService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
+    private fun hasRequiredBluetoothPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
         } else {
-            startService(intent)
+            true
         }
-        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+
+    private fun startAndBindService() {
+        if (!hasRequiredBluetoothPermission()) return
+        val intent = Intent(this, HidService::class.java)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        } catch (e: Exception) {
+            // Guard against security exceptions or lifecycle changes
+        }
     }
 
     private fun requestRequiredPermissions() {
