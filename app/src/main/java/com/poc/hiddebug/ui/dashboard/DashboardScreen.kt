@@ -91,10 +91,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.poc.hiddebug.GhostHidApp
@@ -171,6 +173,29 @@ fun DashboardScreen(
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+
+            // ==========================================
+            // SECTION 1: APP HEADING
+            // ==========================================
+            item {
+                val hidAccent = MaterialTheme.colorScheme.primary
+                val heading = remember(hidAccent) {
+                    buildAnnotatedString {
+                        append("Ghost")
+                        withStyle(androidx.compose.ui.text.SpanStyle(color = hidAccent)) {
+                            append("HID")
+                        }
+                    }
+                }
+                Text(
+                    text = heading,
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-1.5).sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 8.dp, start = 4.dp)
+                )
+            }
 
             // ==========================================
             // SECTION 2: FAVORITE COMBOS (EXPRESSIVE SHAPES COLLAGE)

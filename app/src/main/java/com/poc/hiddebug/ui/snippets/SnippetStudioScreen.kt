@@ -1,7 +1,6 @@
 package com.poc.hiddebug.ui.snippets
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -14,6 +13,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,40 +23,50 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -67,19 +78,19 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
@@ -91,6 +102,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.poc.hiddebug.GhostHidApp
 import com.poc.hiddebug.domain.model.Snippet
 import com.poc.hiddebug.service.HidService
@@ -150,31 +163,86 @@ fun SnippetShadeContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ==========================================
-            // TOP: NEW SNIPPET PILL BUTTON (M3E shape.full)
+            // TOP: NEW SNIPPET ACTION (M3E expressive hero button)
             // ==========================================
-            Button(
+            val newSnippetInteraction = remember { MutableInteractionSource() }
+            val newSnippetPressed by newSnippetInteraction.collectIsPressedAsState()
+            val newSnippetScale by animateFloatAsState(
+                targetValue = if (newSnippetPressed) 0.97f else 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                ),
+                label = "newSnippetScale"
+            )
+
+            Surface(
                 onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     editingSnippet = null
                     editorOpen = true
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    .height(52.dp),
+                    .graphicsLayer {
+                        scaleX = newSnippetScale
+                        scaleY = newSnippetScale
+                    },
                 shape = CircleShape, // M3E: buttons use shape.full
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                tonalElevation = 2.dp,
+                interactionSource = newSnippetInteraction
             ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "New snippet",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(MaterialShapes.ShapeCookie4)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "New snippet",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            text = "Save a string to type on your PC",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -402,7 +470,7 @@ fun SnippetShadeContent(
     }
 
     if (editorOpen) {
-        ExpressiveSnippetEditorDialog(
+        SnippetEditorPage(
             initial = editingSnippet,
             onDismiss = { editorOpen = false },
             onSave = { name, value, secure ->
@@ -417,20 +485,24 @@ fun SnippetShadeContent(
 // =========================================================================
 // MATERIAL 3 EXPRESSIVE SNIPPET CARD
 //
-// Uses official MaterialShapes catalog for per-card expressive leading icons,
-// CircleShape (shape.full) for action buttons, proper tonal hierarchy,
-// and FilledTonalIconButton for M3-compliant icon actions.
+// A single tonal card per snippet: expressive shape badge, identity + type
+// chip, one monospace value surface, and a primary "Type to PC" action with
+// a secondary copy button. Edit/Delete live in an overflow menu so the card
+// keeps one clear focal action and everything stays at a 48dp touch target.
 // =========================================================================
+
+/** Tonal pairing for the expressive leading badge, matching M3 container roles. */
+private data class SnippetAccent(val container: Color, val content: Color)
 
 /** Curated M3E shapes for snippet card leading icons, chosen for visual variety. */
 private val snippetLeadingShapes: List<Shape> = listOf(
-    MaterialShapes.ShapeClover4,
+    MaterialShapes.ShapeCookie4,
     MaterialShapes.ShapeFlower,
+    MaterialShapes.ShapeArch,
     MaterialShapes.ShapeDiamond,
-    MaterialShapes.ShapeCookie9,
     MaterialShapes.ShapeSunny,
     MaterialShapes.ShapeGhostish,
-    MaterialShapes.ShapeHeart,
+    MaterialShapes.ShapeCookie9,
     MaterialShapes.ShapeSoftBurst
 )
 
@@ -444,59 +516,69 @@ fun M3ExpressiveSnippetCard(
     onDelete: () -> Unit
 ) {
     var revealed by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
+
+    val haptic = LocalHapticFeedback.current
 
     // Dynamic M3 Expressive shape from official catalog per card index
-    val shape: Shape = snippetLeadingShapes[index % snippetLeadingShapes.size]
+    val badgeShape: Shape = snippetLeadingShapes[index % snippetLeadingShapes.size]
 
     // Tonal accent rotation using all three M3 container roles + surface highest
-    val (containerColor, contentColor) = when (index % 4) {
-        0 -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-        1 -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        2 -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
-        else -> MaterialTheme.colorScheme.surfaceContainerHighest to MaterialTheme.colorScheme.primary
+    val accent = when (index % 4) {
+        0 -> SnippetAccent(
+            MaterialTheme.colorScheme.primaryContainer,
+            MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        1 -> SnippetAccent(
+            MaterialTheme.colorScheme.secondaryContainer,
+            MaterialTheme.colorScheme.onSecondaryContainer
+        )
+        2 -> SnippetAccent(
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        else -> SnippetAccent(
+            MaterialTheme.colorScheme.surfaceContainerHighest,
+            MaterialTheme.colorScheme.primary
+        )
     }
 
-    // Animated border color for visual feedback
-    val borderColor by animateColorAsState(
-        targetValue = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-        animationSpec = tween(300),
-        label = "snippetBorder"
-    )
+    val hasValue = !snippet.value.isNullOrEmpty()
+    val maskedValue = if (hasValue) "••••••••••••" else "(empty secret)"
+    val plainValue = if (hasValue) snippet.value.orEmpty() else "(empty value)"
+    val displayValue = if (snippet.secure && !revealed) maskedValue else plainValue
 
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge, // M3E: 28dp extraLarge for prominent cards
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        ),
-        border = BorderStroke(1.dp, borderColor)
+        shape = RoundedCornerShape(28.dp), // M3E: prominent cards use shape.extraLarge
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header Row: Leading Expressive Shape + Name/Keystore Badge + Action Buttons
+            // Header: expressive badge + identity + overflow actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Expressive leading icon shape from official M3E catalog
                 Box(
                     modifier = Modifier
-                        .size(44.dp) // M3E: 44dp for prominent leading visuals
-                        .clip(shape)
-                        .background(containerColor),
+                        .size(48.dp)
+                        .clip(badgeShape)
+                        .background(accent.container),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (snippet.secure) Icons.Default.Lock else Icons.Default.Key,
                         contentDescription = null,
-                        tint = contentColor,
+                        tint = accent.content,
                         modifier = Modifier.size(22.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -508,133 +590,127 @@ fun M3ExpressiveSnippetCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    if (snippet.secure) {
-                        // M3E: Chip-like badge with CircleShape
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Security,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(10.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Keystore Enclave",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    } else {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainerHighest
-                        ) {
-                            Text(
-                                text = "Plain text",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (snippet.secure) Icons.Default.Security else Icons.Default.Code,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = if (snippet.secure) "Keystore enclave" else "Plain text",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 
-                // Action buttons: M3E FilledTonalIconButton for Copy/Edit, error-toned for Delete
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
+                Box {
                     FilledTonalIconButton(
-                        onClick = onCopy,
-                        modifier = Modifier.size(34.dp),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            menuOpen = true
+                        },
+                        modifier = Modifier.size(40.dp),
+                        shape = CircleShape,
                         colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Copy snippet",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Snippet actions",
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    FilledTonalIconButton(
-                        onClick = onEdit,
-                        modifier = Modifier.size(34.dp),
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
-                        )
+                    DropdownMenu(
+                        expanded = menuOpen,
+                        onDismissRequest = { menuOpen = false },
+                        shape = RoundedCornerShape(20.dp),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit snippet",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "Edit snippet",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            onClick = {
+                                menuOpen = false
+                                onEdit()
+                            }
                         )
-                    }
-                    FilledTonalIconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(34.dp),
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete snippet",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(16.dp)
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "Delete",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            onClick = {
+                                menuOpen = false
+                                onDelete()
+                            }
                         )
                     }
                 }
             }
 
-            // Monospace Value Preview Box
+            // Monospace value surface
             Surface(
-                shape = MaterialTheme.shapes.large, // M3E: shape.large (16dp) for inner containers
+                shape = RoundedCornerShape(18.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                        .padding(start = 16.dp, end = 6.dp, top = 12.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val displayValue = if (snippet.secure && !revealed) {
-                        if (!snippet.value.isNullOrEmpty()) "••••••••••••" else "(empty secret)"
-                    } else {
-                        if (!snippet.value.isNullOrEmpty()) snippet.value else "(empty value)"
-                    }
-
                     Text(
                         text = displayValue,
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 12.5.sp,
+                        fontSize = 13.sp,
+                        letterSpacing = 0.4.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
-                        color = if (snippet.value.isNullOrEmpty()) {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
+                        color = when {
+                            !hasValue -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            snippet.secure && !revealed -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurface
                         }
                     )
 
                     if (snippet.secure) {
-                        IconButton(onClick = { revealed = !revealed }, modifier = Modifier.size(28.dp)) {
+                        IconButton(
+                            onClick = { revealed = !revealed },
+                            modifier = Modifier.size(34.dp)
+                        ) {
                             Icon(
                                 imageVector = if (revealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                 contentDescription = if (revealed) "Hide secret" else "Reveal secret",
@@ -646,43 +722,70 @@ fun M3ExpressiveSnippetCard(
                 }
             }
 
-            // Prominent Full-Width "Type to PC" Action Button (M3E: shape.full for buttons)
-            Button(
-                onClick = onType,
+            // Primary action + secondary copy
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = CircleShape, // M3E: buttons use shape.full
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Bolt,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Type \"$${snippet.name}\" to PC",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
-                )
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onType()
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = CircleShape, // M3E: buttons use shape.full
+                    contentPadding = PaddingValues(horizontal = 18.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(modifier = Modifier.width(7.dp))
+                    Text(
+                        text = "Type to PC",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                FilledTonalIconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onCopy()
+                    },
+                    modifier = Modifier.size(48.dp),
+                    shape = CircleShape,
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copy snippet",
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
             }
         }
     }
 }
 
 // =========================================================================
-// MATERIAL 3 EXPRESSIVE SNIPPET EDITOR DIALOG
+// MATERIAL 3 EXPRESSIVE SNIPPET EDITOR PAGE
 //
-// Uses M3E shape tokens throughout: extraLarge for dialog, CircleShape for
-// buttons and preset chips, shape.medium for text fields, shape.large for
-// the toggle container. Official MaterialShapes for decorative elements.
+// A full-screen dialog page in the same shape language as the combo editor:
+// expressive header, scrollable form, and a commit bar pinned above the
+// keyboard so Cancel / Save are always reachable while typing.
 // =========================================================================
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ExpressiveSnippetEditorDialog(
+fun SnippetEditorPage(
     initial: Snippet?,
     onDismiss: () -> Unit,
     onSave: (name: String, value: String, secure: Boolean) -> Unit
@@ -690,177 +793,320 @@ fun ExpressiveSnippetEditorDialog(
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var value by remember { mutableStateOf(initial?.value ?: "") }
     var secure by remember { mutableStateOf(initial?.secure ?: false) }
-    var valueVisible by remember { mutableStateOf(!secure) }
+    var valueVisible by remember { mutableStateOf(initial != null && !initial.secure) }
 
     val presetNames = listOf("username", "password", "email", "sudo_pass", "token", "wifi_key")
+    val haptic = LocalHapticFeedback.current
+    val canSave = name.isNotBlank()
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.extraLarge, // M3E: dialogs use shape.extraLarge
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .imePadding()
+            ) {
+                // -----------------------------------------------------------
+                // Header
+                // -----------------------------------------------------------
+                Row(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(MaterialShapes.ShapeClover4) // Official M3E shape
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Key,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = if (initial == null) "New Snippet" else "Edit Snippet",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleLarge
-                )
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (initial == null) {
-                    Text(
-                        text = "QUICK PRESETS",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        letterSpacing = 0.6.sp
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    FilledTonalIconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
                     ) {
-                        presetNames.forEach { preset ->
-                            // M3E: Chip-like preset buttons use CircleShape (shape.full)
-                            Surface(
-                                shape = CircleShape,
-                                color = if (name.equals(preset, ignoreCase = true)) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceContainerHigh
-                                },
-                                onClick = {
-                                    name = preset
-                                    if (preset.contains("pass") || preset.contains("token") || preset.contains("key")) {
-                                        secure = true
-                                    }
-                                }
-                            ) {
-                                Text(
-                                    text = "$$preset",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (name.equals(preset, ignoreCase = true)) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Cancel and close"
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (initial == null) "New snippet" else "Edit snippet",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (initial == null) {
+                                "Store a string, then type it on your PC."
+                            } else {
+                                "Update what gets typed on your PC."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(MaterialShapes.ShapeClover4)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Key,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                // -----------------------------------------------------------
+                // Scrollable form
+                // -----------------------------------------------------------
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    if (initial == null) {
+                        Text(
+                            text = "QUICK PRESETS",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 0.6.sp
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            presetNames.forEach { preset ->
+                                val selected = name.equals(preset, ignoreCase = true)
+                                Surface(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        name = preset
+                                        if (
+                                            preset.contains("pass") ||
+                                            preset.contains("token") ||
+                                            preset.contains("key")
+                                        ) {
+                                            secure = true
+                                            valueVisible = false
+                                        }
+                                    },
+                                    shape = CircleShape, // M3E: chips use shape.full
+                                    color = if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceContainerHigh
+                                    },
+                                    contentColor = if (selected) {
                                         MaterialTheme.colorScheme.onPrimary
                                     } else {
                                         MaterialTheme.colorScheme.onSurface
                                     },
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                )
+                                    border = if (selected) {
+                                        null
+                                    } else {
+                                        BorderStroke(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                                        )
+                                    }
+                                ) {
+                                    Text(
+                                        text = "$$preset",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Variable Name") },
-                    placeholder = { Text("e.g. username or my_password") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium, // M3E: text fields use shape.medium (12dp)
-                    prefix = { Text("$", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) },
-                    enabled = initial == null
-                )
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Variable name") },
+                        placeholder = { Text("e.g. username or my_password") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        prefix = {
+                            Text("$", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        },
+                        singleLine = true,
+                        enabled = initial == null,
+                        supportingText = {
+                            Text(
+                                text = if (initial == null) {
+                                    "Reference it from a combo as \$name"
+                                } else {
+                                    "Names are fixed once created"
+                                },
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    )
 
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = { value = it },
-                    label = { Text("Value (Typed on PC)") },
-                    placeholder = { Text("Enter string to type") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium, // M3E: text fields use shape.medium (12dp)
-                    trailingIcon = {
-                        IconButton(onClick = { valueVisible = !valueVisible }) {
-                            Icon(
-                                imageVector = if (valueVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = if (valueVisible) "Hide" else "Show"
+                    OutlinedTextField(
+                        value = value,
+                        onValueChange = { value = it },
+                        label = { Text("Value (typed on PC)") },
+                        placeholder = { Text("Enter string to type", fontFamily = FontFamily.Monospace) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        minLines = 3,
+                        maxLines = 6,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 14.sp
+                        ),
+                        visualTransformation = if (secure && !valueVisible) {
+                            androidx.compose.ui.text.input.PasswordVisualTransformation()
+                        } else {
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { valueVisible = !valueVisible }) {
+                                Icon(
+                                    imageVector = if (valueVisible) {
+                                        Icons.Default.VisibilityOff
+                                    } else {
+                                        Icons.Default.Visibility
+                                    },
+                                    contentDescription = if (valueVisible) "Hide value" else "Show value"
+                                )
+                            }
+                        },
+                        supportingText = {
+                            Text(
+                                text = "${value.length} characters · sent exactly as written",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    )
+
+                    // Keystore toggle container
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Security,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Hardware keystore enclave",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Encrypt secret with AES-256 in secure hardware",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = secure,
+                                onCheckedChange = { secure = it }
                             )
                         }
                     }
-                )
 
-                // Keystore toggle container
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // -----------------------------------------------------------
+                // Pinned commit bar
+                // -----------------------------------------------------------
                 Surface(
-                    shape = MaterialTheme.shapes.large, // M3E: shape.large for containers
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    tonalElevation = 3.dp
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Security,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Hardware Keystore Enclave",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
+                        FilledTonalButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(58.dp),
+                            shape = CircleShape,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
                             Text(
-                                text = "Encrypt secret with AES-256 in secure hardware",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Cancel",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-                        Switch(
-                            checked = secure,
-                            onCheckedChange = { secure = it }
-                        )
+
+                        Button(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onSave(name.trim(), value, secure)
+                            },
+                            enabled = canSave,
+                            modifier = Modifier
+                                .weight(1.35f)
+                                .height(58.dp),
+                            shape = CircleShape
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(21.dp)
+                            )
+                            Spacer(modifier = Modifier.width(7.dp))
+                            Text(
+                                text = if (initial == null) "Save snippet" else "Update",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onSave(name.trim(), value, secure) },
-                enabled = name.isNotBlank(),
-                shape = CircleShape, // M3E: buttons use shape.full
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            ) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Save", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                shape = CircleShape // M3E: buttons use shape.full
-            ) {
-                Text("Cancel")
-            }
         }
-    )
+    }
 }
