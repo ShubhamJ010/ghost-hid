@@ -15,8 +15,6 @@ android {
         targetSdk = 35
         versionCode = 2
         versionName = "2.0.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -67,7 +65,6 @@ dependencies {
     // Compose BOM
     val composeBom = platform("androidx.compose:compose-bom:2024.10.00")
     implementation(composeBom)
-    androidTestImplementation(composeBom)
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
@@ -85,6 +82,5 @@ dependencies {
     // Security & EncryptedSharedPreferences (Hardware Keystore backed)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
