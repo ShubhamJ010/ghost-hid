@@ -68,6 +68,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -91,7 +92,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -144,8 +144,10 @@ fun DashboardScreen(
     }
     val showQuitButton by remember {
         derivedStateOf {
-            dashboardListState.layoutInfo.totalItemsCount > 0 &&
-                (dashboardListState.canScrollBackward || !dashboardListState.canScrollForward)
+            DashboardScrollPolicy.showQuitButton(
+                itemCount = dashboardListState.layoutInfo.totalItemsCount,
+                canScrollForward = dashboardListState.canScrollForward
+            )
         }
     }
 
@@ -356,7 +358,13 @@ fun DashboardScreen(
                 onClick = { showQuickSend = true },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = MaterialShapes.ShapeClover4
+                shape = MaterialShapes.ShapeClover4,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 0.dp,
+                    focusedElevation = 0.dp,
+                    hoveredElevation = 0.dp
+                )
             ) {
                 Icon(
                     imageVector = Icons.Default.Bolt,
@@ -701,7 +709,6 @@ private fun BoxScope.CollageShapeButton(
             .offset(config.offsetX, config.offsetY)
             .scale(animatedScale)
             .rotate(config.rot)
-            .shadow(6.dp, config.shape)
             .clip(config.shape)
             .background(config.containerColor)
             .border(config.border, config.shape)
@@ -767,7 +774,6 @@ private fun BoxScope.CollageEmptyShapeSlot(
             .offset(config.offsetX, config.offsetY)
             .scale(animatedScale)
             .rotate(config.rot)
-            .shadow(4.dp, config.shape)
             .clip(config.shape)
             .background(config.containerColor.copy(alpha = 0.22f))
             .border(
