@@ -73,7 +73,7 @@
                     android:name="path_keyboard_keys"
                     android:fillColor="@android:color/transparent"
                     android:strokeColor="@color/splash_keyboard_keys"
-                    android:strokeWidth="0.9"
+                    android:strokeWidth="1.75"
                     android:strokeLineCap="round"
                     android:strokeLineJoin="round"
                     android:pathData="M10,14L14,14M17.5,10L17.5,10.01M14,9.99L14,10M17.5,13.99L17.5,14M6.5,14L6.5,14.01M10,10L10,10.01M6.5,10L6.5,10.01" />
@@ -285,14 +285,14 @@
                     android:duration="160"
                     android:startOffset="290"
                     android:propertyName="strokeWidth"
-                    android:valueFrom="0.9"
-                    android:valueTo="1.35" />
+                    android:valueFrom="1.75"
+                    android:valueTo="2.2" />
                 <objectAnimator
                     android:duration="350"
                     android:startOffset="450"
                     android:propertyName="strokeWidth"
-                    android:valueFrom="1.35"
-                    android:valueTo="0.9" />
+                    android:valueFrom="2.2"
+                    android:valueTo="1.75" />
             </set>
         </aapt:attr>
     </target>
