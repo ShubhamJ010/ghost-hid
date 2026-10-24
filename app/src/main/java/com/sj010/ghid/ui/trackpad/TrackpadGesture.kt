@@ -10,57 +10,59 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.ui.theme.MaterialShapes
 
+/** Physical direction of a multi-finger swipe on the virtual trackpad. */
 enum class GestureDirection {
     UP, DOWN, LEFT, RIGHT
 }
 
+/** Finger count a gesture requires; the label is UI copy for filter chips. */
 enum class FingerCount(val count: Int, val label: String) {
-    THREE(3, "3 Fingers"),
-    FOUR(4, "4 Fingers")
+    THREE(3, "3 fingers"),
+    FOUR(4, "4 fingers")
 }
 
+/** Which Material 3 Expressive shape renders a gesture's badge. */
 enum class GestureShapeType {
     ARCH, SEMI_CIRCLE, FAN, BOOM, CLOVER, SUNNY
 }
 
+/**
+ * One 3- or 4-finger trackpad swipe and the host action it performs.
+ *
+ * Only the host-facing action label and the combo that gets sent are modelled.
+ * Keyboard shortcut notation is intentionally absent: the gallery shows the swipe
+ * the user performs, never the keys an implementation uses underneath.
+ *
+ * @property title the gesture itself, e.g. "Swipe Up" — used as the card headline.
+ * @property windowsActionName / [macActionName] short action labels for each host OS.
+ * @property windowsCombo / [macCombo] combo strings sent through the HID service.
+ * @property fingers required finger count, rendered as dots on the card.
+ * @property direction swipe direction, drives the badge arrow.
+ */
 data class TrackpadGesture(
     val id: String,
     val fingers: FingerCount,
     val direction: GestureDirection,
     val title: String,
     val windowsActionName: String,
-    val windowsDescription: String,
-    val windowsShortcut: String,
     val windowsCombo: String,
     val macActionName: String,
-    val macDescription: String,
-    val macShortcut: String,
     val macCombo: String,
     val shapeType: GestureShapeType
 ) {
-    val actionName: String get() = windowsActionName
-    val description: String get() = windowsDescription
-
+    /** Action label for the active host OS. */
     fun actionNameFor(os: TargetOs): String = when (os) {
         TargetOs.MACOS -> macActionName
         else -> windowsActionName
     }
 
-    fun descriptionFor(os: TargetOs): String = when (os) {
-        TargetOs.MACOS -> macDescription
-        else -> windowsDescription
-    }
-
-    fun shortcutFor(os: TargetOs): String = when (os) {
-        TargetOs.MACOS -> macShortcut
-        else -> windowsShortcut
-    }
-
+    /** Combo string to send to the active host OS. */
     fun comboFor(os: TargetOs): String = when (os) {
         TargetOs.MACOS -> macCombo
         else -> windowsCombo
     }
 
+    /** Expressive container shape for this gesture's badge. */
     fun resolveShape(): Shape = when (shapeType) {
         GestureShapeType.ARCH -> MaterialShapes.ShapeArch
         GestureShapeType.SEMI_CIRCLE -> MaterialShapes.ShapeSemiCircle
@@ -70,6 +72,7 @@ data class TrackpadGesture(
         GestureShapeType.SUNNY -> MaterialShapes.ShapeSunny
     }
 
+    /** Direction arrow drawn inside the badge. */
     fun resolveIcon(): ImageVector = when (direction) {
         GestureDirection.UP -> Icons.Default.ArrowUpward
         GestureDirection.DOWN -> Icons.Default.ArrowDownward
@@ -78,6 +81,10 @@ data class TrackpadGesture(
     }
 }
 
+/**
+ * Static catalog of every recognized swipe, with per-host combo mappings.
+ * Keep ids stable: the gesture HUD keys transient animation state off them.
+ */
 object TrackpadGestureRegistry {
 
     val THREE_FINGER_UP = TrackpadGesture(
@@ -86,12 +93,8 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.UP,
         title = "Swipe Up",
         windowsActionName = "Task View",
-        windowsDescription = "Open Windows Task View to overview running applications",
-        windowsShortcut = "Win + Tab",
         windowsCombo = "win+tab",
         macActionName = "Mission Control",
-        macDescription = "Open Mission Control to overview open windows and spaces",
-        macShortcut = "Ctrl + ↑",
         macCombo = "ctrl+up",
         shapeType = GestureShapeType.ARCH
     )
@@ -102,12 +105,8 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.DOWN,
         title = "Swipe Down",
         windowsActionName = "Show Desktop",
-        windowsDescription = "Minimize all active windows and reveal the desktop surface",
-        windowsShortcut = "Win + D",
         windowsCombo = "win+d",
         macActionName = "Show Desktop",
-        macDescription = "Spread open windows to reveal the macOS desktop surface",
-        macShortcut = "Cmd + F3",
         macCombo = "cmd+f3",
         shapeType = GestureShapeType.SEMI_CIRCLE
     )
@@ -118,12 +117,8 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.LEFT,
         title = "Swipe Left",
         windowsActionName = "Previous App",
-        windowsDescription = "Switch back to the previous open window or running app",
-        windowsShortcut = "Alt + Shift + Tab",
         windowsCombo = "alt+shift+tab",
         macActionName = "Previous Space",
-        macDescription = "Switch to the full-screen space or desktop on the left",
-        macShortcut = "Ctrl + ←",
         macCombo = "ctrl+left",
         shapeType = GestureShapeType.FAN
     )
@@ -134,12 +129,8 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.RIGHT,
         title = "Swipe Right",
         windowsActionName = "Next App",
-        windowsDescription = "Cycle forward to the next active application or window",
-        windowsShortcut = "Alt + Tab",
         windowsCombo = "alt+tab",
         macActionName = "Next Space",
-        macDescription = "Switch to the full-screen space or desktop on the right",
-        macShortcut = "Ctrl + →",
         macCombo = "ctrl+right",
         shapeType = GestureShapeType.FAN
     )
@@ -149,13 +140,9 @@ object TrackpadGestureRegistry {
         fingers = FingerCount.FOUR,
         direction = GestureDirection.UP,
         title = "Swipe Up",
-        windowsActionName = "Maximize / Snap",
-        windowsDescription = "Maximize the active window across the screen",
-        windowsShortcut = "Win + ↑",
+        windowsActionName = "Maximize",
         windowsCombo = "win+up",
         macActionName = "App Exposé",
-        macDescription = "View all open windows of the frontmost application",
-        macShortcut = "Ctrl + ↓",
         macCombo = "ctrl+down",
         shapeType = GestureShapeType.BOOM
     )
@@ -166,12 +153,8 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.DOWN,
         title = "Swipe Down",
         windowsActionName = "Minimize All",
-        windowsDescription = "Collapse and minimize all open windows to the taskbar",
-        windowsShortcut = "Win + M",
         windowsCombo = "win+m",
         macActionName = "Minimize All",
-        macDescription = "Minimize all active windows across displays to the Dock",
-        macShortcut = "Cmd + Opt + M",
         macCombo = "cmd+opt+m",
         shapeType = GestureShapeType.CLOVER
     )
@@ -182,12 +165,8 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.LEFT,
         title = "Swipe Left",
         windowsActionName = "Desktop Left",
-        windowsDescription = "Switch to the virtual desktop or workspace situated on the left",
-        windowsShortcut = "Win + Ctrl + ←",
         windowsCombo = "win+ctrl+left",
         macActionName = "Previous Space",
-        macDescription = "Switch to the space or full-screen app situated on the left",
-        macShortcut = "Ctrl + ←",
         macCombo = "ctrl+left",
         shapeType = GestureShapeType.SUNNY
     )
@@ -198,12 +177,8 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.RIGHT,
         title = "Swipe Right",
         windowsActionName = "Desktop Right",
-        windowsDescription = "Switch to the virtual desktop or workspace situated on the right",
-        windowsShortcut = "Win + Ctrl + →",
         windowsCombo = "win+ctrl+right",
         macActionName = "Next Space",
-        macDescription = "Switch to the space or full-screen app situated on the right",
-        macShortcut = "Ctrl + →",
         macCombo = "ctrl+right",
         shapeType = GestureShapeType.SUNNY
     )
@@ -219,6 +194,7 @@ object TrackpadGestureRegistry {
         FOUR_FINGER_RIGHT
     )
 
+    /** Resolves the gesture for an incoming multi-finger swipe, or null if unmapped. */
     fun find(fingers: FingerCount, direction: GestureDirection): TrackpadGesture? {
         return ALL_GESTURES.firstOrNull { it.fingers == fingers && it.direction == direction }
     }

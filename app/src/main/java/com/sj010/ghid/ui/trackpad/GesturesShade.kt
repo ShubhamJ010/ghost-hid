@@ -4,10 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -19,10 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -85,7 +79,7 @@ fun GesturesShade(
                 dragHandleModifier = shadeScope.dragHandleModifier
             )
         },
-        shade = { shadeScope ->
+        shade = { _ ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -93,112 +87,19 @@ fun GesturesShade(
             ) {
                 Spacer(modifier = Modifier.height(14.dp))
 
-                GestureShadeBody(
-                    service = service,
+                GestureGallery(
                     targetOs = targetOs,
-                    onToggleOs = onToggleOs,
                     selectedFilter = selectedFilter,
                     onFilterSelected = { selectedFilter = it },
                     onTriggerGesture = { gesture ->
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        val combo = gesture.comboFor(targetOs)
-                        service?.executeCombo(combo)
+                        service?.executeCombo(gesture.comboFor(targetOs))
                     }
                 )
             }
         },
         content = content
     )
-}
-
-/**
- * Gestures content body within the pulled-down shade.
- */
-@Composable
-fun GestureShadeBody(
-    service: HidService?,
-    targetOs: TargetOs,
-    onToggleOs: () -> Unit,
-    selectedFilter: FingerCount?,
-    onFilterSelected: (FingerCount?) -> Unit,
-    onTriggerGesture: (TrackpadGesture) -> Unit
-) {
-    val filteredGestures = remember(selectedFilter) {
-        if (selectedFilter == null) {
-            TrackpadGestureRegistry.ALL_GESTURES
-        } else {
-            TrackpadGestureRegistry.ALL_GESTURES.filter { it.fingers == selectedFilter }
-        }
-    }
-
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp),
-        contentPadding = PaddingValues(bottom = 84.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // Section Header: OS Selector + Filter Chips
-        item(span = { GridItemSpan(2) }) {
-            GestureShadeControls(
-                selectedFilter = selectedFilter,
-                onFilterSelected = onFilterSelected,
-                targetOs = targetOs,
-                onToggleOs = onToggleOs
-            )
-        }
-
-        // Gesture Cards (3 & 4 finger swipes)
-        items(filteredGestures, key = { it.id }) { gesture ->
-            GestureCard(
-                gesture = gesture,
-                targetOs = targetOs,
-                onTrigger = { onTriggerGesture(gesture) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun GestureShadeControls(
-    selectedFilter: FingerCount?,
-    onFilterSelected: (FingerCount?) -> Unit,
-    targetOs: TargetOs,
-    onToggleOs: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "System Gestures",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Targeting ${targetOs.label} desktop shortcuts",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            OsToggleChip(targetOs = targetOs, onToggle = onToggleOs)
-        }
-
-        GestureFilterChips(
-            selectedFilter = selectedFilter,
-            onFilterSelected = onFilterSelected
-        )
-    }
 }
 
 /**
