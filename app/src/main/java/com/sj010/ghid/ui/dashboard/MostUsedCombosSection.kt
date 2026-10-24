@@ -25,23 +25,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sj010.ghid.domain.model.Combo
 import com.sj010.ghid.domain.model.ComboUsagePolicy
+import com.sj010.ghid.domain.model.TargetOs
+import com.sj010.ghid.ui.common.os.OsGlyph
 
 @Composable
 fun MostUsedCombosSection(
     combos: List<Combo>,
     useCounts: Map<String, Int>,
+    connectedOs: TargetOs = TargetOs.UNKNOWN,
     onRunCombo: (Combo) -> Unit,
     onViewAll: () -> Unit
 ) {
-    val mostUsed = remember(combos, useCounts) {
-        ComboUsagePolicy.mostUsed(combos, useCounts)
+    val mostUsed = remember(combos, useCounts, connectedOs) {
+        ComboUsagePolicy.mostUsed(combos, useCounts, os = connectedOs)
     }
     val cardShape = RoundedCornerShape(32.dp)
 
@@ -57,11 +58,7 @@ fun MostUsedCombosSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(Color(0xFFFFB17E), Color(0xFFFFD0A8))
-                        )
-                    )
+                    .background(MaterialTheme.colorScheme.tertiaryContainer)
                     .padding(horizontal = 22.dp, vertical = 20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -70,18 +67,22 @@ fun MostUsedCombosSection(
                         text = "MOST USED",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Black,
-                        color = Color(0xFF48230F)
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                     Text(
-                        text = "Based on your combo history",
+                        text = if (connectedOs.isKnown) {
+                            "Top runs on ${connectedOs.label}"
+                        } else {
+                            "Based on your combo history"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF70452C)
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.75f)
                     )
                 }
                 Icon(
                     imageVector = Icons.Default.History,
                     contentDescription = null,
-                    tint = Color(0xFF48230F),
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.size(30.dp)
                 )
             }
@@ -128,9 +129,10 @@ fun MostUsedCombosSection(
                                 ),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = combo.emoji ?: "⚡",
-                                    style = MaterialTheme.typography.titleLarge
+                                OsGlyph(
+                                    os = combo.targetOs,
+                                    modifier = Modifier.size(26.dp),
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(

@@ -61,12 +61,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.domain.model.Combo
+import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.service.HidService
+import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.sequence.SequencePreview
 import com.sj010.ghid.ui.theme.MaterialShapes
 import kotlinx.coroutines.delay
-
-private val EmojiChoices = listOf("⚡", "🔑", "🔒", "🌙", "💻", "🚀", "🛡️", "🎮", "⚙️", "🖱️")
 
 /**
  * Full-screen combo editor. The scrollable form owns the identity fields and the single
@@ -171,18 +171,25 @@ fun ComboEditorScreen(
                         .padding(horizontal = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+                    Text(
+                        text = "TARGET OS",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        EmojiChoices.forEach { em ->
-                            val selected = state.emoji == em
+                        TargetOs.entries.filter { it.isKnown }.forEach { os ->
+                            val selected = state.os == os
                             Surface(
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    state.emoji = em
+                                    state.os = os
                                 },
                                 shape = if (selected) MaterialShapes.ShapeCookie4 else CircleShape,
                                 color = if (selected) MaterialTheme.colorScheme.primaryContainer
@@ -190,10 +197,27 @@ fun ComboEditorScreen(
                                 border = if (selected) {
                                     BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
                                 } else null,
-                                modifier = Modifier.size(42.dp)
+                                modifier = Modifier.height(42.dp)
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(text = em, fontSize = 20.sp)
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    OsGlyph(
+                                        os = os,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = if (selected) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(7.dp))
+                                    Text(
+                                        text = os.label,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                    )
                                 }
                             }
                         }

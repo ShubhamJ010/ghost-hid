@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothDisabled
@@ -47,19 +46,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.util.lerp
+import com.sj010.ghid.R
 import com.sj010.ghid.domain.model.ConnectionStatus
+import com.sj010.ghid.domain.model.TargetOs
+import com.sj010.ghid.ui.common.os.OsGlyph
 import kotlin.math.max
 
 /**
@@ -74,6 +76,7 @@ internal fun MorphingDeviceCard(
     progress: Float,
     connectionState: ConnectionStatus,
     targetDevice: BluetoothDevice?,
+    targetOs: TargetOs = TargetOs.UNKNOWN,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onSwitchDevice: () -> Unit,
@@ -136,6 +139,8 @@ internal fun MorphingDeviceCard(
                 iconContainer = status.iconContainer,
                 iconContent = status.iconContent,
                 targetDevice = targetDevice,
+                targetOs = targetOs,
+                isConnected = connectionState == ConnectionStatus.CONNECTED,
                 onSwitchDevice = onSwitchDevice
             )
         }.first().measure(
@@ -188,6 +193,8 @@ private fun DeviceIdentityRow(
     iconContainer: Color,
     iconContent: Color,
     targetDevice: BluetoothDevice?,
+    targetOs: TargetOs,
+    isConnected: Boolean,
     onSwitchDevice: () -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -221,22 +228,39 @@ private fun DeviceIdentityRow(
                     .background(wellColor),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = statusIcon,
-                    contentDescription = null,
-                    tint = iconContent,
-                    modifier = Modifier
-                        .size(24.dp)
-                        .graphicsLayer { alpha = (1f - fraction * 1.4f).coerceIn(0f, 1f) }
-                )
-                Icon(
-                    imageVector = Icons.Outlined.Laptop,
-                    contentDescription = null,
-                    tint = iconContent,
-                    modifier = Modifier
-                        .size(24.dp)
-                        .graphicsLayer { alpha = detailsFraction }
-                )
+                if (isConnected && targetOs.isKnown) {
+                    // Connected host: the identity glyph is its real OS logo.
+                    OsGlyph(
+                        os = targetOs,
+                        tint = iconContent,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else if (isConnected) {
+                    Icon(
+                        imageVector = statusIcon,
+                        contentDescription = null,
+                        tint = iconContent,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .graphicsLayer { alpha = (1f - fraction * 1.4f).coerceIn(0f, 1f) }
+                    )
+                    Icon(
+                        imageVector = Icons.Outlined.Laptop,
+                        contentDescription = null,
+                        tint = iconContent,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .graphicsLayer { alpha = detailsFraction }
+                    )
+                } else {
+                    // Nothing is connected ie, select device: just the ghost!
+                    Icon(
+                        painter = painterResource(R.drawable.ic_notification_ghost),
+                        contentDescription = "GhostHID",
+                        tint = iconContent,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
         Spacer(Modifier.width(12.dp))
@@ -439,8 +463,8 @@ private fun deviceStatusVisual(status: ConnectionStatus): DeviceStatusVisual {
             icon = Icons.Default.BluetoothDisabled
         )
         ConnectionStatus.DISCONNECTED, ConnectionStatus.UNKNOWN -> DeviceStatusVisual(
-            iconContainer = scheme.errorContainer,
-            iconContent = scheme.onErrorContainer,
+            iconContainer = scheme.surfaceContainerHighest,
+            iconContent = scheme.onSurfaceVariant,
             icon = Icons.Default.BluetoothDisabled
         )
     }

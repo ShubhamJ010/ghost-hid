@@ -104,8 +104,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.GhostHidApp
 import com.sj010.ghid.domain.model.Combo
+import com.sj010.ghid.domain.model.HostOsFingerprint
 import com.sj010.ghid.domain.model.Snippet
+import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.parser.SequenceAnalyzer
+import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.combos.editor.ComboEditorScreen
 import com.sj010.ghid.ui.common.sequence.SequencePreview
 import com.sj010.ghid.ui.common.sequence.SequencePreviewDialog
@@ -116,11 +119,18 @@ import com.sj010.ghid.ui.theme.MaterialShapes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private enum class ComboFilterCategory(val label: String) {
+private enum class ComboFilterCategory(val label: String, val os: TargetOs? = null) {
     ALL("All"),
     FAVORITES("Favorites"),
-    SNIPPETS("Vault"),
-    TIMED("Timed")
+    WINDOWS("Windows", TargetOs.WINDOWS),
+    MACOS("macOS", TargetOs.MACOS),
+    LINUX("Linux", TargetOs.LINUX);
+
+    companion object {
+        /** The chip selected when a host OS is fingerprinted. */
+        fun forOs(os: TargetOs): ComboFilterCategory =
+            entries.firstOrNull { it.os == os && os.isKnown } ?: ALL
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -131,8 +141,20 @@ fun ComboStudioScreen(
     val repo = GhostHidApp.instance.comboRepository
     val combos by repo.combos.collectAsState()
 
+    val targetOs by service?.targetOs?.collectAsState()
+        ?: remember { mutableStateOf(HostOsFingerprint.Unknown) }
+    val connectedOs = targetOs.os
+
     var searchQuery by remember { mutableStateOf("") }
+    // The connected host selects the default view until the user taps a chip.
+    var filterChosen by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf(ComboFilterCategory.ALL) }
+
+    LaunchedEffect(connectedOs) {
+        if (!filterChosen) {
+            selectedFilter = ComboFilterCategory.forOs(connectedOs)
+        }
+    }
 
     var showEditorSheet by remember { mutableStateOf(false) }
     var editingCombo by remember { mutableStateOf<Combo?>(null) }
@@ -157,21 +179,18 @@ fun ComboStudioScreen(
     // Filter and search logic
     val filteredCombos = remember(combos, searchQuery, selectedFilter) {
         combos.filter { combo ->
-            // Search query matches name, description, emoji, or keys
+            // Search query matches name, description, keys, or target OS name
             val matchesQuery = searchQuery.isBlank() ||
                 combo.name.contains(searchQuery, ignoreCase = true) ||
                 (combo.description?.contains(searchQuery, ignoreCase = true) == true) ||
-                (combo.emoji?.contains(searchQuery) == true) ||
+                combo.targetOs.label.contains(searchQuery, ignoreCase = true) ||
                 combo.keys.contains(searchQuery, ignoreCase = true)
 
             if (!matchesQuery) return@filter false
 
-            // Category filter
-            when (selectedFilter) {
-                ComboFilterCategory.ALL -> true
-                ComboFilterCategory.FAVORITES -> combo.favorite
-                ComboFilterCategory.SNIPPETS -> combo.keys.contains("$")
-                ComboFilterCategory.TIMED -> combo.keys.contains("->")
+            when (val os = selectedFilter.os) {
+                null -> selectedFilter == ComboFilterCategory.ALL || combo.favorite
+                else -> combo.targetOs == os
             }
         }.sortedWith(
             compareByDescending<Combo> { it.favorite }
@@ -181,8 +200,9 @@ fun ComboStudioScreen(
 
     // Category counts for quick tabs
     val favoriteCount = remember(combos) { combos.count { it.favorite } }
-    val snippetComboCount = remember(combos) { combos.count { it.keys.contains("$") } }
-    val timedComboCount = remember(combos) { combos.count { it.keys.contains("->") } }
+    val osCounts = remember(combos) {
+        TargetOs.entries.filter { it.isKnown }.associateWith { os -> combos.count { it.targetOs == os } }
+    }
 
     SnippetsShade(service = service) {
     Scaffold(
@@ -249,10 +269,9 @@ fun ComboStudioScreen(
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = {
+                            modifier = Modifier.fillMaxWidth(),							  placeholder = {
                                 Text(
-                                    "Search combos, keys, or tags...",
+                                    "Search combos, keys, or OS...",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                 )
@@ -302,26 +321,45 @@ fun ComboStudioScreen(
                             ComboFilterChip(
                                 label = "All (${combos.size})",
                                 selected = selectedFilter == ComboFilterCategory.ALL,
-                                onClick = { selectedFilter = ComboFilterCategory.ALL }
+                                onClick = {
+                                    filterChosen = true
+                                    selectedFilter = ComboFilterCategory.ALL
+                                }
                             )
 
                             ComboFilterChip(
                                 label = "★ Favs ($favoriteCount)",
                                 selected = selectedFilter == ComboFilterCategory.FAVORITES,
-                                onClick = { selectedFilter = ComboFilterCategory.FAVORITES }
+                                onClick = {
+                                    filterChosen = true
+                                    selectedFilter = ComboFilterCategory.FAVORITES
+                                }
                             )
 
-                            ComboFilterChip(
-                                label = "$ Vault ($snippetComboCount)",
-                                selected = selectedFilter == ComboFilterCategory.SNIPPETS,
-                                onClick = { selectedFilter = ComboFilterCategory.SNIPPETS }
-                            )
-
-                            ComboFilterChip(
-                                label = "⏱ Timed ($timedComboCount)",
-                                selected = selectedFilter == ComboFilterCategory.TIMED,
-                                onClick = { selectedFilter = ComboFilterCategory.TIMED }
-                            )
+                            ComboFilterCategory.entries
+                                .filter { it.os != null }
+                                .forEach { category ->
+                                    val os = category.os ?: TargetOs.UNKNOWN
+                                    ComboFilterChip(
+                                        label = "${category.label} (${osCounts[os] ?: 0})",
+                                        selected = selectedFilter == category,
+                                        icon = {
+                                            OsGlyph(
+                                                os = os,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = if (selectedFilter == category) {
+                                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                }
+                                            )
+                                        },
+                                        onClick = {
+                                            filterChosen = true
+                                            selectedFilter = category
+                                        }
+                                    )
+                                }
                         }
                     }
                 }
@@ -332,9 +370,11 @@ fun ComboStudioScreen(
                 if (filteredCombos.isEmpty()) {
                     item {
                         EmptyCombosState(
-                            hasSearchQuery = searchQuery.isNotBlank() || selectedFilter != ComboFilterCategory.ALL,
+                            hasSearchQuery = searchQuery.isNotBlank(),
+                            osFilter = selectedFilter.os,
                             onClearFilters = {
                                 searchQuery = ""
+                                filterChosen = true
                                 selectedFilter = ComboFilterCategory.ALL
                             },
                             onCreateNew = {
@@ -522,11 +562,13 @@ fun ComboStudioScreen(
 private fun ComboFilterChip(
     label: String,
     selected: Boolean,
+    icon: (@Composable () -> Unit)? = null,
     onClick: () -> Unit
 ) {
     FilterChip(
         selected = selected,
         onClick = onClick,
+        leadingIcon = icon,
         label = {
             Text(
                 text = label,
@@ -611,7 +653,7 @@ fun ComboCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header: Expressive Emoji Shape + Title + Subtitle + Favorite Heart
+            // Header: Expressive OS-logo shape + title + subtitle + favorite heart
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -621,7 +663,7 @@ fun ComboCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    // Expressive shape badge for emoji
+                    // Expressive shape badge carrying the target OS logo
                     Box(
                         modifier = Modifier
                             .size(44.dp)
@@ -629,9 +671,10 @@ fun ComboCard(
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = combo.emoji ?: "⚡",
-                            fontSize = 22.sp
+                        OsGlyph(
+                            os = combo.targetOs,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
 
@@ -806,9 +849,21 @@ fun ComboCard(
 @Composable
 private fun EmptyCombosState(
     hasSearchQuery: Boolean,
+    osFilter: TargetOs? = null,
     onClearFilters: () -> Unit,
     onCreateNew: () -> Unit
 ) {
+    val title = when {
+        osFilter != null -> "No ${osFilter.label} combos yet"
+        hasSearchQuery -> "No matching combos"
+        else -> "No combos found"
+    }
+    val body = when {
+        osFilter != null -> "The connected ${osFilter.label} host has no combos yet. Show all combos or create one for it."
+        hasSearchQuery -> "Try clearing search filters to see all combos."
+        else -> "Tap below to create your first automated keystroke sequence."
+    }
+    val showClear = osFilter != null || hasSearchQuery
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -834,7 +889,7 @@ private fun EmptyCombosState(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = if (hasSearchQuery) "No matching combos" else "No combos found",
+            text = title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -843,7 +898,7 @@ private fun EmptyCombosState(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = if (hasSearchQuery) "Try clearing search filters to see all combos." else "Tap below to create your first automated keystroke sequence.",
+            text = body,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -852,12 +907,12 @@ private fun EmptyCombosState(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        if (hasSearchQuery) {
+        if (showClear) {
             Button(
                 onClick = onClearFilters,
                 shape = CircleShape
             ) {
-                Text("Clear Filters")
+                Text(if (osFilter != null) "Show all combos" else "Clear Filters")
             }
         } else {
             Button(

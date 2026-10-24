@@ -89,11 +89,14 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.GhostHidApp
+import com.sj010.ghid.domain.model.ComboOsPolicy
 import com.sj010.ghid.domain.model.ConnectionStatus
+import com.sj010.ghid.domain.model.HostOsFingerprint
 import com.sj010.ghid.domain.model.PinnedFavoritesPolicy
 import com.sj010.ghid.domain.model.Snippet
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.shade.PullDownShade
 import com.sj010.ghid.ui.common.shade.ShadeScope
 import com.sj010.ghid.ui.quicksend.QuickSendOverlay
@@ -111,6 +114,9 @@ fun DashboardScreen(
         ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
     val targetDevice by service?.targetDeviceState?.collectAsState()
         ?: remember { mutableStateOf(null) }
+    val targetOsFingerprint by service?.targetOs?.collectAsState()
+        ?: remember { mutableStateOf(HostOsFingerprint.Unknown) }
+    val connectedOs = targetOsFingerprint.os
     val targetSelectionReady by service?.targetSelectionReady?.collectAsState()
         ?: remember { mutableStateOf(false) }
     val needsInitialTargetSelection by service?.needsInitialTargetSelection?.collectAsState()
@@ -119,8 +125,9 @@ fun DashboardScreen(
     val allCombos by comboRepo.combos.collectAsState()
     val comboUseCounts by GhostHidApp.instance.comboUsageRepository.useCounts.collectAsState()
     val pinnedFavorites by GhostHidApp.instance.pinnedFavoritesRepository.pins.collectAsState()
-    val pinnedCombos = remember(pinnedFavorites, allCombos) {
+    val pinnedCombos = remember(pinnedFavorites, allCombos, connectedOs) {
         PinnedFavoritesPolicy.resolve(pinnedFavorites, allCombos)
+            .filterValues { ComboOsPolicy.matches(it, connectedOs) }
     }
     val dashboardListState = rememberLazyListState()
     val showQuickSendFab by remember {
@@ -161,6 +168,7 @@ fun DashboardScreen(
                 progress = scope.progress,
                 connectionState = connectionState,
                 targetDevice = targetDevice,
+                targetOs = connectedOs,
                 onConnect = { service?.connectTarget() },
                 onDisconnect = { service?.disconnectTarget() },
                 onSwitchDevice = { showDevicePicker = true },
@@ -216,6 +224,7 @@ fun DashboardScreen(
                 FavPinnedCollage(
                     combos = allCombos,
                     pinnedBySlot = pinnedCombos,
+                    connectedOs = connectedOs,
                     onRunCombo = { combo ->
                         service?.executeCombo(combo.keys)
                         lastExecutedStatus = "⚡ Executed: ${combo.name}"
@@ -232,6 +241,7 @@ fun DashboardScreen(
                 MostUsedCombosSection(
                     combos = allCombos,
                     useCounts = comboUseCounts,
+                    connectedOs = connectedOs,
                     onRunCombo = { combo ->
                         service?.executeCombo(combo.keys)
                         lastExecutedStatus = "⚡ Executed: ${combo.name}"
@@ -443,6 +453,9 @@ fun DashboardScreen(
                         modifier = Modifier.padding(top = 8.dp)
                     ) {
                         items(pairedDevices) { dev ->
+                            val cachedOs = remember(dev.address) {
+                                GhostHidApp.instance.deviceOsCache.get(dev.address)?.os
+                            }
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -463,12 +476,20 @@ fun DashboardScreen(
                                             .background(MaterialTheme.colorScheme.primaryContainer),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(
-                                            Icons.Default.Computer,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(22.dp)
-                                        )
+                                        if (cachedOs != null && cachedOs.isKnown) {
+                                            OsGlyph(
+                                                os = cachedOs,
+                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        } else {
+                                            Icon(
+                                                Icons.Default.Computer,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
                                     }
                                     Spacer(modifier = Modifier.width(14.dp))
                                     Column(modifier = Modifier.weight(1f)) {

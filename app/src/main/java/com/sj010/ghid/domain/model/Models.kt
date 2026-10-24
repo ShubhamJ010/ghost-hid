@@ -7,11 +7,14 @@ import kotlinx.serialization.Serializable
 data class Combo(
     @SerialName("name") val name: String,
     @SerialName("keys") val keys: String,
-    @SerialName("emoji") val emoji: String? = null,
+    @SerialName("os") val os: String = TargetOs.WINDOWS.token,
     @SerialName("description") val description: String? = null,
     @SerialName("favorite") val favorite: Boolean = false,
     @SerialName("created_at") val createdAt: String = ""
-)
+) {
+    /** Persisted tag resolved to the enum, defaulting legacy entries to Windows. */
+    val targetOs: TargetOs get() = TargetOs.fromComboTag(os)
+}
 
 @Serializable
 data class PinnedFavorite(

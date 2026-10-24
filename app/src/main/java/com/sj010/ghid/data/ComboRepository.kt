@@ -2,6 +2,7 @@ package com.sj010.ghid.data
 
 import android.content.Context
 import com.sj010.ghid.domain.model.Combo
+import com.sj010.ghid.domain.model.TargetOs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,7 +82,7 @@ class ComboRepository(private val context: Context) {
                 Combo(
                     name = "Login",
                     keys = "ctrl+alt+del ->{1.0} esc ->{0.8} \$USERNAME ->{0.8} tab ->{0.8} \$PASSWORD ->{0.8} enter",
-                    emoji = "🔑",
+                    os = TargetOs.WINDOWS.token,
                     description = "Windows unlock & credential injection",
                     favorite = true,
                     createdAt = isoNow()
@@ -89,7 +90,7 @@ class ComboRepository(private val context: Context) {
                 Combo(
                     name = "Lock",
                     keys = "win+l",
-                    emoji = "🔒",
+                    os = TargetOs.WINDOWS.token,
                     description = "Instant Windows lock screen (Win + L)",
                     favorite = true,
                     createdAt = isoNow()
@@ -97,7 +98,7 @@ class ComboRepository(private val context: Context) {
                 Combo(
                     name = "Sleep",
                     keys = "win+x ->{0.5} u ->{0.3} s ->{5.0} !DISCONNECT ->{0.5} !EXIT",
-                    emoji = "🌙",
+                    os = TargetOs.WINDOWS.token,
                     description = "Windows sleep sequence + countdown exit",
                     favorite = true,
                     createdAt = isoNow()
@@ -112,7 +113,8 @@ class ComboRepository(private val context: Context) {
     fun addOrUpdate(combo: Combo) {
         val list = _combos.value.toMutableList()
         val idx = list.indexOfFirst { it.name.equals(combo.name, ignoreCase = true) }
-        val itemToSave = if (combo.createdAt.isEmpty()) combo.copy(createdAt = isoNow()) else combo
+        val normalized = combo.copy(os = TargetOs.fromComboTag(combo.os).token)
+        val itemToSave = if (normalized.createdAt.isEmpty()) normalized.copy(createdAt = isoNow()) else normalized
 
         if (idx >= 0) {
             list[idx] = itemToSave

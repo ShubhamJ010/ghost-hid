@@ -60,7 +60,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.domain.model.Combo
+import com.sj010.ghid.domain.model.ComboOsPolicy
 import com.sj010.ghid.domain.model.PinnedFavoritesPolicy
+import com.sj010.ghid.domain.model.TargetOs
+import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.theme.MaterialShapes
 
 /**
@@ -76,12 +79,13 @@ import com.sj010.ghid.ui.theme.MaterialShapes
 fun FavPinnedCollage(
     combos: List<Combo>,
     pinnedBySlot: Map<Int, Combo>,
+    connectedOs: TargetOs = TargetOs.UNKNOWN,
     onRunCombo: (Combo) -> Unit,
     onPinCombo: (slotId: Int, comboName: String) -> Unit,
     onBrowseCombos: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
-    val favorites = remember(combos) { PinnedFavoritesPolicy.favorites(combos) }
+    val favorites = remember(combos, connectedOs) { ComboOsPolicy.favorites(combos, connectedOs) }
     val configs = remember { collageConfigs() }
     val shapeNames = remember(configs) { configs.associate { it.slotId to it.shapeName } }
     var pickerSlot by remember { mutableStateOf<CollageConfig?>(null) }
@@ -327,10 +331,10 @@ private fun BoxScope.CollageShapeButton(
                 .rotate(-config.rot)
                 .padding(6.dp)
         ) {
-            val emojiSize = when {
-                config.width >= 125.dp || config.height >= 160.dp -> 32.sp
-                config.width >= 105.dp -> 28.sp
-                else -> 24.sp
+            val glyphSize = when {
+                config.width >= 125.dp || config.height >= 160.dp -> 34.dp
+                config.width >= 105.dp -> 30.dp
+                else -> 26.dp
             }
             val titleStyle = when {
                 config.width >= 125.dp || config.height >= 160.dp -> MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp)
@@ -338,9 +342,10 @@ private fun BoxScope.CollageShapeButton(
                 else -> MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
             }
 
-            Text(
-                text = combo.emoji?.ifEmpty { "⚡" } ?: "⚡",
-                fontSize = emojiSize
+            OsGlyph(
+                os = combo.targetOs,
+                modifier = Modifier.size(glyphSize),
+                tint = config.contentColor
             )
             Spacer(modifier = Modifier.size(3.dp))
             Text(
@@ -550,7 +555,11 @@ private fun FavoritePickerRow(
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = combo.emoji?.ifEmpty { "⚡" } ?: "⚡", fontSize = 20.sp)
+                OsGlyph(
+                    os = combo.targetOs,
+                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {

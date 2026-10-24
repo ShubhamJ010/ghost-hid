@@ -17,9 +17,12 @@ import android.os.IBinder
 import android.util.Log
 import com.sj010.ghid.GhostHidApp
 import com.sj010.ghid.R
+import com.sj010.ghid.data.DeviceOsCache
 import com.sj010.ghid.domain.model.ConnectionStatus
 import com.sj010.ghid.domain.model.HidStep
+import com.sj010.ghid.domain.model.HostOsFingerprint
 import com.sj010.ghid.domain.model.LogEntry
+import com.sj010.ghid.domain.os.HostOsClassifier
 import com.sj010.ghid.domain.parser.ActionSequenceParser
 import com.sj010.ghid.domain.parser.KeyTokens
 import com.sj010.ghid.domain.pointer.MouseButton
@@ -73,8 +76,17 @@ class HidService : Service() {
     private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
     val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
 
+    // Passive host OS fingerprint (ADR-007). UNKNOWN until a host connects.
+    private val _targetOs = MutableStateFlow(HostOsFingerprint.Unknown)
+    val targetOs: StateFlow<HostOsFingerprint> = _targetOs.asStateFlow()
+
+    private val deviceOsCache: DeviceOsCache
+        get() = GhostHidApp.instance.deviceOsCache
+
     private var logFile: File? = null
     private var targetSwitchJob: Job? = null
+    private var osDetectionJob: Job? = null
+    private var ledHandshakeSeen = false
 
     companion object {
         const val TAG = "GHOST_HID"
@@ -247,7 +259,9 @@ class HidService : Service() {
                 }
                 _needsInitialTargetSelection.value = false
                 updateNotification("Connected to $name")
+                startOsDetection(device)
             } else {
+                stopOsDetection()
                 updateNotification("Status: $status")
             }
             writeStatusFile()
@@ -273,6 +287,12 @@ class HidService : Service() {
 
         override fun onSetReport(device: BluetoothDevice?, type: Byte, id: Byte, data: ByteArray?) {
             log("onSetReport: type=$type, id=$id")
+            // Windows pushes the initial keyboard LED state (report ID 1) right
+            // after enumeration. macOS and BlueZ only send it on user lock-key
+            // changes, so an immediate report is a conclusive Windows signal.
+            if (type == BluetoothHidDevice.REPORT_TYPE_OUTPUT && id == KEYBOARD_REPORT_ID.toByte()) {
+                maybeRecordLedHandshake(device)
+            }
             hidDevice?.reportError(device, BluetoothHidDevice.ERROR_RSP_SUCCESS)
         }
     }
@@ -410,6 +430,7 @@ class HidService : Service() {
                 targetDevice = null
                 _targetDeviceState.value = null
                 _connectionState.value = ConnectionStatus.DISCONNECTED
+                stopOsDetection()
                 writeStatusFile()
             }
         } catch (e: Exception) {
@@ -678,6 +699,7 @@ class HidService : Service() {
 
     private fun writeStatusFile() {
         try {
+            val fingerprint = _targetOs.value
             val f = File(getExternalFilesDir(null), "status.json")
             FileWriter(f).use { fw ->
                 fw.write("{\n")
@@ -686,10 +708,109 @@ class HidService : Service() {
                 fw.write("  \"state\": \"${_connectionState.value}\",\n")
                 fw.write("  \"target\": \"${targetDevice?.name ?: "none"}\",\n")
                 fw.write("  \"address\": \"${targetDevice?.address ?: "none"}\",\n")
+                fw.write("  \"os\": \"${fingerprint.os.token}\",\n")
+                fw.write("  \"os_confidence\": \"${fingerprint.confidence.token}\",\n")
+                fw.write("  \"detection_method\": \"${fingerprint.method}\",\n")
                 fw.write("  \"updated\": \"${timeFormat.format(Date())}\"\n")
                 fw.write("}\n")
             }
         } catch (ignored: Exception) {}
+    }
+
+    // ---------------------------------------------------------------------
+    // Passive host OS fingerprinting (ADR-007)
+    // ---------------------------------------------------------------------
+
+    private fun maybeRecordLedHandshake(device: BluetoothDevice?) {
+        val target = targetDevice ?: return
+        val fromTarget = device == null || device.address.equals(target.address, ignoreCase = true)
+        if (!fromTarget) return
+
+        ledHandshakeSeen = true
+        if (osDetectionJob != null) {
+            osDetectionJob?.cancel()
+            osDetectionJob = null
+            val classified = HostOsClassifier.classify(
+                address = target.address,
+                name = safeDeviceName(target),
+                serviceUuids = deviceServiceUuids(target),
+                ledHandshakeReceived = true
+            )
+            publishFingerprint(classified, target.address)
+            writeStatusFile()
+        }
+    }
+
+    private fun startOsDetection(device: BluetoothDevice?) {
+        osDetectionJob?.cancel()
+        osDetectionJob = null
+        ledHandshakeSeen = false
+
+        val address = device?.address
+        val cached = deviceOsCache.get(address)
+        if (cached != null && cached.isKnown) {
+            log(
+                "Using cached OS for ${safeDeviceName(device)} [$address]: " +
+                    "${cached.os.label} (${cached.confidence.token} via ${cached.method})"
+            )
+            publishFingerprint(cached, address)
+            return
+        }
+
+        val uuids = deviceServiceUuids(device)
+        val apple = HostOsClassifier.appleSignal(address, uuids)
+        if (apple != null) {
+            publishFingerprint(apple, address)
+            return
+        }
+
+        // Unknown while the LED window is open; the timer or a SET_REPORT
+        // resolves it within 500 ms.
+        _targetOs.value = HostOsFingerprint.Unknown
+        osDetectionJob = scope.launch {
+            delay(HostOsClassifier.LED_HANDSHAKE_WINDOW_MS)
+            val classified = HostOsClassifier.classify(
+                address = address,
+                name = safeDeviceName(device),
+                serviceUuids = uuids,
+                ledHandshakeReceived = ledHandshakeSeen
+            )
+            publishFingerprint(classified, address)
+            writeStatusFile()
+        }
+    }
+
+    private fun stopOsDetection() {
+        osDetectionJob?.cancel()
+        osDetectionJob = null
+        ledHandshakeSeen = false
+        _targetOs.value = HostOsFingerprint.Unknown
+    }
+
+    private fun publishFingerprint(
+        fingerprint: HostOsFingerprint,
+        deviceAddress: String? = targetDevice?.address
+    ) {
+        _targetOs.value = fingerprint
+        if (fingerprint.isKnown && deviceAddress != null) {
+            deviceOsCache.put(deviceAddress, fingerprint)
+        }
+        log(
+            "Host OS: ${fingerprint.os.label} " +
+                "(${fingerprint.confidence.token} confidence via ${fingerprint.method})"
+        )
+    }
+
+    private fun safeDeviceName(device: BluetoothDevice?): String? = try {
+        device?.name
+    } catch (e: SecurityException) {
+        null
+    }
+
+    private fun deviceServiceUuids(device: BluetoothDevice?): List<String>? = try {
+        device?.uuids?.mapNotNull { it?.uuid?.toString() }
+    } catch (e: Exception) {
+        null
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -717,7 +838,7 @@ class HidService : Service() {
     }
 
     fun log(msg: String) {
-        val line = "[${timeFormat.format(Date())}] $msg"
+        val line = "[\${timeFormat.format(Date())}] $msg"
         Log.d(TAG, msg)
         val entry = LogEntry(timeFormat.format(Date()), msg)
         _logs.value = (_logs.value + entry).takeLast(100)
@@ -741,6 +862,7 @@ class HidService : Service() {
             adapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, hid)
         }
         _connectionState.value = ConnectionStatus.DISCONNECTED
+        stopOsDetection()
         writeStatusFile()
         log("GhostHID Service destroyed.")
         executor.shutdown()

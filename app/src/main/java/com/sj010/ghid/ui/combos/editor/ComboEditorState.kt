@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.sj010.ghid.domain.model.Combo
+import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.parser.SequenceAnalysis
 import com.sj010.ghid.domain.parser.SequenceAnalyzer
 
@@ -17,7 +18,7 @@ class ComboEditorState(
     initialScheme: String = ""
 ) {
     var name by mutableStateOf(initial?.name.orEmpty())
-    var emoji by mutableStateOf(initial?.emoji?.takeIf { it.isNotBlank() } ?: "⚡")
+    var os by mutableStateOf(TargetOs.fromComboTag(initial?.os))
     var description by mutableStateOf(initial?.description.orEmpty())
     var scheme by mutableStateOf(initial?.keys ?: initialScheme)
 
@@ -26,7 +27,7 @@ class ComboEditorState(
 
     fun build(): Combo = Combo(
         name = name.trim(),
-        emoji = emoji.trim(),
+        os = os.token,
         description = description.trim(),
         keys = scheme.trim(),
         favorite = initial?.favorite ?: false,
