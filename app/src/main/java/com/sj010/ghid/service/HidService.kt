@@ -36,6 +36,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileWriter
@@ -43,7 +44,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 class HidService : Service() {
 
@@ -52,8 +56,15 @@ class HidService : Service() {
     }
 
     private val binder = LocalBinder()
+    @Volatile
+    private var isTornDown = false
     private val scope = CoroutineScope(Dispatchers.Default)
-    private val executor = Executors.newSingleThreadExecutor()
+    private val executor = ThreadPoolExecutor(
+        1, 1, 0L, TimeUnit.MILLISECONDS,
+        LinkedBlockingQueue<Runnable>(),
+        { runnable -> Thread(runnable, "ghid-worker").apply { isDaemon = true } },
+        ThreadPoolExecutor.DiscardPolicy()
+    )
     private val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
 
     private var adapter: BluetoothAdapter? = null
@@ -256,11 +267,12 @@ class HidService : Service() {
             .setContentTitle("GhostHID")
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_notification_ghost)
-            .setOngoing(true)
+            .setOngoing(false)
             .build()
     }
 
     private fun updateNotification(text: String) {
+        if (isTornDown) return
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         nm?.notify(1001, buildNotification(text))
     }
@@ -484,11 +496,32 @@ class HidService : Service() {
     }
 
     fun disconnectTarget() {
-        val target = targetDevice
         val hid = hidDevice
+        if (hid != null) {
+            try {
+                val connected = hid.connectedDevices
+                if (!connected.isNullOrEmpty()) {
+                    for (dev in connected) {
+                        log("Disconnecting from ${dev.name ?: dev.address}...")
+                        try {
+                            hid.disconnect(dev)
+                        } catch (e: Exception) {
+                            log("disconnectTarget error: ${e.message}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                log("getConnectedDevices error: ${e.message}")
+            }
+        }
+        val target = targetDevice
         if (hid != null && target != null) {
-            log("Disconnecting from ${target.name}...")
-            hid.disconnect(target)
+            try {
+                log("Disconnecting from ${target.name}...")
+                hid.disconnect(target)
+            } catch (e: Exception) {
+                log("disconnectTarget error: ${e.message}")
+            }
         }
     }
 
@@ -657,9 +690,12 @@ class HidService : Service() {
     // ---------------------------------------------------------------------
 
     private val pointerLock = Any()
-    private val pointerExecutor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "ghid-pointer").apply { isDaemon = true }
-    }
+    private val pointerExecutor = ThreadPoolExecutor(
+        1, 1, 0L, TimeUnit.MILLISECONDS,
+        LinkedBlockingQueue<Runnable>(),
+        { runnable -> Thread(runnable, "ghid-pointer").apply { isDaemon = true } },
+        ThreadPoolExecutor.DiscardPolicy()
+    )
     private var pendingDx = 0
     private var pendingDy = 0
     private var pointerFlushScheduled = false
@@ -844,7 +880,7 @@ class HidService : Service() {
                     is HidStep.Directive -> {
                         when (step.name) {
                             "DISCONNECT" -> disconnectTarget()
-                            "EXIT" -> stopSelf()
+                            "EXIT" -> quit()
                         }
                     }
                 }
@@ -973,10 +1009,14 @@ class HidService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (isTornDown) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (intent != null) {
             handleIntent(intent)
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     fun handleIntent(intent: Intent) {
@@ -984,7 +1024,7 @@ class HidService : Service() {
         val cmd = intent.getStringExtra("cmd")
 
         when {
-            "stop".equals(cmd, ignoreCase = true) -> stopSelf()
+            "stop".equals(cmd, ignoreCase = true) -> quit()
             ACTION_LOCK == action || "lock".equals(cmd, ignoreCase = true) -> sendLock()
             "sleep".equals(cmd, ignoreCase = true) -> {
                 if (resolveEffectiveOs() == TargetOs.MACOS) {
@@ -1042,31 +1082,93 @@ class HidService : Service() {
         _logs.value = (_logs.value + entry).takeLast(100)
 
         logFile?.let { f ->
-            executor.execute {
+            if (!executor.isShutdown) {
                 try {
-                    FileWriter(f, true).use { it.write(line + "\n") }
-                } catch (ignored: Exception) {}
+                    executor.execute {
+                        try {
+                            FileWriter(f, true).use { it.write(line + "\n") }
+                        } catch (ignored: Exception) {}
+                    }
+                } catch (ignored: RejectedExecutionException) {}
             }
         }
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
 
+    private fun teardown() {
+        if (isTornDown) return
+        isTornDown = true
+
+        log("Tearing down GhostHID Service...")
+        targetSwitchJob?.cancel()
+        osDetectionJob?.cancel()
+        try {
+            scope.cancel()
+        } catch (ignored: Exception) {}
+
+        disconnectTarget()
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.cancel(1001)
+            nm?.cancelAll()
+        } catch (ignored: Exception) {}
+
+        val hid = hidDevice
+        if (hid != null) {
+            try {
+                hid.unregisterApp()
+            } catch (e: Exception) {
+                log("unregisterApp error: ${e.message}")
+            }
+            try {
+                adapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, hid)
+            } catch (e: Exception) {
+                log("closeProfileProxy error: ${e.message}")
+            }
+            hidDevice = null
+        }
+
+        targetDevice = null
+        _targetDeviceState.value = null
+        _connectionState.value = ConnectionStatus.DISCONNECTED
+        _isRegistered.value = false
+        stopOsDetection()
+        writeStatusFile()
+
+        try {
+            executor.shutdown()
+        } catch (ignored: Exception) {}
+        try {
+            pointerExecutor.shutdown()
+        } catch (ignored: Exception) {}
+
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.cancel(1001)
+            nm?.cancelAll()
+        } catch (ignored: Exception) {}
+    }
+
+    fun quit() {
+        log("Quit requested.")
+        teardown()
+        stopSelf()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         if (instance == this) {
             instance = null
         }
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        hidDevice?.let { hid ->
-            try { hid.unregisterApp() } catch (ignored: Exception) {}
-            adapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, hid)
-        }
-        _connectionState.value = ConnectionStatus.DISCONNECTED
-        stopOsDetection()
-        writeStatusFile()
+        teardown()
         log("GhostHID Service destroyed.")
-        executor.shutdown()
-        pointerExecutor.shutdownNow()
     }
 }

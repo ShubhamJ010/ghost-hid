@@ -1,6 +1,7 @@
 package com.sj010.ghid
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -8,7 +9,10 @@ import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.os.Process
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -50,6 +54,7 @@ class MainActivity : ComponentActivity() {
 
     private var hidService by mutableStateOf<HidService?>(null)
     private var isBound by mutableStateOf(false)
+    private var isQuitting = false
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -93,12 +98,60 @@ class MainActivity : ComponentActivity() {
             GhostHidTheme {
                 MainAppScaffold(
                     service = hidService,
-                    onQuit = {
-                        stopService(Intent(this, HidService::class.java))
-                        finishAndRemoveTask()
-                    }
+                    onQuit = { quitApp() }
                 )
             }
+        }
+    }
+
+    private fun quitApp() {
+        if (isQuitting) return
+        isQuitting = true
+
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.cancel(1001)
+            nm?.cancelAll()
+        } catch (ignored: Exception) {}
+
+        try {
+            hidService?.quit()
+        } catch (ignored: Exception) {}
+
+        if (isBound) {
+            try {
+                unbindService(serviceConnection)
+            } catch (ignored: Exception) {}
+            isBound = false
+            hidService = null
+        }
+
+        try {
+            stopService(Intent(this, HidService::class.java))
+        } catch (ignored: Exception) {}
+
+        finishAffinity()
+        finishAndRemoveTask()
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            try {
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                nm?.cancel(1001)
+                nm?.cancelAll()
+            } catch (ignored: Exception) {}
+            Process.killProcess(Process.myPid())
+            kotlin.system.exitProcess(0)
+        }, 400)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isQuitting) {
+            try {
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                nm?.cancel(1001)
+                nm?.cancelAll()
+            } catch (ignored: Exception) {}
         }
     }
 
@@ -130,33 +183,22 @@ class MainActivity : ComponentActivity() {
             }
             bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
         } catch (e: Exception) {
-            // Guard against security exceptions or lifecycle changes
+            // Background start restrictions or security exception
         }
     }
 
     private fun requestRequiredPermissions() {
-        val perms = mutableListOf<String>()
+        val permissions = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            perms.add(Manifest.permission.BLUETOOTH_CONNECT)
-            perms.add(Manifest.permission.BLUETOOTH_SCAN)
-            perms.add(Manifest.permission.BLUETOOTH_ADVERTISE)
+            permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
+            permissions.add(Manifest.permission.BLUETOOTH_SCAN)
+            permissions.add(Manifest.permission.BLUETOOTH_ADVERTISE)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            perms.add(Manifest.permission.POST_NOTIFICATIONS)
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        val needed = perms.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (needed.isNotEmpty()) {
-            requestPermissionsLauncher.launch(needed.toTypedArray())
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        if (isBound) {
-            unbindService(serviceConnection)
-            isBound = false
+        if (permissions.isNotEmpty()) {
+            requestPermissionsLauncher.launch(permissions.toTypedArray())
         }
     }
 }
