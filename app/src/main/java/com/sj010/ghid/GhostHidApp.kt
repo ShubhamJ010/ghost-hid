@@ -4,6 +4,7 @@ import android.app.Application
 import com.sj010.ghid.data.AndroidKeystoreVault
 import com.sj010.ghid.data.ComboRepository
 import com.sj010.ghid.data.ComboUsageRepository
+import com.sj010.ghid.data.PinnedFavoritesRepository
 import com.sj010.ghid.data.QuickSendHistoryRepository
 import com.sj010.ghid.data.SnippetRepository
 
@@ -14,6 +15,8 @@ class GhostHidApp : Application() {
     lateinit var comboRepository: ComboRepository
         private set
     lateinit var comboUsageRepository: ComboUsageRepository
+        private set
+    lateinit var pinnedFavoritesRepository: PinnedFavoritesRepository
         private set
     lateinit var snippetRepository: SnippetRepository
         private set
@@ -27,6 +30,7 @@ class GhostHidApp : Application() {
         vault = AndroidKeystoreVault(this)
         comboRepository = ComboRepository(this)
         comboUsageRepository = ComboUsageRepository(this)
+        pinnedFavoritesRepository = PinnedFavoritesRepository(this)
         snippetRepository = SnippetRepository(this, vault)
         quickSendHistoryRepository = QuickSendHistoryRepository(this)
 

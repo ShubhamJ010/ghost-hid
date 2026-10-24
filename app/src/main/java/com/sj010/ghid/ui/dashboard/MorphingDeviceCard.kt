@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,7 +26,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothDisabled
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.outlined.Laptop
@@ -138,10 +135,6 @@ internal fun MorphingDeviceCard(
                 statusIcon = status.icon,
                 iconContainer = status.iconContainer,
                 iconContent = status.iconContent,
-                statusColor = status.accentColor,
-                statusContent = status.accentContent,
-                statusLabel = status.label,
-                statusBadgeIcon = status.badgeIcon,
                 targetDevice = targetDevice,
                 onSwitchDevice = onSwitchDevice
             )
@@ -194,10 +187,6 @@ private fun DeviceIdentityRow(
     statusIcon: ImageVector,
     iconContainer: Color,
     iconContent: Color,
-    statusColor: Color,
-    statusContent: Color,
-    statusLabel: String,
-    statusBadgeIcon: ImageVector?,
     targetDevice: BluetoothDevice?,
     onSwitchDevice: () -> Unit
 ) {
@@ -248,23 +237,6 @@ private fun DeviceIdentityRow(
                         .size(24.dp)
                         .graphicsLayer { alpha = detailsFraction }
                 )
-            }
-            if (statusBadgeIcon != null) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = 8.dp, y = (-8).dp)
-                        .size(24.dp)
-                        .background(statusColor, CircleShape)
-                        .border(2.dp, scheme.surfaceContainerHigh, CircleShape)
-                ) {
-                    Icon(
-                        imageVector = statusBadgeIcon,
-                        contentDescription = statusLabel,
-                        tint = statusContent,
-                        modifier = Modifier.align(Alignment.Center).size(14.dp)
-                    )
-                }
             }
         }
         Spacer(Modifier.width(12.dp))
@@ -442,12 +414,8 @@ private fun Modifier.revealWidth(progress: Float): Modifier = layout { measurabl
 }
 
 private data class DeviceStatusVisual(
-    val label: String,
-    val accentColor: Color,
-    val accentContent: Color,
     val iconContainer: Color,
     val iconContent: Color,
-    val badgeIcon: ImageVector?,
     val icon: ImageVector
 )
 
@@ -456,39 +424,23 @@ private fun deviceStatusVisual(status: ConnectionStatus): DeviceStatusVisual {
     val scheme = MaterialTheme.colorScheme
     return when (status) {
         ConnectionStatus.CONNECTED -> DeviceStatusVisual(
-            label = "Connected",
-            accentColor = scheme.secondary,
-            accentContent = scheme.onSecondary,
             iconContainer = scheme.secondaryContainer,
             iconContent = scheme.onSecondaryContainer,
-            badgeIcon = Icons.Default.CheckCircle,
             icon = Icons.Default.BluetoothConnected
         )
         ConnectionStatus.CONNECTING -> DeviceStatusVisual(
-            label = "Connecting",
-            accentColor = scheme.tertiary,
-            accentContent = scheme.onTertiary,
             iconContainer = scheme.tertiaryContainer,
             iconContent = scheme.onTertiaryContainer,
-            badgeIcon = Icons.Default.SyncAlt,
             icon = Icons.Default.SyncAlt
         )
         ConnectionStatus.DISCONNECTING -> DeviceStatusVisual(
-            label = "Disconnecting",
-            accentColor = scheme.error,
-            accentContent = scheme.onError,
             iconContainer = scheme.errorContainer,
             iconContent = scheme.onErrorContainer,
-            badgeIcon = null,
             icon = Icons.Default.BluetoothDisabled
         )
         ConnectionStatus.DISCONNECTED, ConnectionStatus.UNKNOWN -> DeviceStatusVisual(
-            label = "Disconnected",
-            accentColor = scheme.error,
-            accentContent = scheme.onError,
             iconContainer = scheme.errorContainer,
             iconContent = scheme.onErrorContainer,
-            badgeIcon = null,
             icon = Icons.Default.BluetoothDisabled
         )
     }

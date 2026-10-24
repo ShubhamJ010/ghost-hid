@@ -14,6 +14,12 @@ data class Combo(
 )
 
 @Serializable
+data class PinnedFavorite(
+    @SerialName("slot") val slotId: Int,
+    @SerialName("combo") val comboName: String
+)
+
+@Serializable
 data class Snippet(
     @SerialName("name") val name: String,
     @SerialName("value") val value: String? = null,

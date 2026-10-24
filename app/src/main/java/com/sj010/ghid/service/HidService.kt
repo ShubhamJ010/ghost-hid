@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import com.sj010.ghid.GhostHidApp
+import com.sj010.ghid.R
 import com.sj010.ghid.domain.model.ConnectionStatus
 import com.sj010.ghid.domain.model.HidStep
 import com.sj010.ghid.domain.model.LogEntry
@@ -25,6 +26,7 @@ import com.sj010.ghid.domain.pointer.MouseButton
 import com.sj010.ghid.domain.pointer.PointerMath
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -72,6 +74,7 @@ class HidService : Service() {
     val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
 
     private var logFile: File? = null
+    private var targetSwitchJob: Job? = null
 
     companion object {
         const val TAG = "GHOST_HID"
@@ -92,6 +95,7 @@ class HidService : Service() {
         // the two cycles must sit inside the OS double-click window (~500 ms).
         // The gaps are generous because some Bluetooth stacks coalesce reports
         // that arrive only a few milliseconds apart.
+        private const val TARGET_SWITCH_SETTLE_MS = 800L
         private const val CLICK_PRESS_MS = 48L
         private const val CLICK_SETTLE_MS = 30L
         private const val CLICK_GAP_MS = 90L
@@ -133,7 +137,7 @@ class HidService : Service() {
 
         createNotificationChannel()
         try {
-            startForeground(1001, buildNotification("GhostHID Gateway: Ready"))
+            startForeground(1001, buildNotification("Ready"))
         } catch (e: SecurityException) {
             log("Deferred foreground start: missing connectedDevice permission")
         }
@@ -146,7 +150,7 @@ class HidService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "GhostHID Gateway",
+                "GhostHID",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Maintains Bluetooth HID bridge"
@@ -163,9 +167,9 @@ class HidService : Service() {
             Notification.Builder(this)
         }
         return builder
-            .setContentTitle("GhostHID Gateway")
+            .setContentTitle("GhostHID")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+            .setSmallIcon(R.drawable.ic_notification_ghost)
             .setOngoing(true)
             .build()
     }
@@ -244,7 +248,7 @@ class HidService : Service() {
                 _needsInitialTargetSelection.value = false
                 updateNotification("Connected to $name")
             } else {
-                updateNotification("Gateway Status: $status")
+                updateNotification("Status: $status")
             }
             writeStatusFile()
         }
@@ -313,10 +317,6 @@ class HidService : Service() {
         _needsInitialTargetSelection.value = false
     }
 
-    fun selectTarget(address: String) {
-        refreshDevices(address)
-    }
-
     private fun targetPreferences() = getSharedPreferences(TARGET_PREFERENCES, Context.MODE_PRIVATE)
 
     private fun restoreTargetSelection() {
@@ -342,6 +342,34 @@ class HidService : Service() {
     }
 
     fun connectTarget(specificAddress: String? = null) {
+        val previous = targetDevice
+        val hid = hidDevice
+        val isSwitch = specificAddress != null && previous != null &&
+            !previous.address.equals(specificAddress, ignoreCase = true)
+        val wasLinked = _connectionState.value == ConnectionStatus.CONNECTED ||
+            _connectionState.value == ConnectionStatus.CONNECTING
+
+        if (isSwitch && hid != null && wasLinked) {
+            val oldTarget = previous ?: return
+            log("Switching target: disconnecting ${oldTarget.name} [${oldTarget.address}] first...")
+            targetSwitchJob?.cancel()
+            try {
+                hid.disconnect(oldTarget)
+            } catch (e: Exception) {
+                log("disconnect old target error: ${e.message}")
+            }
+            // Let the stack finish tearing down the old link before asking for the new one.
+            targetSwitchJob = scope.launch {
+                delay(TARGET_SWITCH_SETTLE_MS)
+                connectToTarget(specificAddress)
+            }
+            return
+        }
+
+        connectToTarget(specificAddress)
+    }
+
+    private fun connectToTarget(specificAddress: String?) {
         if (specificAddress != null || targetDevice == null) {
             refreshDevices(specificAddress)
         }
