@@ -1,10 +1,5 @@
 package com.sj010.ghid.ui.trackpad
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,7 +34,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,7 +53,6 @@ import androidx.compose.ui.unit.sp
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.common.shade.PullDownShade
 import com.sj010.ghid.ui.theme.MaterialShapes
-import kotlinx.coroutines.delay
 
 /**
  * Gestures pull-down shade morphing directly out of the status bar on the Trackpad screen,
@@ -76,87 +69,49 @@ fun GesturesShade(
 ) {
     var targetOs by rememberSaveable { mutableStateOf(TargetOs.WINDOWS) }
     var selectedFilter by rememberSaveable { mutableStateOf<FingerCount?>(null) }
-    var feedbackToast by remember { mutableStateOf<String?>(null) }
 
     val haptic = LocalHapticFeedback.current
 
-    LaunchedEffect(feedbackToast) {
-        if (feedbackToast != null) {
-            delay(2200)
-            feedbackToast = null
-        }
-    }
+    PullDownShade(
+        modifier = modifier,
+        dock = { shadeScope ->
+            GestureMorphingDock(
+                progress = shadeScope.progress,
+                targetOs = targetOs,
+                onToggleOs = {
+                    targetOs = if (targetOs == TargetOs.WINDOWS) TargetOs.MACOS else TargetOs.WINDOWS
+                },
+                onDismiss = { shadeScope.dismiss() },
+                onOpen = { shadeScope.open() },
+                dragHandleModifier = shadeScope.dragHandleModifier
+            )
+        },
+        shade = { shadeScope ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+            ) {
+                Spacer(modifier = Modifier.height(14.dp))
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        PullDownShade(
-            modifier = modifier,
-            dock = { shadeScope ->
-                GestureMorphingDock(
-                    progress = shadeScope.progress,
+                GestureShadeBody(
+                    service = service,
                     targetOs = targetOs,
                     onToggleOs = {
                         targetOs = if (targetOs == TargetOs.WINDOWS) TargetOs.MACOS else TargetOs.WINDOWS
                     },
-                    onDismiss = { shadeScope.dismiss() },
-                    onOpen = { shadeScope.open() },
-                    dragHandleModifier = shadeScope.dragHandleModifier
+                    selectedFilter = selectedFilter,
+                    onFilterSelected = { selectedFilter = it },
+                    onTriggerGesture = { gesture ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val combo = gesture.comboFor(targetOs)
+                        service?.executeCombo(combo)
+                    }
                 )
-            },
-            shade = { shadeScope ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding()
-                ) {
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    GestureShadeBody(
-                        service = service,
-                        targetOs = targetOs,
-                        onToggleOs = {
-                            targetOs = if (targetOs == TargetOs.WINDOWS) TargetOs.MACOS else TargetOs.WINDOWS
-                        },
-                        selectedFilter = selectedFilter,
-                        onFilterSelected = { selectedFilter = it },
-                        onTriggerGesture = { gesture ->
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            val combo = gesture.comboFor(targetOs)
-                            service?.executeCombo(combo)
-                            feedbackToast = "⚡ Executed: ${gesture.fingers.label} ${gesture.title} (${gesture.actionName})"
-                        }
-                    )
-                }
-            },
-            content = content
-        )
-
-        // Floating Toast Notification for executed gestures
-        AnimatedVisibility(
-            visible = feedbackToast != null,
-            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(top = 16.dp, start = 20.dp, end = 20.dp)
-        ) {
-            feedbackToast?.let { msg ->
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.inverseSurface,
-                    contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                    shadowElevation = 6.dp
-                ) {
-                    Text(
-                        text = msg,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                }
             }
-        }
-    }
+        },
+        content = content
+    )
 }
 
 /**

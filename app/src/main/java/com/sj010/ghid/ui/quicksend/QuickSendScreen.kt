@@ -1,7 +1,6 @@
 package com.sj010.ghid.ui.quicksend
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -93,7 +92,6 @@ import com.sj010.ghid.ui.combos.editor.ComboEditorScreen
 import com.sj010.ghid.ui.common.sequence.SequencePreview
 import com.sj010.ghid.ui.common.sequence.formatStepCount
 import com.sj010.ghid.ui.theme.MaterialShapes
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -112,7 +110,6 @@ fun QuickSendOverlay(
 
     var scheme by rememberSaveable { mutableStateOf("") }
     var editorScheme by remember { mutableStateOf<String?>(null) }
-    var status by remember { mutableStateOf<String?>(null) }
 
     val analysis = remember(scheme) { SequenceAnalyzer.analyze(scheme) }
     val imeVisible = WindowInsets.isImeVisible
@@ -154,28 +151,18 @@ fun QuickSendOverlay(
         scope.launch { historyListState.animateScrollToItem(0) }
     }
 
-    LaunchedEffect(status) {
-        if (status != null) {
-            delay(2400)
-            status = null
-        }
-    }
-
     fun send(raw: String, record: Boolean) {
         val target = SequenceAnalyzer.analyze(raw)
         if (!target.canSend) {
-            status = target.error ?: "Nothing to send yet"
             return
         }
         if (service == null) {
-            status = "HID service is still binding"
             return
         }
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         service.executeCombo(raw)
         if (record) historyRepository.record(raw)
         revealComposerAtTop()
-        status = "Sent ${formatStepCount(target.steps.size)}"
         focusManager.clearFocus()
     }
 
@@ -257,16 +244,12 @@ fun QuickSendOverlay(
                         scheme = scheme,
                         analysis = analysis,
                         compactPreview = imeVisible,
-                        status = status,
                         onSchemeChange = { scheme = it },
                         onClear = { scheme = "" },
                         onPaste = {
                             val clip = clipboard.getText()?.text
                             if (!clip.isNullOrBlank()) {
                                 scheme = clip.trim()
-                                status = "Pasted scheme"
-                            } else {
-                                status = "Clipboard is empty"
                             }
                         },
                         onSend = { send(scheme, record = true) }
@@ -286,7 +269,6 @@ fun QuickSendOverlay(
             onDismiss = { editorScheme = null },
             onSave = { combo ->
                 comboRepository.addOrUpdate(combo)
-                status = "Saved ${combo.name}"
                 editorScheme = null
             }
         )
@@ -400,7 +382,6 @@ private fun QuickSendComposerDock(
     scheme: String,
     analysis: SequenceAnalysis,
     compactPreview: Boolean,
-    status: String?,
     onSchemeChange: (String) -> Unit,
     onClear: () -> Unit,
     onPaste: () -> Unit,
@@ -425,38 +406,6 @@ private fun QuickSendComposerDock(
                 compact = compactPreview,
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
             )
-
-            AnimatedVisibility(
-                visible = status != null,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.inverseSurface,
-                    contentColor = MaterialTheme.colorScheme.inverseOnSurface
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Bolt,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.inversePrimary,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = status.orEmpty(),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
 
             OutlinedTextField(
                 value = scheme,

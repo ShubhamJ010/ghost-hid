@@ -8,8 +8,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -103,7 +101,6 @@ import com.sj010.ghid.GhostHidApp
 import com.sj010.ghid.domain.model.Snippet
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.theme.MaterialShapes
-import kotlinx.coroutines.delay
 
 /**
  * The full Material 3 Expressive snippet screen inside the morphing notification shade.
@@ -125,18 +122,10 @@ fun SnippetShadeContent(
 
     var editingSnippet by remember { mutableStateOf<Snippet?>(null) }
     var editorOpen by remember { mutableStateOf(false) }
-    var statusToast by remember { mutableStateOf<String?>(null) }
 
     val haptic = LocalHapticFeedback.current
     val clipboardManager = LocalClipboardManager.current
     val focusManager = LocalFocusManager.current
-
-    LaunchedEffect(statusToast) {
-        if (statusToast != null) {
-            delay(2200)
-            statusToast = null
-        }
-    }
 
     val filteredSnippets = remember(snippets, filterQuery) {
         if (filterQuery.isBlank()) {
@@ -358,16 +347,12 @@ fun SnippetShadeContent(
                                 val textToType = snippet.value ?: ""
                                 if (textToType.isNotEmpty()) {
                                     service?.typeText(textToType)
-                                    statusToast = "⚡ Typed $${snippet.name} to PC"
-                                } else {
-                                    statusToast = "⚠️ Snippet $${snippet.name} is empty"
                                 }
                             },
                             onCopy = {
                                 val valToCopy = snippet.value ?: ""
                                 clipboardManager.setText(AnnotatedString(valToCopy))
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                statusToast = "📋 Copied $${snippet.name} to clipboard"
                             },
                             onEdit = {
                                 editingSnippet = snippet
@@ -375,7 +360,6 @@ fun SnippetShadeContent(
                             },
                             onDelete = {
                                 repo.delete(snippet.name)
-                                statusToast = "🗑️ Deleted $${snippet.name}"
                             }
                         )
                     }
@@ -388,37 +372,6 @@ fun SnippetShadeContent(
             }
         }
 
-        // ==========================================
-        // FLOATING ACTION TOAST BANNER (M3E inverseSurface pill)
-        // ==========================================
-        AnimatedVisibility(
-            visible = statusToast != null,
-            enter = fadeIn(animationSpec = tween(200)) + slideInVertically(
-                initialOffsetY = { it / 2 },
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
-                )
-            ),
-            exit = fadeOut(animationSpec = tween(150)) + slideOutVertically { it / 2 },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 76.dp)
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.inverseSurface,
-                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                shadowElevation = 8.dp
-            ) {
-                Text(
-                    text = statusToast ?: "",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
-                )
-            }
-        }
     }
 
     if (editorOpen) {
@@ -427,7 +380,6 @@ fun SnippetShadeContent(
             onDismiss = { editorOpen = false },
             onSave = { name, value, secure ->
                 repo.set(name, value, secure)
-                statusToast = if (editingSnippet == null) "✅ Added \$$name" else "✅ Updated \$$name"
                 editorOpen = false
             }
         )

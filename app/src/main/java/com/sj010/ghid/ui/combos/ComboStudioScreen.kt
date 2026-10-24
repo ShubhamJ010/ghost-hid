@@ -11,8 +11,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -46,7 +44,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
@@ -161,20 +158,11 @@ fun ComboStudioScreen(
     var comboToDelete by remember { mutableStateOf<Combo?>(null) }
 
     var executingComboName by remember { mutableStateOf<String?>(null) }
-    var bannerStatus by remember { mutableStateOf<String?>(null) }
 
     val haptic = LocalHapticFeedback.current
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-
-    // Floating notification timeout
-    LaunchedEffect(bannerStatus) {
-        if (bannerStatus != null) {
-            delay(2800)
-            bannerStatus = null
-        }
-    }
 
     // Filter and search logic
     val filteredCombos = remember(combos, searchQuery, selectedFilter) {
@@ -397,7 +385,6 @@ fun ComboStudioScreen(
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 executingComboName = combo.name
                                 service?.executeCombo(combo.keys)
-                                bannerStatus = "⚡ Executing: ${combo.name}"
 
                                 scope.launch {
                                     delay(1200)
@@ -409,7 +396,6 @@ fun ComboStudioScreen(
                             onToggleFavorite = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 repo.toggleFavorite(combo.name)
-                                bannerStatus = if (!combo.favorite) "★ Starred ${combo.name}" else "Unstarred ${combo.name}"
                             },
                             onEdit = {
                                 editingCombo = combo
@@ -423,48 +409,6 @@ fun ComboStudioScreen(
                 }
             }
 
-            // ==========================================
-            // FLOATING STATUS BANNER (Dynamic Material Pill)
-            // ==========================================
-            AnimatedVisibility(
-                visible = bannerStatus != null,
-                enter = slideInVertically(
-                    initialOffsetY = { -it },
-                    animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)
-                ) + fadeIn(),
-                exit = slideOutVertically(
-                    targetOffsetY = { -it },
-                    animationSpec = tween(180)
-                ) + fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 12.dp, start = 20.dp, end = 20.dp)
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.inverseSurface,
-                    contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                    shadowElevation = 8.dp
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Bolt,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = bannerStatus ?: "",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
         }
     }
     }
@@ -512,7 +456,6 @@ fun ComboStudioScreen(
                 Button(
                     onClick = {
                         repo.delete(target.name)
-                        bannerStatus = "Deleted ${target.name}"
                         comboToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -547,7 +490,6 @@ fun ComboStudioScreen(
             },
             onSave = { saved ->
                 repo.addOrUpdate(saved)
-                bannerStatus = "Saved ${saved.name}"
                 showEditorSheet = false
             }
         )

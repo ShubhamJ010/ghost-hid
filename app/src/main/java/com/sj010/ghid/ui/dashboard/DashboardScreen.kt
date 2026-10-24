@@ -102,7 +102,6 @@ import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.shade.PullDownShade
 import com.sj010.ghid.ui.common.shade.ShadeScope
 import com.sj010.ghid.ui.quicksend.QuickSendOverlay
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -171,7 +170,6 @@ fun DashboardScreen(
 
     var showDevicePicker by remember { mutableStateOf(false) }
     var showQuickSend by remember { mutableStateOf(false) }
-    var lastExecutedStatus by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(service, targetSelectionReady, needsInitialTargetSelection) {
         if (service != null && targetSelectionReady && needsInitialTargetSelection) {
@@ -179,12 +177,6 @@ fun DashboardScreen(
         }
     }
 
-    LaunchedEffect(lastExecutedStatus) {
-        if (lastExecutedStatus != null) {
-            delay(2800)
-            lastExecutedStatus = null
-        }
-    }
 
     PullDownShade(
         dock = { scope ->
@@ -252,11 +244,9 @@ fun DashboardScreen(
                     hasSelectedDevice = targetDevice != null,
                     onRunCombo = { combo ->
                         service?.executeCombo(combo.keys)
-                        lastExecutedStatus = "⚡ Executed: ${combo.name}"
                     },
                     onPinCombo = { slotId, comboName ->
                         GhostHidApp.instance.pinnedFavoritesRepository.pin(slotId, comboName)
-                        lastExecutedStatus = "📌 Pinned $comboName"
                     },
                     onBrowseCombos = { onNavigateToCombos?.invoke() }
                 )
@@ -269,7 +259,6 @@ fun DashboardScreen(
                     connectedOs = connectedOs,
                     onRunCombo = { combo ->
                         service?.executeCombo(combo.keys)
-                        lastExecutedStatus = "⚡ Executed: ${combo.name}"
                     },
                     onViewAll = { onNavigateToCombos?.invoke() }
                 )
@@ -328,41 +317,6 @@ fun DashboardScreen(
             }
         }
 
-        // Floating Toast Banner
-        AnimatedVisibility(
-            visible = lastExecutedStatus != null,
-            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 10.dp, start = 16.dp, end = 16.dp)
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.inverseSurface,
-                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                shadowElevation = 10.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Bolt,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = lastExecutedStatus ?: "",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
 
         AnimatedVisibility(
             visible = showQuickSendFab,

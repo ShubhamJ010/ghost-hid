@@ -66,7 +66,6 @@ import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.sequence.SequencePreview
 import com.sj010.ghid.ui.theme.MaterialShapes
-import kotlinx.coroutines.delay
 
 /**
  * Full-screen combo editor. The scrollable form owns the identity fields and the single
@@ -85,14 +84,6 @@ fun ComboEditorScreen(
     val state = remember(initial, initialScheme) { ComboEditorState(initial, initialScheme) }
     val clipboard = LocalClipboardManager.current
     val haptic = LocalHapticFeedback.current
-    var testAck by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(testAck) {
-        if (testAck != null) {
-            delay(1800)
-            testAck = null
-        }
-    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -287,9 +278,6 @@ fun ComboEditorScreen(
                                 val clip = clipboard.getText()?.text
                                 if (!clip.isNullOrBlank()) {
                                     state.scheme = clip.trim()
-                                    testAck = "Pasted from clipboard"
-                                } else {
-                                    testAck = "Clipboard is empty"
                                 }
                             },
                             modifier = Modifier
@@ -314,7 +302,6 @@ fun ComboEditorScreen(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 service?.executeCombo(state.scheme)
-                                testAck = "Test sent to target"
                             },
                             enabled = service != null && state.analysis.canSend,
                             modifier = Modifier
@@ -333,32 +320,6 @@ fun ComboEditorScreen(
                             )
                             Spacer(modifier = Modifier.width(7.dp))
                             Text("Send test", fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    testAck?.let { ack ->
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.inverseSurface,
-                            contentColor = MaterialTheme.colorScheme.inverseOnSurface
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(13.dp),
-                                    tint = MaterialTheme.colorScheme.inversePrimary
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = ack,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
                         }
                     }
 
