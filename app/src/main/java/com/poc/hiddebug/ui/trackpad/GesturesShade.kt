@@ -34,8 +34,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Laptop
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -204,16 +202,7 @@ fun GestureShadeBody(
         items(filteredGestures, key = { it.id }) { gesture ->
             GestureCard(
                 gesture = gesture,
-                targetOs = targetOs,
                 onTrigger = { onTriggerGesture(gesture) }
-            )
-        }
-
-        // Interactive Practice Playground Pad
-        item(span = { GridItemSpan(2) }) {
-            GesturePracticePad(
-                targetOs = targetOs,
-                onGestureRecognized = onTriggerGesture
             )
         }
     }
@@ -249,71 +238,13 @@ private fun GestureShadeControls(
                 )
             }
 
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable(onClick = onToggleOs)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = if (targetOs == TargetOs.WINDOWS) Icons.Default.DesktopWindows else Icons.Default.Laptop,
-                        contentDescription = null,
-                        modifier = Modifier.size(15.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = targetOs.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
+            OsToggleChip(targetOs = targetOs, onToggle = onToggleOs)
         }
 
-        // Category Filter Chips
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = selectedFilter == null,
-                onClick = { onFilterSelected(null) },
-                label = { Text("All (8)") },
-                shape = CircleShape,
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-            FilterChip(
-                selected = selectedFilter == FingerCount.THREE,
-                onClick = { onFilterSelected(FingerCount.THREE) },
-                label = { Text("3 Fingers (4)") },
-                shape = CircleShape,
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-            FilterChip(
-                selected = selectedFilter == FingerCount.FOUR,
-                onClick = { onFilterSelected(FingerCount.FOUR) },
-                label = { Text("4 Fingers (4)") },
-                shape = CircleShape,
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        }
+        GestureFilterChips(
+            selectedFilter = selectedFilter,
+            onFilterSelected = onFilterSelected
+        )
     }
 }
 

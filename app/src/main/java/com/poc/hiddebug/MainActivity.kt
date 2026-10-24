@@ -75,6 +75,7 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
         )
+        preferHighRefreshRate()
 
         requestRequiredPermissions()
         startAndBindService()
@@ -82,6 +83,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             GhostHidTheme {
                 MainAppScaffold(service = hidService)
+            }
+        }
+    }
+
+    private fun preferHighRefreshRate() {
+        val displaySupports120Hz = display?.supportedModes?.any { it.refreshRate >= 119.5f } == true
+        if (displaySupports120Hz) {
+            window.attributes = window.attributes.apply {
+                preferredRefreshRate = 120f
             }
         }
     }

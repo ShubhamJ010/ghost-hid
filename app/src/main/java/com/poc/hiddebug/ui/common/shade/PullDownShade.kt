@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -225,6 +226,30 @@ fun PullDownShade(
                             }
                     ) {
                         shade(shadeScope)
+                    }
+                }
+
+                // Opaque backing for the dock strip. Without it the shade body keeps
+                // scrolling visibly behind the dock controls once fully open, so the
+                // backing fades in with the shade and disappears again on close.
+                if (!pushContentBelowShade) {
+                    val dockBackdropAlpha =
+                        ((animatedProgress - 0.15f) / 0.85f).coerceIn(0f, 1f)
+                    if (dockBackdropAlpha > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(currentDockHeight + 36.dp)
+                                .align(Alignment.BottomCenter)
+                                .graphicsLayer { alpha = dockBackdropAlpha }
+                                .background(
+                                    Brush.verticalGradient(
+                                        0f to cardColor.copy(alpha = 0f),
+                                        0.5f to cardColor,
+                                        1f to cardColor
+                                    )
+                                )
+                        )
                     }
                 }
 
