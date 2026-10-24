@@ -560,7 +560,7 @@ fun ComboCard(
         label = "favScale"
     )
 
-    val analysis = remember(combo.keys) { SequenceAnalyzer.analyze(combo.keys) }
+    val analysis = remember(combo.keys, combo.os) { SequenceAnalyzer.analyze(combo.keys, combo.targetOs) }
 
     // Expressive shape mapping per combo name to give visual variety
     val expressiveShape = remember(combo.name) {

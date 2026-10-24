@@ -37,6 +37,14 @@ class SequenceAnalyzerTest {
     }
 
     @Test
+    fun macAliasAllowedWhenTargetOsIsMac() {
+        val analysis = SequenceAnalyzer.analyze("cmd+c", com.sj010.ghid.domain.model.TargetOs.MACOS)
+
+        assertFalse(analysis.isInvalid)
+        assertTrue(analysis.canSend)
+    }
+
+    @Test
     fun nonAsciiTypedTextIsReportedAsError() {
         val analysis = SequenceAnalyzer.analyze("type:héllo")
 

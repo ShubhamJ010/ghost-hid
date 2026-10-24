@@ -22,13 +22,13 @@ data class SequenceAnalysis(
 
 object SequenceAnalyzer {
 
-    fun analyze(scheme: String): SequenceAnalysis {
+    fun analyze(scheme: String, targetOs: com.sj010.ghid.domain.model.TargetOs = com.sj010.ghid.domain.model.TargetOs.WINDOWS): SequenceAnalysis {
         val trimmed = scheme.trim()
         if (trimmed.isEmpty()) {
             return SequenceAnalysis(scheme = scheme)
         }
 
-        ActionSequenceParser.validate(trimmed).onFailure { failure ->
+        ActionSequenceParser.validate(trimmed, targetOs).onFailure { failure ->
             return SequenceAnalysis(
                 scheme = scheme,
                 error = failure.message ?: "Invalid sequence"

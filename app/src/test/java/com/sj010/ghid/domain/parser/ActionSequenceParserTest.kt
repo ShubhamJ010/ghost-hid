@@ -61,8 +61,35 @@ class ActionSequenceParserTest {
     }
 
     @Test
+    fun testValidateMacAliasesAllowedForMacOs() {
+        val result = ActionSequenceParser.validate("cmd+c", com.sj010.ghid.domain.model.TargetOs.MACOS)
+        assertTrue(result.isSuccess)
+    }
+
+    @Test
+    fun testParseRawReportStep() {
+        val steps = ActionSequenceParser.parse("raw:cd00 ->{0.06} raw:0000")
+        assertEquals(3, steps.size)
+        assertTrue(steps[0] is HidStep.RawReport)
+        assertEquals("cd00", (steps[0] as HidStep.RawReport).hex)
+        assertTrue(steps[1] is HidStep.Delay)
+        assertTrue(steps[2] is HidStep.RawReport)
+        assertEquals("0000", (steps[2] as HidStep.RawReport).hex)
+    }
+
+    @Test
     fun testValidateValidGrammar() {
         val result = ActionSequenceParser.validate("ctrl+alt+del ->{1.0} esc ->{0.5} \$USERNAME")
         assertTrue(result.isSuccess)
+    }
+
+    @Test
+    fun testValidateMacOsModifiers() {
+        val macResult = ActionSequenceParser.validate("cmd+opt+esc ->{0.4} enter", com.sj010.ghid.domain.model.TargetOs.MACOS)
+        assertTrue(macResult.isSuccess)
+
+        val winResult = ActionSequenceParser.validate("cmd+opt+esc", com.sj010.ghid.domain.model.TargetOs.WINDOWS)
+        assertTrue(winResult.isFailure)
+        assertTrue(winResult.exceptionOrNull()?.message?.contains("macOS key name") == true)
     }
 }

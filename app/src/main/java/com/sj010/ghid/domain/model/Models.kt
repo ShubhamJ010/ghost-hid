@@ -69,4 +69,17 @@ sealed class HidStep {
     data class MouseAction(val action: String) : HidStep()
     data class Delay(val millis: Long) : HidStep()
     data class Directive(val name: String) : HidStep()
+    data class RawReport(val bytes: ByteArray, val hex: String) : HidStep() {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+            other as RawReport
+            return bytes.contentEquals(other.bytes) && hex == other.hex
+        }
+        override fun hashCode(): Int {
+            var result = bytes.contentHashCode()
+            result = 31 * result + hex.hashCode()
+            return result
+        }
+    }
 }

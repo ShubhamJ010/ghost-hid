@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -392,6 +393,7 @@ fun StepBadge(step: HidStep) {
         is HidStep.Delay -> Icons.Default.Timer
         is HidStep.MouseAction -> Icons.Default.Mouse
         is HidStep.Directive -> Icons.Default.Warning
+        is HidStep.RawReport -> Icons.Default.Bolt
     }
     val label = when (step) {
         is HidStep.KeyboardChord -> step.label
@@ -400,6 +402,7 @@ fun StepBadge(step: HidStep) {
         is HidStep.Delay -> String.format(Locale.US, "%.1fs", step.millis / 1000.0)
         is HidStep.MouseAction -> step.action
         is HidStep.Directive -> "!${step.name}"
+        is HidStep.RawReport -> "raw:${step.hex}"
     }
     val background = when (step) {
         is HidStep.KeyboardChord -> MaterialTheme.colorScheme.primaryContainer
@@ -408,6 +411,7 @@ fun StepBadge(step: HidStep) {
         is HidStep.Delay -> MaterialTheme.colorScheme.surfaceContainerHighest
         is HidStep.MouseAction -> MaterialTheme.colorScheme.primaryContainer
         is HidStep.Directive -> MaterialTheme.colorScheme.errorContainer
+        is HidStep.RawReport -> MaterialTheme.colorScheme.tertiaryContainer
     }
     val content = when (step) {
         is HidStep.KeyboardChord -> MaterialTheme.colorScheme.onPrimaryContainer
@@ -416,6 +420,7 @@ fun StepBadge(step: HidStep) {
         is HidStep.Delay -> MaterialTheme.colorScheme.onSurfaceVariant
         is HidStep.MouseAction -> MaterialTheme.colorScheme.onPrimaryContainer
         is HidStep.Directive -> MaterialTheme.colorScheme.onErrorContainer
+        is HidStep.RawReport -> MaterialTheme.colorScheme.onTertiaryContainer
     }
 
     Surface(shape = RoundedCornerShape(9.dp), color = background) {

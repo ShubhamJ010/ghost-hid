@@ -58,6 +58,21 @@ object ActionSequenceParser {
         val s = stepStr.trim()
         if (s.isEmpty()) return null
 
+        // 0. Raw Report: raw:02, raw:cd00, raw:01000000, raw:08000f0000000000
+        if (s.startsWith("raw:", ignoreCase = true)) {
+            var rawHex = s.substring(4).trim()
+            if (rawHex.contains(":")) {
+                rawHex = rawHex.substringAfter(":")
+            }
+            val cleanHex = rawHex.replace(" ", "")
+            if (cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }) {
+                val bytes = ByteArray(cleanHex.length / 2) { i ->
+                    cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+                }
+                return HidStep.RawReport(bytes, cleanHex.lowercase(java.util.Locale.ROOT))
+            }
+        }
+
         // 1. Directives: !DISCONNECT, !EXIT
         if (s.startsWith("!")) {
             return HidStep.Directive(s.substring(1).trim().uppercase())
@@ -89,7 +104,7 @@ object ActionSequenceParser {
     /**
      * Validates that a combo string is syntactically well-formed.
      */
-    fun validate(keys: String): Result<Unit> {
+    fun validate(keys: String, targetOs: com.sj010.ghid.domain.model.TargetOs = com.sj010.ghid.domain.model.TargetOs.WINDOWS): Result<Unit> {
         val trimmed = keys.trim()
         if (trimmed.isEmpty()) return Result.failure(IllegalArgumentException("Combo has no steps"))
 
@@ -99,13 +114,16 @@ object ActionSequenceParser {
         for (step in steps) {
             when (step) {
                 is HidStep.KeyboardChord -> {
-                    for (token in step.label.split("+")) {
-                        val t = token.trim()
-                        if (KeyTokens.isMacAlias(t)) {
-                            return Result.failure(IllegalArgumentException("\"$t\" is a macOS key name; use a Windows key such as win, ctrl or alt"))
+                    if (targetOs != com.sj010.ghid.domain.model.TargetOs.MACOS) {
+                        for (token in step.label.split("+")) {
+                            val t = token.trim()
+                            if (KeyTokens.isMacAlias(t)) {
+                                return Result.failure(IllegalArgumentException("\"$t\" is a macOS key name; use a Windows key such as win, ctrl or alt"))
+                            }
                         }
                     }
                 }
+                is HidStep.RawReport -> Unit
                 is HidStep.TypeText -> {
                     for (c in step.text) {
                         if (c.code < 0x20 || c.code > 0x7E) {

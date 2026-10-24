@@ -22,7 +22,7 @@ class ComboEditorState(
     var description by mutableStateOf(initial?.description.orEmpty())
     var scheme by mutableStateOf(initial?.keys ?: initialScheme)
 
-    val analysis: SequenceAnalysis by derivedStateOf { SequenceAnalyzer.analyze(scheme) }
+    val analysis: SequenceAnalysis by derivedStateOf { SequenceAnalyzer.analyze(scheme, os) }
     val canSave: Boolean by derivedStateOf { name.isNotBlank() && analysis.canSend }
 
     fun build(): Combo = Combo(

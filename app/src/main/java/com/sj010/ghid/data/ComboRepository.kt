@@ -71,11 +71,13 @@ class ComboRepository(private val context: Context) {
 
     fun ensureDefaults(): List<Combo> {
         val current = load()
-        // Ensure strictly the 3 built-in combos: Login, Lock, Sleep
-        val hasExactBuiltIns = current.size == 3 &&
+        val hasExactBuiltIns = current.size >= 6 &&
                 current.any { it.name.equals("Login", ignoreCase = true) } &&
                 current.any { it.name.equals("Lock", ignoreCase = true) } &&
-                current.any { it.name.equals("Sleep", ignoreCase = true) }
+                current.any { it.name.equals("Sleep", ignoreCase = true) } &&
+                current.any { it.name.equals("MacSleep", ignoreCase = true) } &&
+                current.any { it.name.equals("ForceQuit", ignoreCase = true) } &&
+                current.any { it.name.equals("PlayPause", ignoreCase = true) }
 
         if (!hasExactBuiltIns) {
             val defaults = listOf(
@@ -100,6 +102,30 @@ class ComboRepository(private val context: Context) {
                     keys = "win+x ->{0.5} u ->{0.3} s ->{5.0} !DISCONNECT ->{0.5} !EXIT",
                     os = TargetOs.WINDOWS.token,
                     description = "Windows sleep sequence + countdown exit",
+                    favorite = true,
+                    createdAt = isoNow()
+                ),
+                Combo(
+                    name = "MacSleep",
+                    keys = "cmd+ctrl+q ->{0.5} esc",
+                    os = TargetOs.MACOS.token,
+                    description = "Instant macOS lock and display sleep",
+                    favorite = true,
+                    createdAt = isoNow()
+                ),
+                Combo(
+                    name = "ForceQuit",
+                    keys = "cmd+opt+esc ->{0.4} enter ->{0.3} enter",
+                    os = TargetOs.MACOS.token,
+                    description = "Force quit frontmost unresponsive app",
+                    favorite = true,
+                    createdAt = isoNow()
+                ),
+                Combo(
+                    name = "PlayPause",
+                    keys = "raw:cd00 ->{0.06} raw:0000",
+                    os = TargetOs.MACOS.token,
+                    description = "Consumer media play/pause toggle",
                     favorite = true,
                     createdAt = isoNow()
                 )

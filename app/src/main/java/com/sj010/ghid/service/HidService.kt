@@ -99,8 +99,10 @@ class HidService : Service() {
         private const val KEY_SELECTED_ADDRESS = "selected_address"
         private const val KEY_TARGET_SETUP_COMPLETE = "target_setup_complete"
 
-        const val MOUSE_REPORT_ID = 2
         const val KEYBOARD_REPORT_ID = 1
+        const val MOUSE_REPORT_ID = 2
+        const val SYSTEM_REPORT_ID = 3
+        const val CONSUMER_REPORT_ID = 4
         private val RELEASE_REPORT = ByteArray(4)
 
         // A click must be long enough for every host stack to sample it, and
@@ -137,7 +139,38 @@ class HidService : Service() {
             0x95.toByte(), 0x01.toByte(), 0x75.toByte(), 0x03.toByte(), 0x91.toByte(), 0x01.toByte(),
             0x95.toByte(), 0x06.toByte(), 0x75.toByte(), 0x08.toByte(), 0x15.toByte(), 0x00.toByte(),
             0x25.toByte(), 0x65.toByte(), 0x05.toByte(), 0x07.toByte(), 0x19.toByte(), 0x00.toByte(),
-            0x29.toByte(), 0x65.toByte(), 0x81.toByte(), 0x00.toByte(), 0xC0.toByte()
+            0x29.toByte(), 0x65.toByte(), 0x81.toByte(), 0x00.toByte(), 0xC0.toByte(),
+
+            // System Control collection (Report ID 3)
+            0x05.toByte(), 0x01.toByte(),        // Usage Page (Generic Desktop)
+            0x09.toByte(), 0x80.toByte(),        // Usage (System Control)
+            0xA1.toByte(), 0x01.toByte(),        // Collection (Application)
+            0x85.toByte(), 0x03.toByte(),        //   Report ID (3)
+            0x19.toByte(), 0x81.toByte(),        //   Usage Minimum (System Power Down)
+            0x29.toByte(), 0x83.toByte(),        //   Usage Maximum (System Wake Up)
+            0x15.toByte(), 0x00.toByte(),        //   Logical Minimum (0)
+            0x25.toByte(), 0x01.toByte(),        //   Logical Maximum (1)
+            0x75.toByte(), 0x01.toByte(),        //   Report Size (1 bit)
+            0x95.toByte(), 0x03.toByte(),        //   Report Count (3)
+            0x81.toByte(), 0x02.toByte(),        //   Input (Data, Variable, Absolute)
+            0x75.toByte(), 0x05.toByte(),        //   Report Size (5 bits) - padding
+            0x95.toByte(), 0x01.toByte(),        //   Report Count (1)
+            0x81.toByte(), 0x01.toByte(),        //   Input (Constant)
+            0xC0.toByte(),                       // End Collection
+
+            // Consumer Control collection (Report ID 4)
+            0x05.toByte(), 0x0C.toByte(),        // Usage Page (Consumer)
+            0x09.toByte(), 0x01.toByte(),        // Usage (Consumer Control)
+            0xA1.toByte(), 0x01.toByte(),        // Collection (Application)
+            0x85.toByte(), 0x04.toByte(),        //   Report ID (4)
+            0x15.toByte(), 0x00.toByte(),        //   Logical Minimum (0)
+            0x26.toByte(), 0x9C.toByte(), 0x02.toByte(), // Logical Maximum (0x029C)
+            0x19.toByte(), 0x00.toByte(),        //   Usage Minimum (0)
+            0x2A.toByte(), 0x9C.toByte(), 0x02.toByte(), // Usage Maximum (0x029C)
+            0x75.toByte(), 0x10.toByte(),        //   Report Size (16 bits)
+            0x95.toByte(), 0x01.toByte(),        //   Report Count (1)
+            0x81.toByte(), 0x00.toByte(),        //   Input (Data, Array, Absolute)
+            0xC0.toByte()                        // End Collection
         )
     }
 
@@ -273,6 +306,8 @@ class HidService : Service() {
                 val reportSize = when (id.toInt()) {
                     KEYBOARD_REPORT_ID -> 8
                     MOUSE_REPORT_ID -> 4
+                    SYSTEM_REPORT_ID -> 1
+                    CONSUMER_REPORT_ID -> 2
                     else -> null
                 }
                 if (reportSize != null) {
@@ -439,11 +474,50 @@ class HidService : Service() {
     }
 
     fun sendRawReport(report: ByteArray) {
+        val reportId = when (report.size) {
+            1 -> SYSTEM_REPORT_ID
+            2 -> CONSUMER_REPORT_ID
+            4 -> MOUSE_REPORT_ID
+            8 -> KEYBOARD_REPORT_ID
+            else -> KEYBOARD_REPORT_ID
+        }
+        sendRawReport(reportId, report)
+    }
+
+    fun sendRawReport(reportId: Int, report: ByteArray) {
         val hid = hidDevice ?: return
         val target = targetDevice ?: return
         executor.execute {
-            val ok = hid.sendReport(target, 1, report)
-            log("sendRawReport -> $ok")
+            val ok = hid.sendReport(target, reportId, report)
+            log("sendRawReport(id=$reportId, len=${report.size}) -> $ok")
+        }
+    }
+
+    fun sendSystemSleep() {
+        val hid = hidDevice ?: return
+        val target = targetDevice ?: return
+        executor.execute {
+            log(">>> Executing System Sleep (Report $SYSTEM_REPORT_ID)...")
+            val down = byteArrayOf(0x02.toByte())
+            val up = byteArrayOf(0x00.toByte())
+            val r1 = hid.sendReport(target, SYSTEM_REPORT_ID, down)
+            try { Thread.sleep(60) } catch (ignored: Exception) {}
+            val r2 = hid.sendReport(target, SYSTEM_REPORT_ID, up)
+            log("System Sleep sent: down=$r1, up=$r2")
+        }
+    }
+
+    fun sendConsumerKey(usageCode: Int) {
+        val hid = hidDevice ?: return
+        val target = targetDevice ?: return
+        executor.execute {
+            log(">>> Executing Consumer Key 0x${usageCode.toString(16)} (Report $CONSUMER_REPORT_ID)...")
+            val down = byteArrayOf((usageCode and 0xFF).toByte(), ((usageCode shr 8) and 0xFF).toByte())
+            val up = byteArrayOf(0x00, 0x00)
+            val r1 = hid.sendReport(target, CONSUMER_REPORT_ID, down)
+            try { Thread.sleep(60) } catch (ignored: Exception) {}
+            val r2 = hid.sendReport(target, CONSUMER_REPORT_ID, up)
+            log("Consumer Key sent: down=$r1, up=$r2")
         }
     }
 
@@ -685,6 +759,10 @@ class HidService : Service() {
                         sendMouse(step.action)
                         delay(100)
                     }
+                    is HidStep.RawReport -> {
+                        sendRawReport(step.bytes)
+                        delay(20)
+                    }
                     is HidStep.Directive -> {
                         when (step.name) {
                             "DISCONNECT" -> disconnectTarget()
@@ -821,6 +899,35 @@ class HidService : Service() {
             when {
                 "stop".equals(cmd, ignoreCase = true) -> stopSelf()
                 ACTION_LOCK == action || "lock".equals(cmd, ignoreCase = true) -> sendWinL()
+                "sleep".equals(cmd, ignoreCase = true) -> sendSystemSleep()
+                "raw".equals(cmd, ignoreCase = true) -> {
+                    val hex = intent.getStringExtra("hex")
+                    val hasExplicitId = intent.hasExtra("id")
+                    if (!hex.isNullOrEmpty()) {
+                        val cleanHex = hex.replace(" ", "")
+                        if (cleanHex.length % 2 == 0) {
+                            val bytes = ByteArray(cleanHex.length / 2) { i ->
+                                cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+                            }
+                            if (hasExplicitId) {
+                                sendRawReport(intent.getIntExtra("id", KEYBOARD_REPORT_ID), bytes)
+                            } else {
+                                sendRawReport(bytes)
+                            }
+                        }
+                    }
+                }
+                "media".equals(cmd, ignoreCase = true) -> {
+                    val key = intent.getStringExtra("key")?.lowercase(Locale.ROOT)
+                    when (key) {
+                        "play", "pause", "playpause" -> sendConsumerKey(0x00CD)
+                        "next", "next-track" -> sendConsumerKey(0x00B5)
+                        "prev", "prev-track" -> sendConsumerKey(0x00B6)
+                        "volup", "volume-up" -> sendConsumerKey(0x00E9)
+                        "voldown", "volume-down" -> sendConsumerKey(0x00EA)
+                        "mute" -> sendConsumerKey(0x00E2)
+                    }
+                }
                 ACTION_TYPE == action || "type".equals(cmd, ignoreCase = true) -> typeText(intent.getStringExtra("text"))
                 "combo".equals(cmd, ignoreCase = true) -> {
                     val keys = intent.getStringExtra("keys")

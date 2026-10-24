@@ -19,7 +19,7 @@ object KeyTokens {
 
     fun isModifier(token: String): Boolean {
         return when (token.trim().lowercase(Locale.ROOT)) {
-            "win", "gui", "super", "ctrl", "control", "alt", "shift" -> true
+            "win", "gui", "super", "cmd", "command", "ctrl", "control", "alt", "opt", "option", "shift" -> true
             else -> false
         }
     }
@@ -97,7 +97,7 @@ object KeyTokens {
         for (rawPart in parts) {
             val p = rawPart.trim()
             when (p) {
-                "win", "gui", "super", "meta" -> mod = (mod.toInt() or 0x08).toByte()
+                "win", "gui", "super", "meta", "cmd", "command" -> mod = (mod.toInt() or 0x08).toByte()
                 "ctrl", "control" -> mod = (mod.toInt() or 0x01).toByte()
                 "alt", "opt", "option" -> mod = (mod.toInt() or 0x04).toByte()
                 "shift" -> mod = (mod.toInt() or 0x02).toByte()
