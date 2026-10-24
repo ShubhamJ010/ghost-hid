@@ -43,9 +43,9 @@
             android:name=".service.HidCommandReceiver"
             android:exported="true">
             <intent-filter>
-                <action android:name="com.poc.hiddebug.ACTION_LOCK" />
-                <action android:name="com.poc.hiddebug.ACTION_CMD" />
-                <action android:name="com.poc.hiddebug.ACTION_TYPE" />
+                <action android:name="com.sj010.ghid.ACTION_LOCK" />
+                <action android:name="com.sj010.ghid.ACTION_CMD" />
+                <action android:name="com.sj010.ghid.ACTION_TYPE" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>

@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.poc.hiddebug"
+    namespace = "com.sj010.ghid"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.poc.hiddebug"
+        applicationId = "com.sj010.ghid"
         minSdk = 28
         targetSdk = 35
         versionCode = 2
