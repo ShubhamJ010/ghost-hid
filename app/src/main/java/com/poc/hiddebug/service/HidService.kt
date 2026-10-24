@@ -598,9 +598,12 @@ class HidService : Service() {
      */
     fun executeCombo(rawOrName: String) {
         scope.launch {
-            val combo = GhostHidApp.instance.comboRepository.find(rawOrName)
+            val app = GhostHidApp.instance
+            val combo = app.comboRepository.find(rawOrName)
+                ?: app.comboRepository.combos.value.firstOrNull { it.keys == rawOrName }
             val raw = combo?.keys ?: rawOrName
             val steps = ActionSequenceParser.parse(raw)
+            combo?.let { app.comboUsageRepository.recordUse(it.name) }
             log(">>> Executing sequence ($raw)")
 
             for (step in steps) {
@@ -700,14 +703,15 @@ class HidService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stopForeground(STOP_FOREGROUND_REMOVE)
         hidDevice?.let { hid ->
             try { hid.unregisterApp() } catch (ignored: Exception) {}
             adapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, hid)
         }
-        executor.shutdownNow()
-        pointerExecutor.shutdownNow()
         _connectionState.value = ConnectionStatus.DISCONNECTED
         writeStatusFile()
         log("GhostHID Service destroyed.")
+        executor.shutdown()
+        pointerExecutor.shutdownNow()
     }
 }

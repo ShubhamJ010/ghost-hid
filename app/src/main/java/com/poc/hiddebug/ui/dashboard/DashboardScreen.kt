@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -51,6 +52,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Warning
@@ -75,6 +77,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -115,7 +118,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun DashboardScreen(
     service: HidService?,
-    onNavigateToCombos: (() -> Unit)? = null
+    onNavigateToCombos: (() -> Unit)? = null,
+    onQuit: () -> Unit = {}
 ) {
     val connectionState by service?.connectionState?.collectAsState()
         ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
@@ -127,6 +131,14 @@ fun DashboardScreen(
         ?: remember { mutableStateOf(false) }
     val comboRepo = GhostHidApp.instance.comboRepository
     val allCombos by comboRepo.combos.collectAsState()
+    val comboUseCounts by GhostHidApp.instance.comboUsageRepository.useCounts.collectAsState()
+    val dashboardListState = rememberLazyListState()
+    val showQuickSendFab by remember {
+        derivedStateOf {
+            dashboardListState.firstVisibleItemIndex == 0 &&
+                dashboardListState.firstVisibleItemScrollOffset == 0
+        }
+    }
 
     var showDevicePicker by remember { mutableStateOf(false) }
     var showQuickSend by remember { mutableStateOf(false) }
@@ -168,6 +180,7 @@ fun DashboardScreen(
     ) {
       Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
+            state = dashboardListState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 6.dp),
@@ -215,6 +228,55 @@ fun DashboardScreen(
             }
 
             item {
+                MostUsedCombosSection(
+                    combos = allCombos,
+                    useCounts = comboUseCounts,
+                    onRunCombo = { combo ->
+                        service?.executeCombo(combo.keys)
+                        lastExecutedStatus = "⚡ Executed: ${combo.name}"
+                    },
+                    onViewAll = { onNavigateToCombos?.invoke() }
+                )
+            }
+
+            item {
+                Button(
+                    onClick = onQuit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    shape = RoundedCornerShape(
+                        topStart = 28.dp,
+                        topEnd = 18.dp,
+                        bottomEnd = 28.dp,
+                        bottomStart = 18.dp
+                    ),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFD32F2F),
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(horizontal = 28.dp, vertical = 22.dp),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 3.dp,
+                        pressedElevation = 1.dp
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PowerSettingsNew,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "QUIT APP",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.2.sp
+                    )
+                }
+            }
+
+            item {
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
@@ -255,20 +317,26 @@ fun DashboardScreen(
             }
         }
 
-        LargeFloatingActionButton(
-            onClick = { showQuickSend = true },
+        AnimatedVisibility(
+            visible = showQuickSendFab,
+            enter = fadeIn() + slideInVertically { it / 2 },
+            exit = fadeOut() + slideOutVertically { it / 2 },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = 20.dp),
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            shape = MaterialShapes.ShapeClover4
+                .padding(end = 20.dp, bottom = 20.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Bolt,
-                contentDescription = "Open quick send",
-                modifier = Modifier.size(38.dp)
-            )
+            LargeFloatingActionButton(
+                onClick = { showQuickSend = true },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = MaterialShapes.ShapeClover4
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Bolt,
+                    contentDescription = "Open quick send",
+                    modifier = Modifier.size(38.dp)
+                )
+            }
         }
       }
     }
@@ -712,4 +780,3 @@ private fun BoxScope.CollageEmptyShapeSlot(
         }
     }
 }
-

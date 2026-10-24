@@ -3,6 +3,7 @@ package com.poc.hiddebug
 import android.app.Application
 import com.poc.hiddebug.data.AndroidKeystoreVault
 import com.poc.hiddebug.data.ComboRepository
+import com.poc.hiddebug.data.ComboUsageRepository
 import com.poc.hiddebug.data.QuickSendHistoryRepository
 import com.poc.hiddebug.data.SnippetRepository
 
@@ -11,6 +12,8 @@ class GhostHidApp : Application() {
     lateinit var vault: AndroidKeystoreVault
         private set
     lateinit var comboRepository: ComboRepository
+        private set
+    lateinit var comboUsageRepository: ComboUsageRepository
         private set
     lateinit var snippetRepository: SnippetRepository
         private set
@@ -23,6 +26,7 @@ class GhostHidApp : Application() {
 
         vault = AndroidKeystoreVault(this)
         comboRepository = ComboRepository(this)
+        comboUsageRepository = ComboUsageRepository(this)
         snippetRepository = SnippetRepository(this, vault)
         quickSendHistoryRepository = QuickSendHistoryRepository(this)
 

@@ -82,7 +82,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             GhostHidTheme {
-                MainAppScaffold(service = hidService)
+                MainAppScaffold(
+                    service = hidService,
+                    onQuit = {
+                        stopService(Intent(this, HidService::class.java))
+                        finishAndRemoveTask()
+                    }
+                )
             }
         }
     }
@@ -134,7 +140,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainAppScaffold(service: HidService?) {
+fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}) {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
 
     Scaffold(
@@ -185,7 +191,8 @@ fun MainAppScaffold(service: HidService?) {
                     ) {
                         DashboardScreen(
                             service = service,
-                            onNavigateToCombos = { currentScreen = Screen.Combos }
+                            onNavigateToCombos = { currentScreen = Screen.Combos },
+                            onQuit = onQuit
                         )
                     }
                     Screen.Combos -> ComboStudioScreen(service = service)
