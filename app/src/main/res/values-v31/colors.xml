@@ -1,0 +1,6 @@
+<resources>
+    <color name="ic_launcher_background">@android:color/system_accent1_900</color>
+    <color name="ic_launcher_foreground_color">@android:color/system_accent1_100</color>
+    <color name="ic_launcher_keyboard">@android:color/system_accent1_800</color>
+    <color name="ic_launcher_keyboard_accent">@android:color/system_accent1_200</color>
+</resources>

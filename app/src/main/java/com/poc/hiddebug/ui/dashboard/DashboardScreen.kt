@@ -11,6 +11,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
@@ -34,6 +36,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -139,6 +142,12 @@ fun DashboardScreen(
                 dashboardListState.firstVisibleItemScrollOffset == 0
         }
     }
+    val showQuitButton by remember {
+        derivedStateOf {
+            dashboardListState.layoutInfo.totalItemsCount > 0 &&
+                (dashboardListState.canScrollBackward || !dashboardListState.canScrollForward)
+        }
+    }
 
     var showDevicePicker by remember { mutableStateOf(false) }
     var showQuickSend by remember { mutableStateOf(false) }
@@ -184,6 +193,7 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 6.dp),
+            contentPadding = PaddingValues(bottom = 104.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
@@ -239,45 +249,56 @@ fun DashboardScreen(
                 )
             }
 
-            item {
-                Button(
-                    onClick = onQuit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    shape = RoundedCornerShape(
-                        topStart = 28.dp,
-                        topEnd = 18.dp,
-                        bottomEnd = 28.dp,
-                        bottomStart = 18.dp
-                    ),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFD32F2F),
-                        contentColor = Color.White
-                    ),
-                    contentPadding = PaddingValues(horizontal = 28.dp, vertical = 22.dp),
-                    elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 3.dp,
-                        pressedElevation = 1.dp
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PowerSettingsNew,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "QUIT APP",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.2.sp
-                    )
-                }
-            }
+        }
 
-            item {
-                Spacer(modifier = Modifier.height(32.dp))
+        AnimatedVisibility(
+            visible = showQuitButton,
+            enter = fadeIn(animationSpec = tween(450)) +
+                slideInVertically(
+                    animationSpec = tween(450, easing = FastOutSlowInEasing),
+                    initialOffsetY = { it / 2 }
+                ),
+            exit = fadeOut(animationSpec = tween(200)) +
+                slideOutVertically(
+                    animationSpec = tween(200),
+                    targetOffsetY = { it / 2 }
+                ),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Button(
+                onClick = onQuit,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(
+                    topStart = 28.dp,
+                    topEnd = 18.dp,
+                    bottomEnd = 28.dp,
+                    bottomStart = 18.dp
+                ),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFD32F2F),
+                    contentColor = Color.White
+                ),
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 22.dp),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 3.dp,
+                    pressedElevation = 1.dp
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PowerSettingsNew,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "QUIT APP",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.2.sp
+                )
             }
         }
 
@@ -319,8 +340,14 @@ fun DashboardScreen(
 
         AnimatedVisibility(
             visible = showQuickSendFab,
-            enter = fadeIn() + slideInVertically { it / 2 },
-            exit = fadeOut() + slideOutVertically { it / 2 },
+            enter = scaleIn(
+                initialScale = 0.9f,
+                animationSpec = tween(180, easing = FastOutSlowInEasing)
+            ),
+            exit = scaleOut(
+                targetScale = 0f,
+                animationSpec = tween(140, easing = FastOutSlowInEasing)
+            ),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 20.dp, bottom = 20.dp)

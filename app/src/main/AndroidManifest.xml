@@ -17,8 +17,8 @@
         android:name=".GhostHidApp"
         android:allowBackup="true"
         android:label="GhostHID"
-        android:icon="@android:drawable/stat_sys_data_bluetooth"
-        android:roundIcon="@android:drawable/stat_sys_data_bluetooth"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
