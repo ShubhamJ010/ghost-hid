@@ -66,6 +66,7 @@ import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.sequence.SequencePreview
+
 import com.sj010.ghid.ui.theme.MaterialShapes
 
 /**
@@ -91,6 +92,7 @@ fun ComboEditorScreen(
     }
     val clipboard = LocalClipboardManager.current
     val haptic = LocalHapticFeedback.current
+    var showEmojiPicker by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -221,15 +223,27 @@ fun ComboEditorScreen(
                         }
                     }
 
-                    OutlinedTextField(
-                        value = state.name,
-                        onValueChange = { state.name = it },
-                        label = { Text("Name") },
-                        placeholder = { Text("e.g. Open Terminal") },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp)
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ComboIconSlot(
+                            emoji = state.emoji,
+                            os = state.os,
+                            onClick = { showEmojiPicker = true }
+                        )
+
+                        OutlinedTextField(
+                            value = state.name,
+                            onValueChange = { state.name = it },
+                            label = { Text("Name") },
+                            placeholder = { Text("e.g. Open Terminal") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                    }
 
                     OutlinedTextField(
                         value = state.description,
@@ -400,5 +414,21 @@ fun ComboEditorScreen(
                 }
             }
         }
+    }
+
+    if (showEmojiPicker) {
+        EmojiPickerScreen(
+            selected = state.emoji,
+            os = state.os,
+            onSelect = { emoji ->
+                state.emoji = emoji
+                showEmojiPicker = false
+            },
+            onClear = {
+                state.emoji = ""
+                showEmojiPicker = false
+            },
+            onDismiss = { showEmojiPicker = false }
+        )
     }
 }

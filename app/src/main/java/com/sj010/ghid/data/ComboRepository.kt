@@ -69,8 +69,24 @@ class ComboRepository(private val context: Context) {
         }
     }
 
+    /** Icons for the built-in combos; a combo name the user set keeps its own emoji. */
+    private val builtInEmoji = mapOf(
+        "Login" to "🔑",
+        "Lock" to "🔒",
+        "Sleep" to "😴",
+        "MacSleep" to "🌙",
+        "ForceQuit" to "⚡",
+        "PlayPause" to "⏯️"
+    )
+
     fun ensureDefaults(): List<Combo> {
-        val current = load()
+        val loaded = load()
+        val current = loaded.map { combo ->
+            val emoji = builtInEmoji.entries
+                .firstOrNull { it.key.equals(combo.name, ignoreCase = true) }
+                ?.value
+            if (combo.emoji.isNullOrBlank() && emoji != null) combo.copy(emoji = emoji) else combo
+        }
         val hasExactBuiltIns = current.size >= 6 &&
                 current.any { it.name.equals("Login", ignoreCase = true) } &&
                 current.any { it.name.equals("Lock", ignoreCase = true) } &&
@@ -85,6 +101,7 @@ class ComboRepository(private val context: Context) {
                     name = "Login",
                     keys = "ctrl+alt+del ->{1.0} esc ->{0.8} \$USERNAME ->{0.8} tab ->{0.8} \$PASSWORD ->{0.8} enter",
                     os = TargetOs.WINDOWS.token,
+                    emoji = "🔑",
                     description = "Windows unlock & credential injection",
                     favorite = true,
                     createdAt = isoNow()
@@ -93,6 +110,7 @@ class ComboRepository(private val context: Context) {
                     name = "Lock",
                     keys = "win+l",
                     os = TargetOs.WINDOWS.token,
+                    emoji = "🔒",
                     description = "Instant Windows lock screen (Win + L)",
                     favorite = true,
                     createdAt = isoNow()
@@ -101,6 +119,7 @@ class ComboRepository(private val context: Context) {
                     name = "Sleep",
                     keys = "win+x ->{0.5} u ->{0.3} s ->{5.0} !DISCONNECT ->{0.5} !EXIT",
                     os = TargetOs.WINDOWS.token,
+                    emoji = "😴",
                     description = "Windows sleep sequence + countdown exit",
                     favorite = true,
                     createdAt = isoNow()
@@ -109,6 +128,7 @@ class ComboRepository(private val context: Context) {
                     name = "MacSleep",
                     keys = "cmd+ctrl+q ->{0.5} esc",
                     os = TargetOs.MACOS.token,
+                    emoji = "🌙",
                     description = "Instant macOS lock and display sleep",
                     favorite = true,
                     createdAt = isoNow()
@@ -117,6 +137,7 @@ class ComboRepository(private val context: Context) {
                     name = "ForceQuit",
                     keys = "cmd+opt+esc ->{0.4} enter ->{0.3} enter",
                     os = TargetOs.MACOS.token,
+                    emoji = "⚡",
                     description = "Force quit frontmost unresponsive app",
                     favorite = true,
                     createdAt = isoNow()
@@ -125,6 +146,7 @@ class ComboRepository(private val context: Context) {
                     name = "PlayPause",
                     keys = "raw:cd00 ->{0.06} raw:0000",
                     os = TargetOs.MACOS.token,
+                    emoji = "⏯️",
                     description = "Consumer media play/pause toggle",
                     favorite = true,
                     createdAt = isoNow()
@@ -133,6 +155,8 @@ class ComboRepository(private val context: Context) {
             save(defaults)
             return defaults
         }
+        // Backfill icons for built-ins saved before emoji metadata existed.
+        if (current != loaded) save(current)
         return current
     }
 

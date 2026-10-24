@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.sj010.ghid.domain.model.Combo
 import com.sj010.ghid.domain.model.ComboUsagePolicy
 import com.sj010.ghid.domain.model.TargetOs
-import com.sj010.ghid.ui.common.os.OsGlyph
+import com.sj010.ghid.ui.common.os.ComboGlyph
 
 /**
  * Dashboard "most used" module.
@@ -157,9 +157,9 @@ private fun MostUsedRow(
             modifier = Modifier.padding(start = 16.dp, end = 10.dp, top = 11.dp, bottom = 11.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            OsGlyph(
-                os = combo.targetOs,
-                modifier = Modifier.size(26.dp),
+            ComboGlyph(
+                combo = combo,
+                size = 26.dp,
                 tint = scheme.primary
             )
             Spacer(modifier = Modifier.width(12.dp))

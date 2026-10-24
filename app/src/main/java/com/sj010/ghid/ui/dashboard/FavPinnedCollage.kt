@@ -65,6 +65,7 @@ import com.sj010.ghid.domain.model.Combo
 import com.sj010.ghid.domain.model.ComboOsPolicy
 import com.sj010.ghid.domain.model.PinnedFavoritesPolicy
 import com.sj010.ghid.domain.model.TargetOs
+import com.sj010.ghid.ui.common.os.ComboGlyph
 import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.theme.MaterialShapes
 
@@ -371,9 +372,9 @@ private fun BoxScope.CollageShapeButton(
                 else -> MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
             }
 
-            OsGlyph(
-                os = combo.targetOs,
-                modifier = Modifier.size(glyphSize),
+            ComboGlyph(
+                combo = combo,
+                size = glyphSize,
                 tint = config.contentColor
             )
             Spacer(modifier = Modifier.size(3.dp))
@@ -584,9 +585,9 @@ private fun FavoritePickerRow(
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                OsGlyph(
-                    os = combo.targetOs,
-                    modifier = Modifier.size(22.dp),
+                ComboGlyph(
+                    combo = combo,
+                    size = 22.dp,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }

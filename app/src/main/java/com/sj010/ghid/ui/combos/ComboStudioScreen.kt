@@ -105,6 +105,7 @@ import com.sj010.ghid.domain.model.HostOsFingerprint
 import com.sj010.ghid.domain.model.Snippet
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.parser.SequenceAnalyzer
+import com.sj010.ghid.ui.common.os.ComboGlyph
 import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.combos.editor.ComboEditorScreen
 import com.sj010.ghid.ui.common.sequence.SequencePreview
@@ -613,9 +614,9 @@ fun ComboCard(
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        OsGlyph(
-                            os = combo.targetOs,
-                            modifier = Modifier.size(24.dp),
+                        ComboGlyph(
+                            combo = combo,
+                            size = 24.dp,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }

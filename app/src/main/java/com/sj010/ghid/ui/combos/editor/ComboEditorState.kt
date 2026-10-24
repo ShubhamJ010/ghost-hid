@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.sj010.ghid.domain.model.Combo
+import com.sj010.ghid.domain.model.ComboEmojiPolicy
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.parser.SequenceAnalysis
 import com.sj010.ghid.domain.parser.SequenceAnalyzer
@@ -20,15 +21,18 @@ class ComboEditorState(
 ) {
     var name by mutableStateOf(initial?.name.orEmpty())
     var os by mutableStateOf(if (initial != null) TargetOs.fromComboTag(initial.os) else defaultOs)
+    var emoji by mutableStateOf(initial?.emoji.orEmpty())
     var description by mutableStateOf(initial?.description.orEmpty())
     var scheme by mutableStateOf(initial?.keys ?: initialScheme)
 
     val analysis: SequenceAnalysis by derivedStateOf { SequenceAnalyzer.analyze(scheme, os) }
-    val canSave: Boolean by derivedStateOf { name.isNotBlank() && analysis.canSend }
+    val emojiValid: Boolean by derivedStateOf { ComboEmojiPolicy.isValid(emoji) }
+    val canSave: Boolean by derivedStateOf { name.isNotBlank() && analysis.canSend && emojiValid }
 
     fun build(): Combo = Combo(
         name = name.trim(),
         os = os.token,
+        emoji = ComboEmojiPolicy.normalize(emoji),
         description = description.trim(),
         keys = scheme.trim(),
         favorite = initial?.favorite ?: false,

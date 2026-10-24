@@ -8,6 +8,7 @@ data class Combo(
     @SerialName("name") val name: String,
     @SerialName("keys") val keys: String,
     @SerialName("os") val os: String = TargetOs.WINDOWS.token,
+    @SerialName("emoji") val emoji: String? = null,
     @SerialName("description") val description: String? = null,
     @SerialName("favorite") val favorite: Boolean = false,
     @SerialName("created_at") val createdAt: String = ""
