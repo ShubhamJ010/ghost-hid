@@ -53,12 +53,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sj010.ghid.R
 import com.sj010.ghid.domain.model.Combo
 import com.sj010.ghid.domain.model.ComboOsPolicy
 import com.sj010.ghid.domain.model.PinnedFavoritesPolicy
@@ -80,6 +82,7 @@ fun FavPinnedCollage(
     combos: List<Combo>,
     pinnedBySlot: Map<Int, Combo>,
     connectedOs: TargetOs = TargetOs.UNKNOWN,
+    hasSelectedDevice: Boolean = false,
     onRunCombo: (Combo) -> Unit,
     onPinCombo: (slotId: Int, comboName: String) -> Unit,
     onBrowseCombos: () -> Unit = {}
@@ -90,11 +93,26 @@ fun FavPinnedCollage(
     val shapeNames = remember(configs) { configs.associate { it.slotId to it.shapeName } }
     var pickerSlot by remember { mutableStateOf<CollageConfig?>(null) }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    val displayOs = remember(connectedOs, hasSelectedDevice, pinnedBySlot, favorites) {
+        if (!hasSelectedDevice) {
+            TargetOs.UNKNOWN
+        } else if (connectedOs.isKnown) {
+            connectedOs
+        } else {
+            pinnedBySlot.values.firstOrNull { it.targetOs.isKnown }?.targetOs
+                ?: favorites.firstOrNull { it.targetOs.isKnown }?.targetOs
+                ?: TargetOs.WINDOWS
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(320.dp)
+                .height(308.dp)
         ) {
             configs.forEach { cfg ->
                 val combo = pinnedBySlot[cfg.slotId]
@@ -122,6 +140,17 @@ fun FavPinnedCollage(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Dedicated space for the minimal pinned indicator
+        PinnedIndicator(
+            displayOs = displayOs,
+            hasSelectedDevice = hasSelectedDevice,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
     }
 
     pickerSlot?.let { config ->
@@ -613,6 +642,59 @@ private fun FavoritePickerRow(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Small, minimal M3 Expressive indicator displaying the host OS symbol,
+ * "Pinned" label, and favorite heart vector.
+ */
+@Composable
+private fun PinnedIndicator(
+    displayOs: TargetOs,
+    hasSelectedDevice: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = scheme.surfaceContainerHigh.copy(alpha = 0.65f),
+        border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (hasSelectedDevice && displayOs.isKnown) {
+                OsGlyph(
+                    os = displayOs,
+                    tint = scheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.ic_notification_ghost),
+                    contentDescription = "GhostHID",
+                    tint = scheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Text(
+                text = "Pinned",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = scheme.onSurfaceVariant,
+                letterSpacing = 0.3.sp
+            )
+            Icon(
+                painter = painterResource(R.drawable.ic_heart),
+                contentDescription = "Pinned favorite",
+                tint = scheme.tertiary,
+                modifier = Modifier.size(15.dp)
+            )
         }
     }
 }

@@ -93,6 +93,8 @@ import com.sj010.ghid.domain.model.ComboOsPolicy
 import com.sj010.ghid.domain.model.ConnectionStatus
 import com.sj010.ghid.domain.model.HostOsFingerprint
 import com.sj010.ghid.domain.model.PinnedFavoritesPolicy
+import com.sj010.ghid.domain.model.TargetOs
+import com.sj010.ghid.domain.os.HostOsClassifier
 import com.sj010.ghid.domain.model.Snippet
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.theme.MaterialShapes
@@ -116,7 +118,29 @@ fun DashboardScreen(
         ?: remember { mutableStateOf(null) }
     val targetOsFingerprint by service?.targetOs?.collectAsState()
         ?: remember { mutableStateOf(HostOsFingerprint.Unknown) }
-    val connectedOs = targetOsFingerprint.os
+    val cachedFingerprint = remember(targetDevice) {
+        targetDevice?.address?.let { GhostHidApp.instance.deviceOsCache.get(it) }
+    }
+    val effectiveOs = remember(targetOsFingerprint, cachedFingerprint, targetDevice) {
+        if (targetOsFingerprint.isKnown) {
+            targetOsFingerprint.os
+        } else if (cachedFingerprint?.isKnown == true) {
+            cachedFingerprint.os
+        } else if (targetDevice != null) {
+            val name = try { targetDevice?.name } catch (_: SecurityException) { null }
+            val byName = HostOsClassifier.fromName(name)
+            if (byName?.isKnown == true) {
+                byName.os
+            } else if (HostOsClassifier.isAppleOui(targetDevice?.address)) {
+                TargetOs.MACOS
+            } else {
+                TargetOs.WINDOWS
+            }
+        } else {
+            TargetOs.WINDOWS
+        }
+    }
+    val connectedOs = effectiveOs
     val targetSelectionReady by service?.targetSelectionReady?.collectAsState()
         ?: remember { mutableStateOf(false) }
     val needsInitialTargetSelection by service?.needsInitialTargetSelection?.collectAsState()
@@ -225,6 +249,7 @@ fun DashboardScreen(
                     combos = allCombos,
                     pinnedBySlot = pinnedCombos,
                     connectedOs = connectedOs,
+                    hasSelectedDevice = targetDevice != null,
                     onRunCombo = { combo ->
                         service?.executeCombo(combo.keys)
                         lastExecutedStatus = "⚡ Executed: ${combo.name}"
