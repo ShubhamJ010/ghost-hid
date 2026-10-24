@@ -25,3 +25,11 @@ __pycache__/
 
 # Compiled Go binary
 /ghid
+
+# Android / Gradle artifacts
+.gradle/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+

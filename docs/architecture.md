@@ -6,7 +6,7 @@ GhostHID turns an Android smartphone into a hardware Bluetooth Human Interface D
 
 The system comprises three physical or logical tiers:
 1. **Host Workstation:** Runs the Go CLI (`ghid`), automation scripts, or AI agent workloads.
-2. **Android Gateway Phone:** Runs the headless `com.poc.hiddebug` foreground service and handles Bluetooth HID profile communications.
+2. **Android Gateway Phone:** Runs the headless `com.sj010.ghid_headless` foreground service and handles Bluetooth HID profile communications.
 3. **Target Computer:** Any computer running Windows, macOS, or Linux paired with the phone over Bluetooth Classic.
 
 ```mermaid
@@ -53,7 +53,7 @@ flowchart TB
 
 ## Android Gateway Subsystem
 
-The Android package `com.poc.hiddebug` runs headlessly without a permanent graphical activity.
+The Android package `com.sj010.ghid_headless` runs headlessly without a permanent graphical activity.
 
 ### Service Lifecycle and Notification Channel
 The gateway implements `android.app.Service` as an ongoing foreground service:
@@ -142,8 +142,8 @@ The host triggers actions by sending broadcast intents through ADB:
 
 ```bash
 adb shell am broadcast \
-  -a com.poc.hiddebug.ACTION_CMD \
-  -n com.poc.hiddebug/.HidCommandReceiver \
+  -a com.sj010.ghid_headless.ACTION_CMD \
+  -n com.sj010.ghid_headless/.HidCommandReceiver \
   --es cmd "<action>" \
   [--es <param> "<value>"]
 ```
@@ -164,7 +164,7 @@ Supported intent actions and parameters:
 | `stop` | none | Cleans up connections, unregisters SDP, and kills service |
 
 ### State Persistence Protocol
-The service writes status snapshots to `/sdcard/Android/data/com.poc.hiddebug/files/status.json` whenever connection, pairing, or registration state changes:
+The service writes status snapshots to `/sdcard/Android/data/com.sj010.ghid_headless/files/status.json` whenever connection, pairing, or registration state changes:
 
 ```json
 {

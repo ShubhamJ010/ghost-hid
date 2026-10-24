@@ -58,7 +58,7 @@ func TestSelectDevice(t *testing.T) {
 
 func TestGetStatus(t *testing.T) {
 	fake := NewFakeRunner()
-	fake.Register("cat /sdcard/Android/data/com.poc.hiddebug/files/status.json", `{
+	fake.Register("cat /sdcard/Android/data/com.sj010.ghid_headless/files/status.json", `{
 		"registered": true,
 		"connected": true,
 		"state": "CONNECTED",
@@ -82,7 +82,7 @@ func TestGetStatus(t *testing.T) {
 
 	// Malformed JSON fallback
 	fakeBroken := NewFakeRunner()
-	fakeBroken.Register("cat /sdcard/Android/data/com.poc.hiddebug/files/status.json", "file not found", nil)
+	fakeBroken.Register("cat /sdcard/Android/data/com.sj010.ghid_headless/files/status.json", "file not found", nil)
 	mgrBroken := NewManagerWithRunner(fakeBroken, "test-serial", "")
 	stBroken := mgrBroken.GetStatus()
 	if stBroken.State != "OFFLINE" || stBroken.Connected != false {

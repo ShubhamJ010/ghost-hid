@@ -34,7 +34,7 @@ $BUILD_TOOLS/aapt2 compile --dir res -o build/resources.zip
 ```
 
 ### Stage 2: Resource Linking (`aapt2 link`)
-Links compiled resources against the target Android platform stubs (`android.jar`), generates the `gen/com/poc/hiddebug/R.java` symbol file, and constructs the initial APK skeleton with compiled `AndroidManifest.xml`:
+Links compiled resources against the target Android platform stubs (`android.jar`), generates the `gen/com.sj010/ghid_headless/R.java` symbol file, and constructs the initial APK skeleton with compiled `AndroidManifest.xml`:
 ```bash
 $BUILD_TOOLS/aapt2 link -I "$PLATFORM" \
     --manifest AndroidManifest.xml \

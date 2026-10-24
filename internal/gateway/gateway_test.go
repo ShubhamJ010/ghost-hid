@@ -13,9 +13,9 @@ func TestGatewayStatusAndDoctor(t *testing.T) {
 	fake.Register("devices -l", `List of devices attached
 192.168.1.80:41839     device model:KB2001 transport_id:1
 `, nil)
-	fake.Register("pm list packages", "package:com.poc.hiddebug\n", nil)
+	fake.Register("pm list packages", "package:com.sj010.ghid_headless\n", nil)
 	fake.Register("settings get global bluetooth_on", "1\n", nil)
-	fake.Register("cat /sdcard/Android/data/com.poc.hiddebug/files/status.json", `{
+	fake.Register("cat /sdcard/Android/data/com.sj010.ghid_headless/files/status.json", `{
   "registered": true,
   "connected": true,
   "state": "CONNECTED",

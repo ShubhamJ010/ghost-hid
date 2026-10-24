@@ -101,7 +101,7 @@ ghid
 ### Startup Diagnostics
 On startup, `ghid` runs through environment checks:
 1. Checks for connected USB or wireless ADB devices. If disconnected, an interactive menu allows entering custom IP addresses, ports, or pairing codes.
-2. Checks whether package `com.poc.hiddebug` is installed. Offers to install pre-built APK or compile from source.
+2. Checks whether package `com.sj010.ghid_headless` is installed. Offers to install pre-built APK or compile from source.
 3. Checks whether phone Bluetooth is enabled.
 4. Starts the Android foreground service and waits for SDP profile registration.
 5. Connects Bluetooth to the active target computer.
@@ -172,7 +172,7 @@ Example output:
   "checks": [
     {"name": "ADB Host Binary", "pass": true, "detail": "/opt/homebrew/bin/adb"},
     {"name": "Device Transport", "pass": true, "detail": "KB2001 (192.168.1.80:41839)"},
-    {"name": "Gateway Package", "pass": true, "detail": "com.poc.hiddebug installed"},
+    {"name": "Gateway Package", "pass": true, "detail": "com.sj010.ghid_headless installed"},
     {"name": "Phone Bluetooth Radio", "pass": true, "detail": "Radio active"},
     {"name": "HID SDP Registration", "pass": true, "detail": "SDP registered"},
     {"name": "Host Connection", "pass": true, "detail": "Connected to LP-TZD-0X114650"},

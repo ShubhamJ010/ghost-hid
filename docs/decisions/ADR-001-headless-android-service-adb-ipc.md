@@ -19,8 +19,8 @@ We needed an IPC channel between the host control software and the Android runti
 Implement the Android component as a Foreground Service (`HidService`) paired with an explicit `BroadcastReceiver` (`HidCommandReceiver`), driven over ADB (`adb shell am broadcast` and `adb shell am start-foreground-service`).
 
 Communication mechanics:
-- Commands pass from the host CLI (`ghid`) to the phone via ADB command line arguments (`-a com.poc.hiddebug.ACTION_CMD --es cmd <command>`).
-- State synchronizes back to the host through an explicit JSON file written to application external storage (`/sdcard/Android/data/com.poc.hiddebug/files/status.json`), which the host reads with `adb shell cat`.
+- Commands pass from the host CLI (`ghid`) to the phone via ADB command line arguments (`-a com.sj010.ghid_headless.ACTION_CMD --es cmd <command>`).
+- State synchronizes back to the host through an explicit JSON file written to application external storage (`/sdcard/Android/data/com.sj010.ghid_headless/files/status.json`), which the host reads with `adb shell cat`.
 - The Android service runs with `startForeground` and displays a persistent notification channel with `IMPORTANCE_LOW` to prevent Android's low-memory killer (OOM killer) from killing the service during long sessions.
 
 ## Alternatives considered

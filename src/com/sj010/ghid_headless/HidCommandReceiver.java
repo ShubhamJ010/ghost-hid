@@ -1,4 +1,4 @@
-package com.poc.hiddebug;
+package com.sj010.ghid_headless;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

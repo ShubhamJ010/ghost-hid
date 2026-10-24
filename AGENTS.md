@@ -1,7 +1,7 @@
 # AGENTS.md
 
 GhostHID = Android phone as Bluetooth HID keyboard + mouse.
-`ghid` (Go, this Mac) → ADB → `com.poc.hiddebug` on phone → Bluetooth HID → target PC.
+`ghid` (Go, this Mac) → ADB → `com.sj010.ghid_headless` on phone → Bluetooth HID → target PC.
 
 Status: alpha. Big refactors welcome. Run tests, update docs, keep JSON contract stable in same change.
 
@@ -17,7 +17,7 @@ Status: alpha. Big refactors welcome. Run tests, update docs, keep JSON contract
 | `internal/combos` | combo library at `~/.config/ghid/combos.json` |
 | `internal/tui` | bubbletea dashboard + Combo Studio |
 | `internal/config`, `vault`, `keychain` | config, credential storage |
-| `src/com/poc/hiddebug` | Android `HidService` + `HidCommandReceiver` |
+| `src/com.sj010/ghid_headless` | Android `HidService` + `HidCommandReceiver` |
 | `res/`, `AndroidManifest.xml`, `build.sh` | APK resources + zero-Gradle build |
 | `docs/` | architecture, flows, protocol, agent integration, ADRs |
 
@@ -127,6 +127,13 @@ Typed text = printable US-ASCII. Go validator + Java `keyForChar` must stay in s
 - Preserve one-shot `ghid combo "win+d"`.
 - Commit style: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`.
 - Alpha means large refactors OK. Do not leave half-migrated layers, dead code, or duplicate parsers.
+
+## Android app design & iteration rules
+
+- **Super new app & fast evolution**: Actively listen to user feedback and iterate immediately on the go.
+- **Zero backward compatibility constraints for Android UI**: Do not preserve deprecated UI elements or hold onto legacy screens when the user asks to remove or change them (e.g. gateway terminal log completely removed from dashboard).
+- **Material 3 Expressive shapes & styling**: Use official Google M3 Expressive shape catalog (4-petal clovers, scallops, soft diamonds, arches, soft triangles, hearts, pentagons, concave squircles) and vibrant high-contrast cyberpunk dark palettes.
+- **Always verify on real connected device**: When APK is deployed to ADB device, take screenshots, review visual alignment, and polish touch targets directly.
 
 ## Gotchas
 

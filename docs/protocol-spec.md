@@ -175,8 +175,8 @@ The host triggers commands by dispatching Android broadcast intents via `adb she
 
 ```bash
 adb shell am broadcast \
-  -a com.poc.hiddebug.ACTION_CMD \
-  -n com.poc.hiddebug/.HidCommandReceiver \
+  -a com.sj010.ghid_headless.ACTION_CMD \
+  -n com.sj010.ghid_headless/.HidCommandReceiver \
   --es cmd "<command>" \
   [optional arguments]
 ```
@@ -208,7 +208,7 @@ Executes a single keyboard chord.
 Transmits a pointer gesture using Report ID 2.
 - Extras: `--es action "<action_token>"`
 - Supported actions: `click-left`, `click-right`, `click-middle`, `double-click`, `scroll-up`, `scroll-down`.
-- Behavior: Sends 4-byte report with button bitmask or wheel value, sleeps 45 ms, sends release report. For `double-click`, repeats after an 80 ms pause.
+- Behavior: Sends a 4-byte button report, holds it for 48 ms, then sends a release report. `double-click` is two complete press/release cycles separated by a 90 ms gap, so Windows and macOS both synthesize a native double click instead of receiving a vendor-specific gesture. Relative motion is coalesced and split into ≤127-count reports, so fast drags are never clipped by the 8-bit HID field.
 
 #### `raw`
 Transmits an explicit 8-byte hexadecimal report.
@@ -225,7 +225,7 @@ Gracefully cleans up Bluetooth resources and kills the Android foreground servic
 
 ## 4. Filesystem State and Logging Protocol
 
-The Android gateway writes state and log files directly to external application storage (`/sdcard/Android/data/com.poc.hiddebug/files/`).
+The Android gateway writes state and log files directly to external application storage (`/sdcard/Android/data/com.sj010.ghid_headless/files/`).
 
 ### Status File (`status.json`)
 The service overwrites this file on every state transition (SDP registration, connection change, disconnect).

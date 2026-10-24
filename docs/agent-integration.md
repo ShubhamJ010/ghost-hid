@@ -68,7 +68,7 @@ Runs a complete hardware, transport, and credentials health check.
   "checks": [
     {"name": "ADB Host Binary", "pass": true, "detail": "/opt/homebrew/bin/adb"},
     {"name": "Device Transport", "pass": true, "detail": "KB2001 (192.168.1.80:41839)"},
-    {"name": "Gateway Package", "pass": true, "detail": "com.poc.hiddebug installed"},
+    {"name": "Gateway Package", "pass": true, "detail": "com.sj010.ghid_headless installed"},
     {"name": "Phone Bluetooth Radio", "pass": true, "detail": "Radio active"},
     {"name": "HID SDP Registration", "pass": true, "detail": "SDP registered"},
     {"name": "Host Connection", "pass": true, "detail": "Connected to LP-TZD-0X114650"},

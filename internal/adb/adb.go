@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	PackageName      = "com.poc.hiddebug"
-	ServiceName      = "com.poc.hiddebug/.HidService"
-	ReceiverName     = "com.poc.hiddebug/.HidCommandReceiver"
-	ActionCmd        = "com.poc.hiddebug.ACTION_CMD"
-	ActionLock       = "com.poc.hiddebug.ACTION_LOCK"
-	StatusFileRemote = "/sdcard/Android/data/com.poc.hiddebug/files/status.json"
-	LogFileRemote    = "/sdcard/Android/data/com.poc.hiddebug/files/gateway.log"
+	PackageName      = "com.sj010.ghid_headless"
+	ServiceName      = "com.sj010.ghid_headless/.HidService"
+	ReceiverName     = "com.sj010.ghid_headless/.HidCommandReceiver"
+	ActionCmd        = "com.sj010.ghid_headless.ACTION_CMD"
+	ActionLock       = "com.sj010.ghid_headless.ACTION_LOCK"
+	StatusFileRemote = "/sdcard/Android/data/com.sj010.ghid_headless/files/status.json"
+	LogFileRemote    = "/sdcard/Android/data/com.sj010.ghid_headless/files/gateway.log"
 )
 
 type Device struct {

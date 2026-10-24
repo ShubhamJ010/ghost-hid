@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.poc.hiddebug"
+    package="com.sj010.ghid_headless"
     android:versionCode="1"
     android:versionName="1.0.0">
 
@@ -32,9 +32,9 @@
             android:name=".HidCommandReceiver"
             android:exported="true">
             <intent-filter>
-                <action android:name="com.poc.hiddebug.ACTION_LOCK" />
-                <action android:name="com.poc.hiddebug.ACTION_CMD" />
-                <action android:name="com.poc.hiddebug.ACTION_TYPE" />
+                <action android:name="com.sj010.ghid_headless.ACTION_LOCK" />
+                <action android:name="com.sj010.ghid_headless.ACTION_CMD" />
+                <action android:name="com.sj010.ghid_headless.ACTION_TYPE" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>

@@ -54,14 +54,16 @@ If using Wireless Debugging on Android 11+:
 
 ---
 
-## 2. Windows Pairs Phone as Audio Device Instead of Keyboard
+## 2. Windows Pairs Phone as Audio Device or Trackpad/Mouse Fails on Windows Laptop
 
 ### Symptoms
 - In Windows Settings, the phone appears under "Other devices" or "Audio" instead of "Input" (Mouse, keyboard, & pen).
 - Keystrokes sent by `ghid` have no effect on the target computer.
+- Keyboard works on Windows, but the virtual **Trackpad / Mouse pointer** does not move, even though it works on macOS.
 
 ### Root Cause
-Windows caches Bluetooth Service Discovery Protocol (SDP) records. If the phone was paired with Windows before the GhostHID foreground service registered its HID SDP record, Windows permanently associates the phone's MAC address with standard phone audio/hands-free profiles.
+1. **Windows Bluetooth SDP and HID Descriptor Caching**: Unlike macOS (which re-enumerates HID collections on every connection), Windows strictly caches the Bluetooth SDP records and HID report descriptors by MAC address under `HKLM\System\CurrentControlSet\Enum\BTHENUM`. If the phone was paired before GhostHID registered both Mouse (Report ID 2) and Keyboard (Report ID 1) collections, Windows only loads `kbdclass.sys` and permanently ignores mouse input packets.
+2. **HID Control Handshake Protocol**: On Windows host connection, Windows immediately issues a `SET_REPORT` for keyboard LEDs and queries `GET_REPORT` for Feature reports. Replying with data packets instead of an explicit HID `HANDSHAKE` token or returning dummy data for non-input report types causes the Windows `bthhid.sys` driver stack to enter error state (Code 10), disabling the secondary mouse collection.
 
 ### Recovery Steps
 
@@ -71,25 +73,25 @@ Windows caches Bluetooth Service Discovery Protocol (SDP) records. If the phone 
 3. Click the three dots menu and select **Remove device**.
 
 #### Step 2: Unpair on the Phone
-Run the unpair command through `ghid` to purge the target host pairing from the phone's Bluetooth keystore:
+In the GhostHID Android app, unpair the Windows laptop, or run through CLI:
 ```bash
 ghid unpair
 ```
 
 #### Step 3: Register HID SDP Record Before Pairing
-1. Ensure the GhostHID service is actively running and registered:
-   ```bash
-   ghid start
-   ghid status --json
-   ```
-   Confirm that `"registered": true` is returned.
+Ensure GhostHID is actively running with both keyboard and mouse descriptors registered:
+```bash
+ghid start
+ghid status --json
+```
+Confirm that `"registered": true` is returned.
 
 #### Step 4: Pair with Advanced Discovery
-1. In Windows **Settings > Bluetooth & devices**, scroll to **Bluetooth devices discovery**.
+1. In Windows **Settings > Bluetooth & devices**, scroll down to **Bluetooth devices discovery**.
 2. Change the dropdown from **Default** to **Advanced**.
 3. Click **Add device > Bluetooth**.
 4. Select the phone from the list.
-5. Windows will query the active SDP record, identify `GhostHID Keyboard & Mouse`, and bind `kbdclass.sys` and `mouclass.sys` drivers.
+5. Windows will query the active combo SDP record, identify `GhostHID Keyboard & Mouse`, and bind both `kbdclass.sys` and `mouclass.sys` drivers under Device Manager (`Human Interface Devices` > `Bluetooth Low Energy / Bluetooth HID Device`).
 
 ---
 

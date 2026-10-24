@@ -64,7 +64,7 @@ func TestAppHelp(t *testing.T) {
 func TestAppStatus(t *testing.T) {
 	app, fakeRunner, _, _, stdout, _ := setupTestApp(t)
 
-	fakeRunner.Register("cat /sdcard/Android/data/com.poc.hiddebug/files/status.json", `{
+	fakeRunner.Register("cat /sdcard/Android/data/com.sj010.ghid_headless/files/status.json", `{
   "registered": true,
   "connected": true,
   "state": "CONNECTED",
@@ -94,9 +94,9 @@ func TestAppDoctorJSON(t *testing.T) {
 	fakeRunner.Register("devices -l", `List of devices attached
 test-serial     device model:Pixel7 transport_id:1
 `, nil)
-	fakeRunner.Register("pm list packages", "package:com.poc.hiddebug\n", nil)
+	fakeRunner.Register("pm list packages", "package:com.sj010.ghid_headless\n", nil)
 	fakeRunner.Register("settings get global bluetooth_on", "1\n", nil)
-	fakeRunner.Register("cat /sdcard/Android/data/com.poc.hiddebug/files/status.json", `{
+	fakeRunner.Register("cat /sdcard/Android/data/com.sj010.ghid_headless/files/status.json", `{
   "registered": true,
   "connected": true,
   "state": "CONNECTED",

@@ -148,7 +148,7 @@ sequenceDiagram
     participant BTDaemon as BluetoothHidDevice Proxy
     participant Host as Target Host Controller
 
-    CLI->>ADB: am start-foreground-service com.poc.hiddebug/.HidService
+    CLI->>ADB: am start-foreground-service com.sj010.ghid_headless/.HidService
     ADB->>Service: onCreate()
     Service->>Service: createNotificationChannel()
     Service->>Service: startForeground(1001, "GhostHID Gateway: Ready")
@@ -169,7 +169,7 @@ sequenceDiagram
     Service->>Service: writeStatusFile("connected": true, "state": "CONNECTED")
     Service->>Service: updateNotification("Connected to LP-TZD-0X114650")
     
-    CLI->>ADB: cat /sdcard/Android/data/com.poc.hiddebug/files/status.json
+    CLI->>ADB: cat /sdcard/Android/data/com.sj010.ghid_headless/files/status.json
     ADB-->>CLI: Return JSON (connected: true)
     CLI-->>CLI: Ready for command dispatch
 ```
@@ -239,7 +239,7 @@ flowchart TD
 
     ScanDevices -->|No| FailDev[Issue: No Android devices detected]
     ScanDevices -->|Unauthorized| FailAuth[Issue: Device unauthorized - approve RSA key on phone]
-    ScanDevices -->|Yes| CheckAPK{Package com.poc.hiddebug installed?}
+    ScanDevices -->|Yes| CheckAPK{Package com.sj010.ghid_headless installed?}
 
     CheckAPK -->|No| FailAPK[Issue: Gateway APK not installed on device]
     CheckAPK -->|Yes| CheckBT{Phone Bluetooth Radio Enabled?}
