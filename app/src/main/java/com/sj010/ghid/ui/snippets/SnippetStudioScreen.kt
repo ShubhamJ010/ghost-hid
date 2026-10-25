@@ -135,7 +135,7 @@ fun SnippetShadeContent(
     onTypeFilterChange: (SnippetTypeFilter) -> Unit = {},
     onCloseFilter: () -> Unit
 ) {
-    val repo = GhostHidApp.instance.snippetRepository
+    val repo = GhostHidApp.instance.payloadRepository
     val snippets by repo.snippets.collectAsState()
 
     var editingSnippet by remember { mutableStateOf<Snippet?>(null) }
@@ -207,7 +207,7 @@ fun SnippetShadeContent(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "New snippet",
+                    text = "New payload",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 0.3.sp
@@ -269,7 +269,7 @@ fun SnippetShadeContent(
                             ) {
                                 if (filterQuery.isEmpty()) {
                                     Text(
-                                        text = "Filter snippets...",
+                                        text = "Filter payloads...",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
                                         maxLines = 1
@@ -428,7 +428,7 @@ fun SnippetShadeContent(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Create quick-typing snippets for usernames, passwords, emails, and commands.",
+                                text = "Create reusable payloads for typing credentials, commands, and raw HID reports.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -449,9 +449,9 @@ fun SnippetShadeContent(
                     ) {
                         Text(
                             text = if (filterQuery.isNotBlank()) {
-                                "No snippets match \"$filterQuery\""
+                                "No payloads match \"$filterQuery\""
                             } else {
-                                "No ${selectedTypeFilter.label.lowercase()} snippets found"
+                                "No ${selectedTypeFilter.label.lowercase()} payloads found"
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -673,7 +673,7 @@ fun M3ExpressiveSnippetCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "$${snippet.name}",
+                        text = "{${snippet.name}}",
                         style = MaterialTheme.typography.titleMedium,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.ExtraBold,
@@ -741,7 +741,7 @@ fun M3ExpressiveSnippetCard(
                         DropdownMenuItem(
                             text = {
                                 Text(
-                                    text = "Edit snippet",
+                                    text = "Edit payload",
                                     style = MaterialTheme.typography.labelLarge
                                 )
                             },
@@ -869,7 +869,7 @@ fun M3ExpressiveSnippetCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.ContentCopy,
-                        contentDescription = "Copy snippet",
+                        contentDescription = "Copy payload",
                         modifier = Modifier.size(19.dp)
                     )
                 }
@@ -945,7 +945,7 @@ fun SnippetEditorPage(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (initial == null) "New snippet" else "Edit snippet",
+                            text = if (initial == null) "New snippet" else "Edit payload",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Black,
                             color = MaterialTheme.colorScheme.onSurface
@@ -1263,7 +1263,7 @@ fun SnippetEditorPage(
                             )
                             Spacer(modifier = Modifier.width(7.dp))
                             Text(
-                                text = if (initial == null) "Save snippet" else "Update",
+                                text = if (initial == null) "Save payload" else "Update",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.ExtraBold
                             )

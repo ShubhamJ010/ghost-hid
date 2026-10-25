@@ -2,6 +2,7 @@ package com.sj010.ghid.data
 
 import android.content.Context
 import com.sj010.ghid.domain.model.Combo
+import com.sj010.ghid.domain.model.Payload
 import com.sj010.ghid.domain.model.TargetOs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +18,10 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-class ComboRepository(private val context: Context) {
+class ComboRepository(
+    private val context: Context,
+    private val payloadRepository: PayloadRepository? = null
+) {
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -69,11 +73,10 @@ class ComboRepository(private val context: Context) {
         }
     }
 
-    /** Icons for the built-in combos; a combo name the user set keeps its own emoji. */
     private val builtInEmoji = mapOf(
         "Login" to "🔑",
         "Lock" to "🔒",
-        "Sleep" to "😴",
+        "Sleep" to "💤",
         "MacSleep" to "🌙",
         "ForceQuit" to "⚡",
         "PlayPause" to "⏯️"
@@ -91,22 +94,43 @@ class ComboRepository(private val context: Context) {
                 updated = updated.copy(emoji = emoji)
                 migrated = true
             }
-            if (updated.name.equals("Sleep", ignoreCase = true) && (updated.keys.contains("win+x") || updated.keys == "raw:02 ->{0.06} raw:00")) {
+            if (updated.name.equals("Sleep", ignoreCase = true) && (updated.effectiveSequence.contains("win+x") || updated.effectiveSequence.contains("->") || updated.effectiveSequence.startsWith("$"))) {
                 updated = updated.copy(
-                    keys = "\$SLEEP_WINDOWS ->{0.06} raw:00",
+                    sequence = "{WIN_SLEEP}",
+                    payloads = mapOf("WIN_SLEEP" to Payload(name = "WIN_SLEEP", type = "raw", value = "02")),
                     description = "Hardware ACPI sleep sequence"
                 )
                 migrated = true
             }
-            if (updated.name.equals("PlayPause", ignoreCase = true) && updated.keys == "raw:cd00 ->{0.06} raw:0000") {
+            if (updated.name.equals("PlayPause", ignoreCase = true) && (updated.effectiveSequence.contains("->") || updated.effectiveSequence.startsWith("$"))) {
                 updated = updated.copy(
-                    keys = "\$PLAY_PAUSE ->{0.06} raw:0000",
+                    sequence = "{PLAY_PAUSE}",
+                    payloads = mapOf("PLAY_PAUSE" to Payload(name = "PLAY_PAUSE", type = "raw", value = "cd00")),
                     description = "Consumer media play/pause toggle"
                 )
                 migrated = true
             }
+            if (updated.name.equals("Login", ignoreCase = true) && updated.effectiveSequence.contains("->")) {
+                updated = updated.copy(
+                    sequence = "{ctrl+alt+del}{1s}{Escape}{800ms}{USERNAME}{800ms}{Tab}{800ms}{PASSWORD}{800ms}{Enter}"
+                )
+                migrated = true
+            }
+            if (updated.name.equals("Lock", ignoreCase = true) && updated.effectiveSequence.contains("win+l")) {
+                updated = updated.copy(sequence = "{mod+l}")
+                migrated = true
+            }
+            if (updated.name.equals("MacSleep", ignoreCase = true) && updated.effectiveSequence.contains("->")) {
+                updated = updated.copy(sequence = "{mod+ctrl+q}{500ms}{Escape}")
+                migrated = true
+            }
+            if (updated.name.equals("ForceQuit", ignoreCase = true) && updated.effectiveSequence.contains("->")) {
+                updated = updated.copy(sequence = "{mod+alt+esc}{400ms}{Enter}{300ms}{Enter}")
+                migrated = true
+            }
             updated
         }
+
         val hasExactBuiltIns = current.size >= 6 &&
                 current.any { it.name.equals("Login", ignoreCase = true) } &&
                 current.any { it.name.equals("Lock", ignoreCase = true) } &&
@@ -119,7 +143,7 @@ class ComboRepository(private val context: Context) {
             val defaults = listOf(
                 Combo(
                     name = "Login",
-                    keys = "ctrl+alt+del ->{1.0} esc ->{0.8} \$USERNAME ->{0.8} tab ->{0.8} \$PASSWORD ->{0.8} enter",
+                    sequence = "{ctrl+alt+del}{1s}{Escape}{800ms}{USERNAME}{800ms}{Tab}{800ms}{PASSWORD}{800ms}{Enter}",
                     os = TargetOs.WINDOWS.token,
                     emoji = "🔑",
                     description = "Windows unlock & credential injection",
@@ -128,7 +152,7 @@ class ComboRepository(private val context: Context) {
                 ),
                 Combo(
                     name = "Lock",
-                    keys = "win+l",
+                    sequence = "{mod+l}",
                     os = TargetOs.WINDOWS.token,
                     emoji = "🔒",
                     description = "Instant Windows lock screen (Win + L)",
@@ -137,16 +161,17 @@ class ComboRepository(private val context: Context) {
                 ),
                 Combo(
                     name = "Sleep",
-                    keys = "\$SLEEP_WINDOWS ->{0.06} raw:00",
+                    sequence = "{WIN_SLEEP}",
                     os = TargetOs.WINDOWS.token,
-                    emoji = "😴",
+                    emoji = "💤",
                     description = "Hardware ACPI sleep sequence",
                     favorite = true,
+                    payloads = mapOf("WIN_SLEEP" to Payload(name = "WIN_SLEEP", type = "raw", value = "02")),
                     createdAt = isoNow()
                 ),
                 Combo(
                     name = "MacSleep",
-                    keys = "cmd+ctrl+q ->{0.5} esc",
+                    sequence = "{mod+ctrl+q}{500ms}{Escape}",
                     os = TargetOs.MACOS.token,
                     emoji = "🌙",
                     description = "Instant macOS lock and display sleep",
@@ -155,7 +180,7 @@ class ComboRepository(private val context: Context) {
                 ),
                 Combo(
                     name = "ForceQuit",
-                    keys = "cmd+opt+esc ->{0.4} enter ->{0.3} enter",
+                    sequence = "{mod+alt+esc}{400ms}{Enter}{300ms}{Enter}",
                     os = TargetOs.MACOS.token,
                     emoji = "⚡",
                     description = "Force quit frontmost unresponsive app",
@@ -164,20 +189,34 @@ class ComboRepository(private val context: Context) {
                 ),
                 Combo(
                     name = "PlayPause",
-                    keys = "\$PLAY_PAUSE ->{0.06} raw:0000",
+                    sequence = "{PLAY_PAUSE}",
                     os = TargetOs.MACOS.token,
                     emoji = "⏯️",
                     description = "Consumer media play/pause toggle",
                     favorite = true,
+                    payloads = mapOf("PLAY_PAUSE" to Payload(name = "PLAY_PAUSE", type = "raw", value = "cd00")),
                     createdAt = isoNow()
                 )
             )
+            defaults.forEach { autoProvision(it) }
             save(defaults)
             return defaults
         }
-        // Backfill icons or migrate legacy combos for built-ins saved previously.
-        if (migrated || current != loaded) save(current)
+
+        if (migrated || current != loaded) {
+            current.forEach { autoProvision(it) }
+            save(current)
+        }
         return current
+    }
+
+    private fun autoProvision(combo: Combo) {
+        if (payloadRepository == null || combo.payloads.isNullOrEmpty()) return
+        combo.payloads.forEach { (name, payload) ->
+            if (payloadRepository.get(name) == null) {
+                payloadRepository.set(payload.name, payload.value ?: "", payload.secure, payload.type)
+            }
+        }
     }
 
     fun addOrUpdate(combo: Combo) {
@@ -185,6 +224,8 @@ class ComboRepository(private val context: Context) {
         val idx = list.indexOfFirst { it.name.equals(combo.name, ignoreCase = true) }
         val normalized = combo.copy(os = TargetOs.fromComboTag(combo.os).token)
         val itemToSave = if (normalized.createdAt.isEmpty()) normalized.copy(createdAt = isoNow()) else normalized
+
+        autoProvision(itemToSave)
 
         if (idx >= 0) {
             list[idx] = itemToSave

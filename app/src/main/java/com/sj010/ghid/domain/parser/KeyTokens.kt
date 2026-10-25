@@ -1,5 +1,6 @@
 package com.sj010.ghid.domain.parser
 
+import com.sj010.ghid.domain.model.TargetOs
 import java.util.Locale
 
 object KeyTokens {
@@ -19,7 +20,7 @@ object KeyTokens {
 
     fun isModifier(token: String): Boolean {
         return when (token.trim().lowercase(Locale.ROOT)) {
-            "win", "gui", "super", "cmd", "command", "ctrl", "control", "alt", "opt", "option", "shift" -> true
+            "mod", "win", "gui", "super", "cmd", "command", "ctrl", "control", "alt", "opt", "option", "shift" -> true
             else -> false
         }
     }
@@ -28,6 +29,16 @@ object KeyTokens {
         return when (token.trim().lowercase(Locale.ROOT)) {
             "cmd", "command", "option", "opt" -> true
             else -> false
+        }
+    }
+
+    fun consumerKeyHex(token: String): String? {
+        return when (token.trim().lowercase(Locale.ROOT)) {
+            "volumeup", "volume_up", "volup" -> "e900"
+            "volumedown", "volume_down", "voldown" -> "ea00"
+            "mute" -> "e200"
+            "playpause", "play_pause" -> "cd00"
+            else -> null
         }
     }
 
@@ -87,9 +98,9 @@ object KeyTokens {
     }
 
     /**
-     * Parses a keyboard chord like "win+r", "ctrl+alt+del", "enter", "f5".
+     * Parses a keyboard chord like "win+r", "ctrl+alt+del", "mod+s", "enter", "f5".
      */
-    fun parseChord(chord: String): Pair<Byte, Byte> {
+    fun parseChord(chord: String, targetOs: TargetOs = TargetOs.WINDOWS): Pair<Byte, Byte> {
         val parts = chord.lowercase(Locale.ROOT).split("+")
         var mod: Byte = 0
         var key: Byte = 0
@@ -97,6 +108,13 @@ object KeyTokens {
         for (rawPart in parts) {
             val p = rawPart.trim()
             when (p) {
+                "mod" -> {
+                    if (targetOs == TargetOs.MACOS) {
+                        mod = (mod.toInt() or 0x08).toByte() // GUI/Command
+                    } else {
+                        mod = (mod.toInt() or 0x01).toByte() // Ctrl
+                    }
+                }
                 "win", "gui", "super", "meta", "cmd", "command" -> mod = (mod.toInt() or 0x08).toByte()
                 "ctrl", "control" -> mod = (mod.toInt() or 0x01).toByte()
                 "alt", "opt", "option" -> mod = (mod.toInt() or 0x04).toByte()
@@ -149,5 +167,11 @@ object KeyTokens {
             }
         }
         return Pair(mod, key)
+    }
+
+    fun isStandardKey(token: String): Boolean {
+        val trimmed = token.trim()
+        val (_, key) = parseChord(trimmed)
+        return key != 0.toByte()
     }
 }

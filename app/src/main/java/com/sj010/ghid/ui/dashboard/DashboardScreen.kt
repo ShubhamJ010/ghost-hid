@@ -243,7 +243,7 @@ fun DashboardScreen(
                     connectedOs = connectedOs,
                     hasSelectedDevice = targetDevice != null,
                     onRunCombo = { combo ->
-                        service?.executeCombo(combo.keys)
+                        service?.executeCombo(combo.effectiveSequence)
                     },
                     onPinCombo = { slotId, comboName ->
                         GhostHidApp.instance.pinnedFavoritesRepository.pin(slotId, comboName)
@@ -258,7 +258,7 @@ fun DashboardScreen(
                     useCounts = comboUseCounts,
                     connectedOs = connectedOs,
                     onRunCombo = { combo ->
-                        service?.executeCombo(combo.keys)
+                        service?.executeCombo(combo.effectiveSequence)
                     },
                     onViewAll = { onNavigateToCombos?.invoke() }
                 )

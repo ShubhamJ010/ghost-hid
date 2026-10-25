@@ -835,15 +835,15 @@ class HidService : Service() {
     }
 
     /**
-     * Executes a full action sequence with AST steps, variable expansion, and delay handling.
+     * Executes a full action sequence with AST steps, payload expansion, and delay handling.
      */
     fun executeCombo(rawOrName: String) {
         scope.launch {
             val app = GhostHidApp.instance
             val combo = app.comboRepository.find(rawOrName)
-                ?: app.comboRepository.combos.value.firstOrNull { it.keys == rawOrName }
-            val raw = combo?.keys ?: rawOrName
-            val steps = ActionSequenceParser.parse(raw)
+                ?: app.comboRepository.combos.value.firstOrNull { it.sequence == rawOrName || it.effectiveSequence == rawOrName }
+            val raw = combo?.effectiveSequence ?: rawOrName
+            val steps = ActionSequenceParser.parse(raw, _effectiveTargetOs.value)
             combo?.let { app.comboUsageRepository.recordUse(it.name) }
             log(">>> Executing sequence ($raw)")
 
@@ -860,16 +860,16 @@ class HidService : Service() {
                         typeText(step.text)
                         delay(step.text.length * 50L + 50L)
                     }
-                    is HidStep.Variable -> {
-                        val snRepo = GhostHidApp.instance.snippetRepository
-                        val sn = snRepo.get(step.name)
-                        val value = snRepo.resolve(step.name)
+                    is HidStep.PayloadReference -> {
+                        val pRepo = GhostHidApp.instance.payloadRepository
+                        val p = pRepo.get(step.name)
+                        val value = pRepo.resolve(step.name)
                         if (!value.isNullOrEmpty()) {
                             val cleanVal = value.trim()
                             val cleanHex = (if (cleanVal.startsWith("raw:", ignoreCase = true)) cleanVal.substring(4) else cleanVal)
                                 .replace(" ", "")
                             val isHexMatch = cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }
-                            if (sn?.isRaw == true || cleanVal.startsWith("raw:", ignoreCase = true) || isHexMatch) {
+                            if (p?.isRaw == true || cleanVal.startsWith("raw:", ignoreCase = true) || isHexMatch) {
                                 if (isHexMatch) {
                                     val bytes = ByteArray(cleanHex.length / 2) { i ->
                                         cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
@@ -877,14 +877,14 @@ class HidService : Service() {
                                     sendRawReport(bytes)
                                     delay(20)
                                 } else {
-                                    log("Invalid raw report hex in variable \$${step.name}: $value")
+                                    log("Invalid raw report hex in payload {${step.name}}: $value")
                                 }
                             } else {
                                 typeText(value)
                                 delay(value.length * 50L + 50L)
                             }
                         } else {
-                            log("Variable \$${step.name} empty or unresolved")
+                            log("Payload {${step.name}} empty or unresolved")
                         }
                     }
                     is HidStep.MouseAction -> {

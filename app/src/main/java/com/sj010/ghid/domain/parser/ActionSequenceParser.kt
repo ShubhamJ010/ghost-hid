@@ -2,114 +2,169 @@ package com.sj010.ghid.domain.parser
 
 import com.sj010.ghid.domain.model.HidStep
 import com.sj010.ghid.domain.model.TargetOs
-import java.util.regex.Pattern
+import java.util.Locale
 
 object ActionSequenceParser {
 
-    private val DELAY_PATTERN = Pattern.compile("->\\{([0-9.]+)\\}")
-    private val SIMPLE_ARROW_PATTERN = Pattern.compile("->")
-
     /**
-     * Parses a raw combo string into a list of executable HidSteps.
-     * Example: "win+r ->{0.5} type:cmd ->{0.3} enter"
+     * Parses a unified bracket sequence DSL string into a list of executable HidSteps.
+     * Example: "samxn81@gmail.com{Tab}{PASSWORD}{Enter}{500ms}{mod+s}{100ms}{WIN_SLEEP}"
      */
-    fun parse(raw: String): List<HidStep> {
-        val trimmed = raw.trim()
-        if (trimmed.isEmpty()) return emptyList()
+    fun parse(raw: String, targetOs: TargetOs = TargetOs.WINDOWS): List<HidStep> {
+        if (raw.isEmpty()) return emptyList()
 
         val steps = mutableListOf<HidStep>()
+        val textBuf = StringBuilder()
+        var i = 0
 
-        // Replace custom delay arrow with a standard delimiter tag
-        var normalized = trimmed
-        val matcher = DELAY_PATTERN.matcher(trimmed)
-        val delays = mutableListOf<Pair<Int, Long>>()
-
-        // Tokenize by arrow boundaries
-        val parts = normalized.split(SIMPLE_ARROW_PATTERN.toRegex())
-
-        for (i in parts.indices) {
-            var token = parts[i].trim()
-            if (token.isEmpty()) continue
-
-            var stepDelayMs = 0L
-
-            // Extract delay if attached: e.g. "{0.5} step"
-            if (token.startsWith("{") && token.contains("}")) {
-                val closeIdx = token.indexOf('}')
-                val secondsStr = token.substring(1, closeIdx)
-                val seconds = secondsStr.toDoubleOrNull() ?: 0.0
-                stepDelayMs = (seconds * 1000).toLong()
-                token = token.substring(closeIdx + 1).trim()
-            }
-
-            if (stepDelayMs > 0) {
-                steps.add(HidStep.Delay(stepDelayMs))
-            }
-
-            val step = parseSingleStep(token)
-            if (step != null) {
-                steps.add(step)
+        fun flushText() {
+            if (textBuf.isNotEmpty()) {
+                steps.add(HidStep.TypeText(textBuf.toString()))
+                textBuf.clear()
             }
         }
 
+        while (i < raw.length) {
+            val c = raw[i]
+            if (c == '{') {
+                if (i + 1 < raw.length && raw[i + 1] == '{') {
+                    // Escaped literal '{'
+                    textBuf.append('{')
+                    i += 2
+                    continue
+                }
+
+                // Find closing '}'
+                val closeIdx = raw.indexOf('}', i + 1)
+                if (closeIdx == -1) {
+                    // Unclosed bracket, treat as literal text
+                    textBuf.append(c)
+                    i++
+                    continue
+                }
+
+                flushText()
+                val token = raw.substring(i + 1, closeIdx).trim()
+                i = closeIdx + 1
+
+                val step = parseToken(token, targetOs)
+                if (step != null) {
+                    steps.add(step)
+                }
+            } else {
+                textBuf.append(c)
+                i++
+            }
+        }
+
+        flushText()
         return steps
     }
 
-    private fun parseSingleStep(stepStr: String): HidStep? {
-        val s = stepStr.trim()
-        if (s.isEmpty()) return null
+    private fun parseToken(token: String, targetOs: TargetOs): HidStep? {
+        if (token.isEmpty()) return null
 
-        // 0. Raw Report: raw:02, raw:cd00, raw:01000000, raw:08000f0000000000 or raw:$VAR
-        if (s.startsWith("raw:", ignoreCase = true)) {
-            var rawHex = s.substring(4).trim()
-            if (rawHex.startsWith("$")) {
-                val varName = rawHex.removePrefix("\$" + "{").removePrefix("$").removeSuffix("}").trim()
-                return HidStep.Variable(varName)
-            }
-            if (rawHex.contains(":")) {
-                rawHex = rawHex.substringAfter(":")
-            }
-            val cleanHex = rawHex.replace(" ", "")
-            if (cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }) {
-                val bytes = ByteArray(cleanHex.length / 2) { i ->
-                    cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
-                }
-                return HidStep.RawReport(bytes, cleanHex.lowercase(java.util.Locale.ROOT))
+        // 1. Delay: {500ms}, {1s}, {100ms}
+        val lower = token.lowercase(Locale.ROOT)
+        if (lower.endsWith("ms") || lower.endsWith("s")) {
+            val isMs = lower.endsWith("ms")
+            val numPart = if (isMs) lower.removeSuffix("ms") else lower.removeSuffix("s")
+            val num = numPart.toDoubleOrNull()
+            if (num != null && num > 0) {
+                val millis = if (isMs) num.toLong() else (num * 1000.0).toLong()
+                return HidStep.Delay(millis)
             }
         }
 
-        // 1. Variables: $USERNAME, ${PASSWORD}
-        if (s.startsWith("$")) {
-            val varName = s.removePrefix("\$" + "{").removePrefix("$").removeSuffix("}").trim()
-            return HidStep.Variable(varName)
+        // 2. Chords with '+' (e.g. mod+s, ctrl+alt+del)
+        if (token.contains("+")) {
+            val (mod, key) = KeyTokens.parseChord(token, targetOs)
+            return HidStep.KeyboardChord(mod, key, token)
         }
 
-        // 2. Text: type:hello world or text:hello
-        if (s.startsWith("type:") || s.startsWith("text:")) {
-            val colonIdx = s.indexOf(':')
-            val text = s.substring(colonIdx + 1)
-            return HidStep.TypeText(text)
+        // 3. Consumer / Media Keys (e.g. VolumeUp, PlayPause, Mute)
+        val consumerHex = KeyTokens.consumerKeyHex(token)
+        if (consumerHex != null) {
+            val bytes = ByteArray(consumerHex.length / 2) { idx ->
+                consumerHex.substring(idx * 2, idx * 2 + 2).toInt(16).toByte()
+            }
+            return HidStep.RawReport(bytes, consumerHex)
         }
 
-        // 3. Mouse: click-left, scroll-up
-        if (KeyTokens.isMouseAction(s)) {
-            return HidStep.MouseAction(s)
+        // 4. Mouse Action (e.g. click-left, scroll-up)
+        if (KeyTokens.isMouseAction(token)) {
+            return HidStep.MouseAction(token)
         }
 
-        // 5. Keyboard Chord: win+l, ctrl+alt+del
-        val (mod, key) = KeyTokens.parseChord(s)
-        return HidStep.KeyboardChord(mod, key, s)
+        // 5. Standard HID Key token (e.g. Tab, Enter, Escape, Del, F5)
+        if (KeyTokens.isStandardKey(token)) {
+            val (mod, key) = KeyTokens.parseChord(token, targetOs)
+            return HidStep.KeyboardChord(mod, key, token)
+        }
+
+        // 6. Direct Raw Report Hex (e.g. 02, cd00, 08000f0000000000)
+        val cleanHex = token.replace(" ", "")
+        if (cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }) {
+            val bytes = ByteArray(cleanHex.length / 2) { idx ->
+                cleanHex.substring(idx * 2, idx * 2 + 2).toInt(16).toByte()
+            }
+            return HidStep.RawReport(bytes, cleanHex.lowercase(Locale.ROOT))
+        }
+
+        // 7. Named Payload Reference (e.g. {PASSWORD}, {EMAIL}, {WIN_SLEEP})
+        if (token.all { it.isLetterOrDigit() || it == '_' || it == '-' }) {
+            return HidStep.PayloadReference(token)
+        }
+
+        return null
     }
 
     /**
-     * Validates that a combo string is syntactically well-formed.
+     * Extracts all named payload references from a bracket sequence.
      */
-    fun validate(keys: String, targetOs: TargetOs = TargetOs.WINDOWS): Result<Unit> {
-        val trimmed = keys.trim()
-        if (trimmed.isEmpty()) return Result.failure(IllegalArgumentException("Combo has no steps"))
+    fun extractPayloads(sequence: String, targetOs: TargetOs = TargetOs.WINDOWS): List<String> {
+        val steps = parse(sequence, targetOs)
+        return steps.filterIsInstance<HidStep.PayloadReference>().map { it.name }.distinct()
+    }
 
-        val steps = parse(trimmed)
-        if (steps.isEmpty()) return Result.failure(IllegalArgumentException("No valid steps parsed"))
+    /**
+     * Validates that a sequence string is syntactically well-formed.
+     */
+    fun validate(sequence: String, targetOs: TargetOs = TargetOs.WINDOWS): Result<Unit> {
+        if (sequence.isBlank()) {
+            return Result.failure(IllegalArgumentException("Sequence cannot be empty"))
+        }
+
+        // Check for unclosed single brackets
+        var inBracket = false
+        var i = 0
+        while (i < sequence.length) {
+            val c = sequence[i]
+            if (c == '{') {
+                if (i + 1 < sequence.length && sequence[i + 1] == '{') {
+                    i += 2
+                    continue
+                }
+                if (inBracket) {
+                    return Result.failure(IllegalArgumentException("Nested '{' is not allowed in sequence"))
+                }
+                inBracket = true
+            } else if (c == '}') {
+                if (!inBracket) {
+                    return Result.failure(IllegalArgumentException("Unexpected '}' without opening '{'"))
+                }
+                inBracket = false
+            }
+            i++
+        }
+        if (inBracket) {
+            return Result.failure(IllegalArgumentException("Unclosed '{' in sequence"))
+        }
+
+        val steps = parse(sequence, targetOs)
+        if (steps.isEmpty()) {
+            return Result.failure(IllegalArgumentException("No valid steps parsed"))
+        }
 
         for (step in steps) {
             when (step) {
@@ -119,9 +174,9 @@ object ActionSequenceParser {
                         return Result.failure(IllegalArgumentException("Incomplete chord; specify a key after '+'"))
                     }
                     if (targetOs == TargetOs.WINDOWS || targetOs == TargetOs.LINUX) {
-                        for (token in parts) {
-                            if (KeyTokens.isMacAlias(token)) {
-                                return Result.failure(IllegalArgumentException("\"$token\" is a macOS key name; use a Windows key such as win, ctrl or alt"))
+                        for (tok in parts) {
+                            if (KeyTokens.isMacAlias(tok)) {
+                                return Result.failure(IllegalArgumentException("\"$tok\" is a macOS key name; use 'mod' or a Windows/Linux key"))
                             }
                         }
                     }
@@ -130,7 +185,6 @@ object ActionSequenceParser {
                         return Result.failure(IllegalArgumentException("Unknown key \"$unknown\""))
                     }
                 }
-                is HidStep.RawReport -> Unit
                 is HidStep.TypeText -> {
                     for (c in step.text) {
                         if (c.code < 0x20 || c.code > 0x7E) {
@@ -141,6 +195,7 @@ object ActionSequenceParser {
                 else -> Unit
             }
         }
+
         return Result.success(Unit)
     }
 }

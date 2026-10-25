@@ -602,7 +602,7 @@ private fun FavoritePickerRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = combo.keys,
+                    text = combo.effectiveSequence,
                     style = MaterialTheme.typography.bodySmall,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -47,9 +47,9 @@ import com.sj010.ghid.ui.theme.MaterialShapes
  * Snippets shade morphing directly out of the status bar.
  *
  * Closed: Seamlessly integrated into the status bar area (starts at y=0,
- * status bar icons sit in top, "snippets" title with drag handle pill below it).
+ * status bar icons sit in top, "payloads" title with drag handle pill below it).
  *
- * Open: The surface morphs downward, the drag bar animates to ABOVE the text "Snippet",
+ * Open: The surface morphs downward, the drag bar animates to ABOVE the text "Payload",
  * and the diamond filter button + circle close button animate into view!
  */
 @Composable
@@ -98,12 +98,12 @@ fun SnippetsShade(
  * Morphing dock element anchored at the bottom edge of the shade surface.
  *
  * In closed state (progress = 0):
- * - Text "snippets" is on top (y=4.dp), drag bar is directly BELOW the text (y=28.dp).
+ * - Text "payloads" is on top (y=4.dp), drag bar is directly BELOW the text (y=28.dp).
  * - Side buttons are invisible (scale = 0, alpha = 0).
  *
  * In open state (progress = 1):
  * - Left: Diamond filter toggle button.
- * - Center: Drag bar animates to directly ABOVE the text "Snippet" (bar y=4.dp, text y=16.dp).
+ * - Center: Drag bar animates to directly ABOVE the text "Payload" (bar y=4.dp, text y=16.dp).
  * - Right: Circular close button.
  */
 @Composable
@@ -219,14 +219,14 @@ fun SnippetMorphingDock(
                         )
                 )
 
-                // Title Text: crossfades between "snippets" and "Snippet"
+                // Title Text: crossfades between "payloads" and "Payload"
                 Box(
                     modifier = Modifier.offset(y = textOffsetY),
                     contentAlignment = Alignment.Center
                 ) {
                     if (closedTextAlpha > 0f) {
                         Text(
-                            text = "snippets",
+                            text = "payloads",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -236,7 +236,7 @@ fun SnippetMorphingDock(
                     }
                     if (openTextAlpha > 0f) {
                         Text(
-                            text = "Snippet",
+                            text = "Payload",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -274,7 +274,7 @@ fun SnippetMorphingDock(
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close snippets shade",
+                            contentDescription = "Close payloads shade",
                             modifier = Modifier.size(20.dp)
                         )
                     }

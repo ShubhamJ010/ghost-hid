@@ -6,13 +6,21 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Combo(
     @SerialName("name") val name: String,
-    @SerialName("keys") val keys: String,
+    @SerialName("sequence") val sequence: String = "",
     @SerialName("os") val os: String = TargetOs.WINDOWS.token,
     @SerialName("emoji") val emoji: String? = null,
     @SerialName("description") val description: String? = null,
     @SerialName("favorite") val favorite: Boolean = false,
-    @SerialName("created_at") val createdAt: String = ""
+    @SerialName("payloads") val payloads: Map<String, Payload>? = null,
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("keys") private val legacyKeys: String? = null
 ) {
+    /** Effective sequence resolving legacy keys if sequence was omitted. */
+    val effectiveSequence: String get() = if (sequence.isNotBlank()) sequence else (legacyKeys ?: "")
+
+    /** Deprecated alias pointing to effectiveSequence for smooth migration. */
+    val keys: String get() = effectiveSequence
+
     /** Persisted tag resolved to the enum, defaulting legacy entries to Windows. */
     val targetOs: TargetOs get() = TargetOs.fromComboTag(os)
 }
@@ -24,7 +32,7 @@ data class PinnedFavorite(
 )
 
 @Serializable
-data class Snippet(
+data class Payload(
     @SerialName("name") val name: String,
     @SerialName("type") val type: String = "type",
     @SerialName("value") val value: String? = null,
@@ -46,6 +54,9 @@ data class Snippet(
         }
     }
 }
+
+/** Migration typealias */
+typealias Snippet = Payload
 
 enum class ConnectionStatus {
     DISCONNECTED,
@@ -73,7 +84,7 @@ data class LogEntry(
 sealed class HidStep {
     data class KeyboardChord(val modifier: Byte, val keyCode: Byte, val label: String) : HidStep()
     data class TypeText(val text: String) : HidStep()
-    data class Variable(val name: String) : HidStep()
+    data class PayloadReference(val name: String) : HidStep()
     data class MouseAction(val action: String) : HidStep()
     data class Delay(val millis: Long) : HidStep()
     data class RawReport(val bytes: ByteArray, val hex: String) : HidStep() {
@@ -88,5 +99,10 @@ sealed class HidStep {
             result = 31 * result + hex.hashCode()
             return result
         }
+    }
+
+    /** Compatibility constructor/extractor for Variable -> PayloadReference */
+    companion object {
+        fun Variable(name: String): PayloadReference = PayloadReference(name)
     }
 }

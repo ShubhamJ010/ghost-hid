@@ -389,7 +389,7 @@ fun StepBadge(step: HidStep) {
     val icon = when (step) {
         is HidStep.KeyboardChord -> Icons.Default.Keyboard
         is HidStep.TypeText -> Icons.Default.TextFields
-        is HidStep.Variable -> Icons.Default.Key
+        is HidStep.PayloadReference -> Icons.Default.Key
         is HidStep.Delay -> Icons.Default.Timer
         is HidStep.MouseAction -> Icons.Default.Mouse
         is HidStep.RawReport -> Icons.Default.Bolt
@@ -397,15 +397,15 @@ fun StepBadge(step: HidStep) {
     val label = when (step) {
         is HidStep.KeyboardChord -> step.label
         is HidStep.TypeText -> "\"${step.text}\""
-        is HidStep.Variable -> "$${step.name}"
-        is HidStep.Delay -> String.format(Locale.US, "%.1fs", step.millis / 1000.0)
+        is HidStep.PayloadReference -> "{${step.name}}"
+        is HidStep.Delay -> if (step.millis >= 1000 && step.millis % 1000 == 0L) "${step.millis / 1000}s" else "${step.millis}ms"
         is HidStep.MouseAction -> step.action
         is HidStep.RawReport -> "raw:${step.hex}"
     }
     val background = when (step) {
         is HidStep.KeyboardChord -> MaterialTheme.colorScheme.primaryContainer
         is HidStep.TypeText -> MaterialTheme.colorScheme.secondaryContainer
-        is HidStep.Variable -> MaterialTheme.colorScheme.tertiaryContainer
+        is HidStep.PayloadReference -> MaterialTheme.colorScheme.tertiaryContainer
         is HidStep.Delay -> MaterialTheme.colorScheme.surfaceContainerHighest
         is HidStep.MouseAction -> MaterialTheme.colorScheme.primaryContainer
         is HidStep.RawReport -> MaterialTheme.colorScheme.tertiaryContainer
@@ -413,7 +413,7 @@ fun StepBadge(step: HidStep) {
     val content = when (step) {
         is HidStep.KeyboardChord -> MaterialTheme.colorScheme.onPrimaryContainer
         is HidStep.TypeText -> MaterialTheme.colorScheme.onSecondaryContainer
-        is HidStep.Variable -> MaterialTheme.colorScheme.onTertiaryContainer
+        is HidStep.PayloadReference -> MaterialTheme.colorScheme.onTertiaryContainer
         is HidStep.Delay -> MaterialTheme.colorScheme.onSurfaceVariant
         is HidStep.MouseAction -> MaterialTheme.colorScheme.onPrimaryContainer
         is HidStep.RawReport -> MaterialTheme.colorScheme.onTertiaryContainer
