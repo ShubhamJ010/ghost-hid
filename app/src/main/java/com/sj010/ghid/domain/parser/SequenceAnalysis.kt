@@ -43,10 +43,20 @@ object SequenceAnalyzer {
             )
         }
 
+        val totalTime = steps.sumOf { step ->
+            when (step) {
+                is HidStep.Delay -> step.millis
+                is HidStep.KeyboardChord -> if (step.durationMs > 40L) step.durationMs else 0L
+                is HidStep.RawReport -> if (step.durationMs != 60L) step.durationMs else 0L
+                is HidStep.PayloadReference -> step.durationMs ?: 0L
+                else -> 0L
+            }
+        }
+
         return SequenceAnalysis(
             scheme = scheme,
             steps = steps,
-            totalDelayMillis = steps.filterIsInstance<HidStep.Delay>().sumOf { it.millis }
+            totalDelayMillis = totalTime
         )
     }
 }

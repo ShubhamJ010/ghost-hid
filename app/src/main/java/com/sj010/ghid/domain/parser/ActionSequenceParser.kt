@@ -64,56 +64,76 @@ object ActionSequenceParser {
     private fun parseToken(token: String, targetOs: TargetOs): HidStep? {
         if (token.isEmpty()) return null
 
-        // 1. Delay: {500ms}, {1s}, {100ms}
-        val lower = token.lowercase(Locale.ROOT)
-        if (lower.endsWith("ms") || lower.endsWith("s")) {
-            val isMs = lower.endsWith("ms")
-            val numPart = if (isMs) lower.removeSuffix("ms") else lower.removeSuffix("s")
-            val num = numPart.toDoubleOrNull()
-            if (num != null && num > 0) {
-                val millis = if (isMs) num.toLong() else (num * 1000.0).toLong()
-                return HidStep.Delay(millis)
+        var holdMs: Long? = null
+        var tokenBody = token
+
+        val colonIdx = token.lastIndexOf(':')
+        if (colonIdx != -1) {
+            val candidateToken = token.substring(0, colonIdx).trim()
+            val candidateDur = token.substring(colonIdx + 1).trim().lowercase(Locale.ROOT)
+            if (candidateToken.isNotEmpty() && (candidateDur.endsWith("ms") || candidateDur.endsWith("s"))) {
+                val isMs = candidateDur.endsWith("ms")
+                val numPart = if (isMs) candidateDur.removeSuffix("ms") else candidateDur.removeSuffix("s")
+                val num = numPart.toDoubleOrNull()
+                if (num != null && num > 0) {
+                    holdMs = if (isMs) num.toLong() else (num * 1000.0).toLong()
+                    tokenBody = candidateToken
+                }
+            }
+        }
+
+        // 1. Pure Delay: {500ms}, {1s}, {100ms} (when no hold modifier)
+        if (holdMs == null) {
+            val lower = tokenBody.lowercase(Locale.ROOT)
+            if (lower.endsWith("ms") || lower.endsWith("s")) {
+                val isMs = lower.endsWith("ms")
+                val numPart = if (isMs) lower.removeSuffix("ms") else lower.removeSuffix("s")
+                val num = numPart.toDoubleOrNull()
+                if (num != null && num > 0) {
+                    val millis = if (isMs) num.toLong() else (num * 1000.0).toLong()
+                    return HidStep.Delay(millis)
+                }
             }
         }
 
         // 2. Chords with '+' (e.g. mod+s, ctrl+alt+del)
-        if (token.contains("+")) {
-            val (mod, key) = KeyTokens.parseChord(token, targetOs)
-            return HidStep.KeyboardChord(mod, key, token)
+        if (tokenBody.contains("+")) {
+            val (mod, key) = KeyTokens.parseChord(tokenBody, targetOs)
+            return HidStep.KeyboardChord(mod, key, tokenBody, durationMs = holdMs ?: 40L)
         }
 
         // 3. Consumer / Media Keys (e.g. VolumeUp, PlayPause, Mute)
-        val consumerHex = KeyTokens.consumerKeyHex(token)
+        val consumerHex = KeyTokens.consumerKeyHex(tokenBody)
         if (consumerHex != null) {
             val bytes = ByteArray(consumerHex.length / 2) { idx ->
                 consumerHex.substring(idx * 2, idx * 2 + 2).toInt(16).toByte()
             }
-            return HidStep.RawReport(bytes, consumerHex)
+            return HidStep.RawReport(bytes, consumerHex, durationMs = holdMs ?: 60L)
         }
 
         // 4. Mouse Action (e.g. click-left, scroll-up)
-        if (KeyTokens.isMouseAction(token)) {
-            return HidStep.MouseAction(token)
+        if (KeyTokens.isMouseAction(tokenBody)) {
+            return HidStep.MouseAction(tokenBody, durationMs = holdMs)
         }
 
-        // 5. Standard HID Key token (e.g. Tab, Enter, Escape, Del, F5)
-        if (KeyTokens.isStandardKey(token)) {
-            val (mod, key) = KeyTokens.parseChord(token, targetOs)
-            return HidStep.KeyboardChord(mod, key, token)
+        // 5. Standard HID Key token (e.g. Tab, Enter, Escape, Del, F5, Backspace)
+        if (KeyTokens.isStandardKey(tokenBody)) {
+            val (mod, key) = KeyTokens.parseChord(tokenBody, targetOs)
+            return HidStep.KeyboardChord(mod, key, tokenBody, durationMs = holdMs ?: 40L)
         }
 
         // 6. Direct Raw Report Hex (e.g. 02, cd00, 08000f0000000000)
-        val cleanHex = token.replace(" ", "")
+        val cleanHex = tokenBody.replace(" ", "")
         if (cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }) {
             val bytes = ByteArray(cleanHex.length / 2) { idx ->
                 cleanHex.substring(idx * 2, idx * 2 + 2).toInt(16).toByte()
             }
-            return HidStep.RawReport(bytes, cleanHex.lowercase(Locale.ROOT))
+            return HidStep.RawReport(bytes, cleanHex.lowercase(Locale.ROOT), durationMs = holdMs ?: 60L)
         }
 
         // 7. Named Payload Reference (e.g. {PASSWORD}, {EMAIL}, {WIN_SLEEP})
-        if (token.all { it.isLetterOrDigit() || it == '_' || it == '-' }) {
-            return HidStep.PayloadReference(token)
+        if (tokenBody.all { it.isLetterOrDigit() || it == '_' || it == '-' }) {
+            return HidStep.PayloadReference(tokenBody, durationMs = holdMs)
         }
 
         return null

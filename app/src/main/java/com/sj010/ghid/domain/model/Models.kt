@@ -82,21 +82,22 @@ data class LogEntry(
 )
 
 sealed class HidStep {
-    data class KeyboardChord(val modifier: Byte, val keyCode: Byte, val label: String) : HidStep()
+    data class KeyboardChord(val modifier: Byte, val keyCode: Byte, val label: String, val durationMs: Long = 40) : HidStep()
     data class TypeText(val text: String) : HidStep()
-    data class PayloadReference(val name: String) : HidStep()
-    data class MouseAction(val action: String) : HidStep()
+    data class PayloadReference(val name: String, val durationMs: Long? = null) : HidStep()
+    data class MouseAction(val action: String, val durationMs: Long? = null) : HidStep()
     data class Delay(val millis: Long) : HidStep()
-    data class RawReport(val bytes: ByteArray, val hex: String) : HidStep() {
+    data class RawReport(val bytes: ByteArray, val hex: String, val durationMs: Long = 60) : HidStep() {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (javaClass != other?.javaClass) return false
             other as RawReport
-            return bytes.contentEquals(other.bytes) && hex == other.hex
+            return bytes.contentEquals(other.bytes) && hex == other.hex && durationMs == other.durationMs
         }
         override fun hashCode(): Int {
             var result = bytes.contentHashCode()
             result = 31 * result + hex.hashCode()
+            result = 31 * result + durationMs.hashCode()
             return result
         }
     }

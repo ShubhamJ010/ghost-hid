@@ -395,12 +395,12 @@ fun StepBadge(step: HidStep) {
         is HidStep.RawReport -> Icons.Default.Bolt
     }
     val label = when (step) {
-        is HidStep.KeyboardChord -> step.label
+        is HidStep.KeyboardChord -> if (step.durationMs > 40L) "${step.label}:${step.durationMs}ms" else step.label
         is HidStep.TypeText -> "\"${step.text}\""
-        is HidStep.PayloadReference -> "{${step.name}}"
+        is HidStep.PayloadReference -> if (step.durationMs != null && step.durationMs > 0) "{${step.name}:${step.durationMs}ms}" else "{${step.name}}"
         is HidStep.Delay -> if (step.millis >= 1000 && step.millis % 1000 == 0L) "${step.millis / 1000}s" else "${step.millis}ms"
-        is HidStep.MouseAction -> step.action
-        is HidStep.RawReport -> "raw:${step.hex}"
+        is HidStep.MouseAction -> if (step.durationMs != null && step.durationMs > 0) "${step.action}:${step.durationMs}ms" else step.action
+        is HidStep.RawReport -> if (step.durationMs != 60L) "${step.hex}:${step.durationMs}ms" else step.hex
     }
     val background = when (step) {
         is HidStep.KeyboardChord -> MaterialTheme.colorScheme.primaryContainer
