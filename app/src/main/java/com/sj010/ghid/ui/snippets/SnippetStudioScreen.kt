@@ -728,7 +728,7 @@ fun M3ExpressiveSnippetCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Snippet actions",
+                            contentDescription = "Payload actions",
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -945,7 +945,7 @@ fun SnippetEditorPage(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (initial == null) "New snippet" else "Edit payload",
+                            text = if (initial == null) "New payload" else "Edit payload",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Black,
                             color = MaterialTheme.colorScheme.onSurface
@@ -989,7 +989,7 @@ fun SnippetEditorPage(
                 ) {
                     // Selection between Type (text) and Raw (HID report)
                     Text(
-                        text = "SNIPPET TYPE",
+                        text = "PAYLOAD TYPE",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -1070,19 +1070,22 @@ fun SnippetEditorPage(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Variable name") },
+                        label = { Text("Payload name") },
                         placeholder = { Text("e.g. username or my_password") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         prefix = {
-                            Text("$", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                            Text("{", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        },
+                        suffix = {
+                            Text("}", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         },
                         singleLine = true,
                         enabled = initial == null,
                         supportingText = {
                             Text(
                                 text = if (initial == null) {
-                                    "Reference it from a combo as \$name"
+                                    "Reference it in combos as {name}"
                                 } else {
                                     "Names are fixed once created"
                                 },

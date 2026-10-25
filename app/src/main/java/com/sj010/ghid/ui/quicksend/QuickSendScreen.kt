@@ -486,7 +486,7 @@ private fun QuickSendComposerDock(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
-                        text = if (targetOs == TargetOs.MACOS) "cmd+space ->{0.6} type:term" else "win+r ->{0.6} type:cmd",
+                        text = if (targetOs == TargetOs.MACOS) "{cmd+space}{600ms}term{Enter}" else "{win+r}{600ms}cmd{Enter}",
                         fontFamily = FontFamily.Monospace,
                         fontSize = 14.sp,
                         maxLines = 1,
@@ -510,7 +510,7 @@ private fun QuickSendComposerDock(
                 trailingIcon = {
                     if (scheme.isNotEmpty()) {
                         IconButton(onClick = onClear) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear scheme", modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Clear, contentDescription = "Clear sequence", modifier = Modifier.size(18.dp))
                         }
                     }
                 },

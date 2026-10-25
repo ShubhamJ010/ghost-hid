@@ -139,7 +139,7 @@ fun ComboEditorScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Paste a scheme, test it, then save.",
+                            text = "Paste a sequence, test it, then save.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -259,7 +259,7 @@ fun ComboEditorScreen(
                         value = state.scheme,
                         onValueChange = { state.scheme = it },
                         label = { Text("Sequence") },
-                        placeholder = { Text("ctrl+l ->{0.1}", fontFamily = FontFamily.Monospace) },
+                        placeholder = { Text("{ctrl+l}{100ms}", fontFamily = FontFamily.Monospace) },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3,
                         maxLines = 6,
@@ -271,7 +271,7 @@ fun ComboEditorScreen(
                         supportingText = {
                             Text(
                                 text = state.analysis.error
-                                    ?: "Use →{seconds} between steps · type:text · \$vault",
+                                    ?: "Use {chords}, {delays}, {text}, and {PAYLOADS}",
                                 style = MaterialTheme.typography.bodySmall
                             )
                         },

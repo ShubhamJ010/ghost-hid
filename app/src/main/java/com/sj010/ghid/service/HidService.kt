@@ -1047,7 +1047,7 @@ class HidService : Service() {
             ACTION_LOCK == action || "lock".equals(cmd, ignoreCase = true) -> sendLock()
             "sleep".equals(cmd, ignoreCase = true) -> {
                 if (resolveEffectiveOs() == TargetOs.MACOS) {
-                    executeCombo("cmd+ctrl+q ->{0.5} esc")
+                    executeCombo("{cmd+ctrl+q}{500ms}{esc}")
                 } else {
                     sendSystemSleep()
                 }

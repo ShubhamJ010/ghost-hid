@@ -103,7 +103,7 @@ fun QuickSendHistoryCard(
                     )
                     Text(
                         text = if (analysis.isInvalid) {
-                            analysis.error ?: "Invalid scheme"
+                            analysis.error ?: "Invalid sequence"
                         } else {
                             "${formatStepCount(analysis.steps.size)} · ${formatSequenceDuration(analysis.totalDelayMillis)}"
                         },
@@ -247,18 +247,18 @@ fun QuickSendEmptyState(
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Type a scheme below. Enter fires it at the target.",
+            text = "Type a sequence below. Send fires it at the target.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(18.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ExampleChip("Open Run", "win+r ->{0.6} type:notepad ->{0.4} enter", onPickExample)
+            ExampleChip("Open Run", "{win+r}{600ms}notepad{400ms}{enter}", onPickExample)
             ExampleChip("Lock PC", "win+l", onPickExample)
         }
         Spacer(modifier = Modifier.height(8.dp))
-        ExampleChip("Say hello", "type:hello world", onPickExample)
+        ExampleChip("Say hello", "hello world", onPickExample)
     }
 }
 
