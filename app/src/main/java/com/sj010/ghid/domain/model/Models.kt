@@ -26,11 +26,18 @@ data class PinnedFavorite(
 @Serializable
 data class Snippet(
     @SerialName("name") val name: String,
+    @SerialName("type") val type: String = "type",
     @SerialName("value") val value: String? = null,
     @SerialName("secure") val secure: Boolean = false,
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = ""
 ) {
+    val isRaw: Boolean
+        get() = type.equals("raw", ignoreCase = true)
+
+    val effectiveType: String
+        get() = if (isRaw) "raw" else "type"
+
     fun maskedDisplay(): String {
         return if (secure) {
             if (!value.isNullOrEmpty()) "••••••••" else "(empty)"
@@ -69,7 +76,6 @@ sealed class HidStep {
     data class Variable(val name: String) : HidStep()
     data class MouseAction(val action: String) : HidStep()
     data class Delay(val millis: Long) : HidStep()
-    data class Directive(val name: String) : HidStep()
     data class RawReport(val bytes: ByteArray, val hex: String) : HidStep() {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true

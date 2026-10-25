@@ -60,6 +60,7 @@ fun SnippetsShade(
 ) {
     var showFilter by rememberSaveable { mutableStateOf(false) }
     var filterQuery by rememberSaveable { mutableStateOf("") }
+    var selectedTypeFilter by rememberSaveable { mutableStateOf(SnippetTypeFilter.ALL) }
 
     PullDownShade(
         modifier = modifier,
@@ -67,7 +68,7 @@ fun SnippetsShade(
             SnippetMorphingDock(
                 progress = shadeScope.progress,
                 showFilter = showFilter,
-                hasFilterQuery = filterQuery.isNotBlank(),
+                hasFilterQuery = filterQuery.isNotBlank() || selectedTypeFilter != SnippetTypeFilter.ALL,
                 onToggleFilter = { showFilter = !showFilter },
                 onDismiss = { shadeScope.dismiss() },
                 onOpen = { shadeScope.open() },
@@ -80,7 +81,13 @@ fun SnippetsShade(
                 showFilter = showFilter,
                 filterQuery = filterQuery,
                 onQueryChange = { filterQuery = it },
-                onCloseFilter = { showFilter = false }
+                selectedTypeFilter = selectedTypeFilter,
+                onTypeFilterChange = { selectedTypeFilter = it },
+                onCloseFilter = {
+                    showFilter = false
+                    filterQuery = ""
+                    selectedTypeFilter = SnippetTypeFilter.ALL
+                }
             )
         },
         content = content

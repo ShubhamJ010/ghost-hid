@@ -91,10 +91,17 @@ class ComboRepository(private val context: Context) {
                 updated = updated.copy(emoji = emoji)
                 migrated = true
             }
-            if (updated.name.equals("Sleep", ignoreCase = true) && updated.keys.contains("win+x")) {
+            if (updated.name.equals("Sleep", ignoreCase = true) && (updated.keys.contains("win+x") || updated.keys == "raw:02 ->{0.06} raw:00")) {
                 updated = updated.copy(
-                    keys = "raw:02 ->{0.06} raw:00",
+                    keys = "\$SLEEP_WINDOWS ->{0.06} raw:00",
                     description = "Hardware ACPI sleep sequence"
+                )
+                migrated = true
+            }
+            if (updated.name.equals("PlayPause", ignoreCase = true) && updated.keys == "raw:cd00 ->{0.06} raw:0000") {
+                updated = updated.copy(
+                    keys = "\$PLAY_PAUSE ->{0.06} raw:0000",
+                    description = "Consumer media play/pause toggle"
                 )
                 migrated = true
             }
@@ -130,7 +137,7 @@ class ComboRepository(private val context: Context) {
                 ),
                 Combo(
                     name = "Sleep",
-                    keys = "raw:02 ->{0.06} raw:00",
+                    keys = "\$SLEEP_WINDOWS ->{0.06} raw:00",
                     os = TargetOs.WINDOWS.token,
                     emoji = "😴",
                     description = "Hardware ACPI sleep sequence",
@@ -157,7 +164,7 @@ class ComboRepository(private val context: Context) {
                 ),
                 Combo(
                     name = "PlayPause",
-                    keys = "raw:cd00 ->{0.06} raw:0000",
+                    keys = "\$PLAY_PAUSE ->{0.06} raw:0000",
                     os = TargetOs.MACOS.token,
                     emoji = "⏯️",
                     description = "Consumer media play/pause toggle",

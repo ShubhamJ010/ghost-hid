@@ -59,9 +59,13 @@ object ActionSequenceParser {
         val s = stepStr.trim()
         if (s.isEmpty()) return null
 
-        // 0. Raw Report: raw:02, raw:cd00, raw:01000000, raw:08000f0000000000
+        // 0. Raw Report: raw:02, raw:cd00, raw:01000000, raw:08000f0000000000 or raw:$VAR
         if (s.startsWith("raw:", ignoreCase = true)) {
             var rawHex = s.substring(4).trim()
+            if (rawHex.startsWith("$")) {
+                val varName = rawHex.removePrefix("\$" + "{").removePrefix("$").removeSuffix("}").trim()
+                return HidStep.Variable(varName)
+            }
             if (rawHex.contains(":")) {
                 rawHex = rawHex.substringAfter(":")
             }
@@ -74,25 +78,20 @@ object ActionSequenceParser {
             }
         }
 
-        // 1. Directives: !DISCONNECT, !EXIT
-        if (s.startsWith("!")) {
-            return HidStep.Directive(s.substring(1).trim().uppercase())
-        }
-
-        // 2. Variables: $USERNAME, ${PASSWORD}
+        // 1. Variables: $USERNAME, ${PASSWORD}
         if (s.startsWith("$")) {
             val varName = s.removePrefix("\$" + "{").removePrefix("$").removeSuffix("}").trim()
             return HidStep.Variable(varName)
         }
 
-        // 3. Text: type:hello world or text:hello
+        // 2. Text: type:hello world or text:hello
         if (s.startsWith("type:") || s.startsWith("text:")) {
             val colonIdx = s.indexOf(':')
             val text = s.substring(colonIdx + 1)
             return HidStep.TypeText(text)
         }
 
-        // 4. Mouse: click-left, scroll-up
+        // 3. Mouse: click-left, scroll-up
         if (KeyTokens.isMouseAction(s)) {
             return HidStep.MouseAction(s)
         }

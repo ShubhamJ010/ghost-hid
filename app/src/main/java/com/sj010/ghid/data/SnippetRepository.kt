@@ -86,15 +86,27 @@ class SnippetRepository(
         val current = load()
         val hasUser = current.any { it.name.equals("username", ignoreCase = true) }
         val hasPass = current.any { it.name.equals("password", ignoreCase = true) }
+        val hasEmail = current.any { it.name.equals("email", ignoreCase = true) }
+        val hasSleep = current.any { it.name.equals("sleep_windows", ignoreCase = true) || it.name.equals("sleep", ignoreCase = true) }
+        val hasPlayPause = current.any { it.name.equals("play_pause", ignoreCase = true) || it.name.equals("playpause", ignoreCase = true) }
 
-        if (!hasUser || !hasPass) {
+        if (!hasUser || !hasPass || !hasEmail || !hasSleep || !hasPlayPause) {
             val list = current.toMutableList()
             val now = isoNow()
             if (!hasUser) {
-                list.add(Snippet(name = "username", value = "", secure = false, createdAt = now, updatedAt = now))
+                list.add(Snippet(name = "username", type = "type", value = "", secure = false, createdAt = now, updatedAt = now))
             }
             if (!hasPass) {
-                list.add(Snippet(name = "password", value = vault.get("password") ?: "", secure = true, createdAt = now, updatedAt = now))
+                list.add(Snippet(name = "password", type = "type", value = vault.get("password") ?: "", secure = true, createdAt = now, updatedAt = now))
+            }
+            if (!hasEmail) {
+                list.add(Snippet(name = "email", type = "type", value = vault.get("email") ?: "", secure = true, createdAt = now, updatedAt = now))
+            }
+            if (!hasSleep) {
+                list.add(Snippet(name = "sleep_windows", type = "raw", value = "02", secure = false, createdAt = now, updatedAt = now))
+            }
+            if (!hasPlayPause) {
+                list.add(Snippet(name = "play_pause", type = "raw", value = "cd00", secure = false, createdAt = now, updatedAt = now))
             }
             save(list)
             return list
@@ -102,9 +114,10 @@ class SnippetRepository(
         return current
     }
 
-    fun set(name: String, value: String, secure: Boolean) {
+    fun set(name: String, value: String, secure: Boolean, type: String = "type") {
         val cleanName = name.trim()
         val now = isoNow()
+        val snType = if (type.equals("raw", ignoreCase = true)) "raw" else "type"
         if (secure) {
             vault.set(cleanName, value)
         } else {
@@ -116,6 +129,7 @@ class SnippetRepository(
         if (idx >= 0) {
             val existing = list[idx]
             list[idx] = existing.copy(
+                type = snType,
                 value = value,
                 secure = secure,
                 updatedAt = now
@@ -123,6 +137,7 @@ class SnippetRepository(
         } else {
             list.add(Snippet(
                 name = cleanName,
+                type = snType,
                 value = value,
                 secure = secure,
                 createdAt = now,
@@ -139,11 +154,27 @@ class SnippetRepository(
     }
 
     fun resolve(name: String): String? {
-        val sn = _snippets.value.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: return null
+        val sn = _snippets.value.firstOrNull { it.name.equals(name, ignoreCase = true) }
+            ?: (if (name.equals("sleep", ignoreCase = true)) _snippets.value.firstOrNull { it.name.equals("sleep_windows", ignoreCase = true) }
+                else if (name.equals("sleep_windows", ignoreCase = true)) _snippets.value.firstOrNull { it.name.equals("sleep", ignoreCase = true) }
+                else if (name.equals("playpause", ignoreCase = true)) _snippets.value.firstOrNull { it.name.equals("play_pause", ignoreCase = true) }
+                else if (name.equals("play_pause", ignoreCase = true)) _snippets.value.firstOrNull { it.name.equals("playpause", ignoreCase = true) }
+                else null)
+            ?: return null
+
         return if (sn.secure) {
             vault.get(sn.name) ?: sn.value
         } else {
             sn.value
         }
+    }
+
+    fun get(name: String): Snippet? {
+        return _snippets.value.firstOrNull { it.name.equals(name, ignoreCase = true) }
+            ?: (if (name.equals("sleep", ignoreCase = true)) _snippets.value.firstOrNull { it.name.equals("sleep_windows", ignoreCase = true) }
+                else if (name.equals("sleep_windows", ignoreCase = true)) _snippets.value.firstOrNull { it.name.equals("sleep", ignoreCase = true) }
+                else if (name.equals("playpause", ignoreCase = true)) _snippets.value.firstOrNull { it.name.equals("play_pause", ignoreCase = true) }
+                else if (name.equals("play_pause", ignoreCase = true)) _snippets.value.firstOrNull { it.name.equals("playpause", ignoreCase = true) }
+                else null)
     }
 }

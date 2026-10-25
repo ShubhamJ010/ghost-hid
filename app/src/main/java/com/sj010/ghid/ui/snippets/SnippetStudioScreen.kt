@@ -30,10 +30,16 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -43,6 +49,10 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -109,12 +119,20 @@ import com.sj010.ghid.ui.theme.MaterialShapes
  * CircleShape (shape.full) for buttons per M3E spec, tonal surface hierarchy,
  * and spring-based motion for interactive feedback.
  */
+enum class SnippetTypeFilter(val label: String) {
+    ALL("All"),
+    TYPE("Type"),
+    RAW("Raw")
+}
+
 @Composable
 fun SnippetShadeContent(
     service: HidService?,
     showFilter: Boolean,
     filterQuery: String,
     onQueryChange: (String) -> Unit,
+    selectedTypeFilter: SnippetTypeFilter = SnippetTypeFilter.ALL,
+    onTypeFilterChange: (SnippetTypeFilter) -> Unit = {},
     onCloseFilter: () -> Unit
 ) {
     val repo = GhostHidApp.instance.snippetRepository
@@ -127,14 +145,24 @@ fun SnippetShadeContent(
     val clipboardManager = LocalClipboardManager.current
     val focusManager = LocalFocusManager.current
 
-    val filteredSnippets = remember(snippets, filterQuery) {
-        if (filterQuery.isBlank()) {
-            snippets
-        } else {
-            snippets.filter { snippet ->
-                snippet.name.contains(filterQuery, ignoreCase = true) ||
-                    (!snippet.value.isNullOrEmpty() && snippet.value.contains(filterQuery, ignoreCase = true))
+    val typeCount = remember(snippets) { snippets.count { !it.isRaw } }
+    val rawCount = remember(snippets) { snippets.count { it.isRaw } }
+
+    val filteredSnippets = remember(snippets, filterQuery, selectedTypeFilter) {
+        snippets.filter { snippet ->
+            val matchesType = when (selectedTypeFilter) {
+                SnippetTypeFilter.ALL -> true
+                SnippetTypeFilter.TYPE -> !snippet.isRaw
+                SnippetTypeFilter.RAW -> snippet.isRaw
             }
+            if (!matchesType) return@filter false
+
+            if (filterQuery.isBlank()) return@filter true
+
+            val q = filterQuery.trim().lowercase()
+            snippet.name.lowercase().contains(q) ||
+                (snippet.value?.lowercase()?.contains(q) == true) ||
+                snippet.effectiveType.lowercase().contains(q)
         }
     }
 
@@ -203,63 +231,154 @@ fun SnippetShadeContent(
                     animationSpec = spring(stiffness = Spring.StiffnessMedium)
                 ) + fadeOut()
             ) {
-                OutlinedTextField(
-                    value = filterQuery,
-                    onValueChange = onQueryChange,
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 4.dp),
-                    placeholder = {
-                        Text(
-                            text = "Filter snippets by name or value...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        .padding(bottom = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Compact M3E search pill (height: 40.dp)
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .height(40.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                         )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    },
-                    trailingIcon = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                if (filterQuery.isEmpty()) {
+                                    Text(
+                                        text = "Filter snippets...",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                        maxLines = 1
+                                    )
+                                }
+                                BasicTextField(
+                                    value = filterQuery,
+                                    onValueChange = onQueryChange,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
+                                )
+                            }
                             if (filterQuery.isNotEmpty()) {
-                                IconButton(onClick = { onQueryChange("") }) {
+                                IconButton(
+                                    onClick = { onQueryChange("") },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Clear,
                                         contentDescription = "Clear search",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                             }
-                            IconButton(onClick = {
-                                onCloseFilter()
-                                focusManager.clearFocus()
-                            }) {
+                            IconButton(
+                                onClick = {
+                                    onCloseFilter()
+                                    focusManager.clearFocus()
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Close filter",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
-                    },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.large, // M3E: search fields use shape.large
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                    )
-                )
+                    }
+
+                    // Type filter chips: All, Type, Raw
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SnippetFilterChip(
+                            label = "All (${snippets.size})",
+                            selected = selectedTypeFilter == SnippetTypeFilter.ALL,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onTypeFilterChange(SnippetTypeFilter.ALL)
+                            }
+                        )
+
+                        SnippetFilterChip(
+                            label = "Type ($typeCount)",
+                            selected = selectedTypeFilter == SnippetTypeFilter.TYPE,
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.TextFields,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (selectedTypeFilter == SnippetTypeFilter.TYPE) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onTypeFilterChange(SnippetTypeFilter.TYPE)
+                            }
+                        )
+
+                        SnippetFilterChip(
+                            label = "Raw ($rawCount)",
+                            selected = selectedTypeFilter == SnippetTypeFilter.RAW,
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.Memory,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (selectedTypeFilter == SnippetTypeFilter.RAW) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onTypeFilterChange(SnippetTypeFilter.RAW)
+                            }
+                        )
+                    }
+                }
             }
 
             // ==========================================
@@ -324,11 +443,30 @@ fun SnippetShadeContent(
                         .padding(20.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "No snippets match \"$filterQuery\"",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = if (filterQuery.isNotBlank()) {
+                                "No snippets match \"$filterQuery\""
+                            } else {
+                                "No ${selectedTypeFilter.label.lowercase()} snippets found"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (selectedTypeFilter != SnippetTypeFilter.ALL || filterQuery.isNotBlank()) {
+                            TextButton(
+                                onClick = {
+                                    onQueryChange("")
+                                    onTypeFilterChange(SnippetTypeFilter.ALL)
+                                }
+                            ) {
+                                Text("Clear filter")
+                            }
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -346,7 +484,18 @@ fun SnippetShadeContent(
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val textToType = snippet.value ?: ""
                                 if (textToType.isNotEmpty()) {
-                                    service?.typeText(textToType)
+                                    if (snippet.isRaw) {
+                                        val cleanHex = (if (textToType.startsWith("raw:", ignoreCase = true)) textToType.substring(4) else textToType)
+                                            .replace(" ", "")
+                                        if (cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }) {
+                                            val bytes = ByteArray(cleanHex.length / 2) { i ->
+                                                cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+                                            }
+                                            service?.sendRawReport(bytes)
+                                        }
+                                    } else {
+                                        service?.typeText(textToType)
+                                    }
                                 }
                             },
                             onCopy = {
@@ -378,8 +527,8 @@ fun SnippetShadeContent(
         SnippetEditorPage(
             initial = editingSnippet,
             onDismiss = { editorOpen = false },
-            onSave = { name, value, secure ->
-                repo.set(name, value, secure)
+            onSave = { name, value, secure, type ->
+                repo.set(name, value, secure, type)
                 editorOpen = false
             }
         )
@@ -397,6 +546,44 @@ fun SnippetShadeContent(
 
 /** Tonal pairing for the expressive leading badge, matching M3 container roles. */
 private data class SnippetAccent(val container: Color, val content: Color)
+
+// ==========================================
+// MATERIAL 3 EXPRESSIVE FILTER CHIP
+// ==========================================
+
+@Composable
+private fun SnippetFilterChip(
+    label: String,
+    selected: Boolean,
+    icon: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        leadingIcon = icon,
+        label = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+            )
+        },
+        shape = CircleShape,
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = selected,
+            borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            selectedBorderColor = MaterialTheme.colorScheme.primary
+        )
+    )
+}
 
 /** Curated M3E shapes for snippet card leading icons, chosen for visual variety. */
 private val snippetLeadingShapes: List<Shape> = listOf(
@@ -497,8 +684,20 @@ fun M3ExpressiveSnippetCard(
                     Spacer(modifier = Modifier.height(3.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = if (snippet.isRaw) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = if (snippet.isRaw) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                        ) {
+                            Text(
+                                text = if (snippet.isRaw) "RAW" else "TEXT",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                            )
+                        }
                         Icon(
                             imageVector = if (snippet.secure) Icons.Default.Security else Icons.Default.Code,
                             contentDescription = null,
@@ -644,13 +843,13 @@ fun M3ExpressiveSnippetCard(
                     contentPadding = PaddingValues(horizontal = 18.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Bolt,
+                        imageVector = if (snippet.isRaw) Icons.AutoMirrored.Filled.Send else Icons.Default.Bolt,
                         contentDescription = null,
                         modifier = Modifier.size(17.dp)
                     )
                     Spacer(modifier = Modifier.width(7.dp))
                     Text(
-                        text = "Type to PC",
+                        text = if (snippet.isRaw) "Send" else "Type",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -692,15 +891,16 @@ fun M3ExpressiveSnippetCard(
 fun SnippetEditorPage(
     initial: Snippet?,
     onDismiss: () -> Unit,
-    onSave: (name: String, value: String, secure: Boolean) -> Unit
+    onSave: (name: String, value: String, secure: Boolean, type: String) -> Unit
 ) {
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var value by remember { mutableStateOf(initial?.value ?: "") }
+    var type by remember { mutableStateOf(initial?.type ?: "type") }
     var secure by remember { mutableStateOf(initial?.secure ?: false) }
     var valueVisible by remember { mutableStateOf(initial != null && !initial.secure) }
 
-    val presetNames = listOf("username", "password", "email", "sudo_pass", "token", "wifi_key")
     val haptic = LocalHapticFeedback.current
+    val clipboardManager = LocalClipboardManager.current
     val canSave = name.isNotBlank()
 
     ModalBottomSheet(
@@ -787,61 +987,82 @@ fun SnippetEditorPage(
                         .padding(horizontal = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    if (initial == null) {
-                        Text(
-                            text = "QUICK PRESETS",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            letterSpacing = 0.6.sp
-                        )
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                    // Selection between Type (text) and Raw (HID report)
+                    Text(
+                        text = "SNIPPET TYPE",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 0.6.sp
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val isText = type.equals("type", ignoreCase = true)
+                        val isRaw = type.equals("raw", ignoreCase = true)
+
+                        Surface(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                type = "type"
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp),
+                            shape = CircleShape,
+                            color = if (isText) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = if (isText) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            border = if (isText) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                         ) {
-                            presetNames.forEach { preset ->
-                                val selected = name.equals(preset, ignoreCase = true)
-                                Surface(
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        name = preset
-                                        if (
-                                            preset.contains("pass") ||
-                                            preset.contains("token") ||
-                                            preset.contains("key")
-                                        ) {
-                                            secure = true
-                                            valueVisible = false
-                                        }
-                                    },
-                                    shape = CircleShape, // M3E: chips use shape.full
-                                    color = if (selected) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainerHigh
-                                    },
-                                    contentColor = if (selected) {
-                                        MaterialTheme.colorScheme.onPrimary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                                    border = if (selected) {
-                                        null
-                                    } else {
-                                        BorderStroke(
-                                            1.dp,
-                                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                                        )
-                                    }
-                                ) {
-                                    Text(
-                                        text = "$$preset",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                                    )
-                                }
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.TextFields,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Type (Text)",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Surface(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                type = "raw"
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp),
+                            shape = CircleShape,
+                            color = if (isRaw) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = if (isRaw) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            border = if (isRaw) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Memory,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Send (Raw HID)",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -870,14 +1091,20 @@ fun SnippetEditorPage(
                         }
                     )
 
+                    val isRawSelected = type.equals("raw", ignoreCase = true)
                     OutlinedTextField(
                         value = value,
                         onValueChange = { value = it },
-                        label = { Text("Value (typed on PC)") },
-                        placeholder = { Text("Enter string to type", fontFamily = FontFamily.Monospace) },
+                        label = { Text(if (isRawSelected) "Raw HID Bytes (Hex)" else "Value (typed on PC)") },
+                        placeholder = {
+                            Text(
+                                if (isRawSelected) "e.g. 02 or cd00" else "Enter string to type",
+                                fontFamily = FontFamily.Monospace
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        minLines = 3,
+                        minLines = if (isRawSelected) 2 else 3,
                         maxLines = 6,
                         textStyle = MaterialTheme.typography.bodyLarge.copy(
                             fontFamily = FontFamily.Monospace,
@@ -889,24 +1116,57 @@ fun SnippetEditorPage(
                             androidx.compose.ui.text.input.VisualTransformation.None
                         },
                         trailingIcon = {
-                            IconButton(onClick = { valueVisible = !valueVisible }) {
-                                Icon(
-                                    imageVector = if (valueVisible) {
-                                        Icons.Default.VisibilityOff
-                                    } else {
-                                        Icons.Default.Visibility
-                                    },
-                                    contentDescription = if (valueVisible) "Hide value" else "Show value"
-                                )
+                            if (secure) {
+                                IconButton(onClick = { valueVisible = !valueVisible }) {
+                                    Icon(
+                                        imageVector = if (valueVisible) {
+                                            Icons.Default.VisibilityOff
+                                        } else {
+                                            Icons.Default.Visibility
+                                        },
+                                        contentDescription = if (valueVisible) "Hide value" else "Show value"
+                                    )
+                                }
                             }
                         },
                         supportingText = {
                             Text(
-                                text = "${value.length} characters · sent exactly as written",
+                                text = if (isRawSelected) "Dispatched directly as raw USB/BLE HID report bytes" else "${value.length} characters · sent exactly as written",
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
                     )
+
+                    // Paste Material Three expressive button below the form field
+                    FilledTonalButton(
+                        onClick = {
+                            val clip = clipboardManager.getText()?.text
+                            if (!clip.isNullOrEmpty()) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                value = clip
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentPaste,
+                            contentDescription = "Paste from clipboard",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Paste from Clipboard",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
 
                     // Keystore toggle container
                     Surface(
@@ -988,7 +1248,7 @@ fun SnippetEditorPage(
                         Button(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onSave(name.trim(), value, secure)
+                                onSave(name.trim(), value, secure, type)
                             },
                             enabled = canSave,
                             modifier = Modifier

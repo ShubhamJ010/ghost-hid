@@ -861,10 +861,28 @@ class HidService : Service() {
                         delay(step.text.length * 50L + 50L)
                     }
                     is HidStep.Variable -> {
-                        val value = GhostHidApp.instance.snippetRepository.resolve(step.name)
+                        val snRepo = GhostHidApp.instance.snippetRepository
+                        val sn = snRepo.get(step.name)
+                        val value = snRepo.resolve(step.name)
                         if (!value.isNullOrEmpty()) {
-                            typeText(value)
-                            delay(value.length * 50L + 50L)
+                            val cleanVal = value.trim()
+                            val cleanHex = (if (cleanVal.startsWith("raw:", ignoreCase = true)) cleanVal.substring(4) else cleanVal)
+                                .replace(" ", "")
+                            val isHexMatch = cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }
+                            if (sn?.isRaw == true || cleanVal.startsWith("raw:", ignoreCase = true) || isHexMatch) {
+                                if (isHexMatch) {
+                                    val bytes = ByteArray(cleanHex.length / 2) { i ->
+                                        cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+                                    }
+                                    sendRawReport(bytes)
+                                    delay(20)
+                                } else {
+                                    log("Invalid raw report hex in variable \$${step.name}: $value")
+                                }
+                            } else {
+                                typeText(value)
+                                delay(value.length * 50L + 50L)
+                            }
                         } else {
                             log("Variable \$${step.name} empty or unresolved")
                         }
@@ -876,12 +894,6 @@ class HidService : Service() {
                     is HidStep.RawReport -> {
                         sendRawReport(step.bytes)
                         delay(20)
-                    }
-                    is HidStep.Directive -> {
-                        when (step.name) {
-                            "DISCONNECT" -> disconnectTarget()
-                            "EXIT" -> quit()
-                        }
                     }
                 }
             }

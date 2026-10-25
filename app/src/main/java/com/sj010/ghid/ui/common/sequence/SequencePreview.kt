@@ -392,7 +392,6 @@ fun StepBadge(step: HidStep) {
         is HidStep.Variable -> Icons.Default.Key
         is HidStep.Delay -> Icons.Default.Timer
         is HidStep.MouseAction -> Icons.Default.Mouse
-        is HidStep.Directive -> Icons.Default.Warning
         is HidStep.RawReport -> Icons.Default.Bolt
     }
     val label = when (step) {
@@ -401,7 +400,6 @@ fun StepBadge(step: HidStep) {
         is HidStep.Variable -> "$${step.name}"
         is HidStep.Delay -> String.format(Locale.US, "%.1fs", step.millis / 1000.0)
         is HidStep.MouseAction -> step.action
-        is HidStep.Directive -> "!${step.name}"
         is HidStep.RawReport -> "raw:${step.hex}"
     }
     val background = when (step) {
@@ -410,7 +408,6 @@ fun StepBadge(step: HidStep) {
         is HidStep.Variable -> MaterialTheme.colorScheme.tertiaryContainer
         is HidStep.Delay -> MaterialTheme.colorScheme.surfaceContainerHighest
         is HidStep.MouseAction -> MaterialTheme.colorScheme.primaryContainer
-        is HidStep.Directive -> MaterialTheme.colorScheme.errorContainer
         is HidStep.RawReport -> MaterialTheme.colorScheme.tertiaryContainer
     }
     val content = when (step) {
@@ -419,7 +416,6 @@ fun StepBadge(step: HidStep) {
         is HidStep.Variable -> MaterialTheme.colorScheme.onTertiaryContainer
         is HidStep.Delay -> MaterialTheme.colorScheme.onSurfaceVariant
         is HidStep.MouseAction -> MaterialTheme.colorScheme.onPrimaryContainer
-        is HidStep.Directive -> MaterialTheme.colorScheme.onErrorContainer
         is HidStep.RawReport -> MaterialTheme.colorScheme.onTertiaryContainer
     }
 
