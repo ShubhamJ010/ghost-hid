@@ -28,7 +28,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Edit
@@ -58,7 +65,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -404,45 +410,68 @@ fun ComboIconSlot(
     onClick: () -> Unit
 ) {
     val hasEmoji = emoji.isNotBlank()
-    Surface(
-        onClick = onClick,
+    Box(
         modifier = Modifier
             .size(62.dp)
-            .semantics { contentDescription = "Choose combo icon" },
-        shape = MaterialShapes.ShapeCookie4,
-        color = if (hasEmoji) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerHigh
-        },
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            .semantics { contentDescription = "Choose combo icon" }
     ) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            if (hasEmoji) {
-                Text(text = emoji, fontSize = 26.sp)
+        Surface(
+            onClick = onClick,
+            modifier = Modifier
+                .size(54.dp)
+                .align(Alignment.Center),
+            shape = MaterialShapes.ShapeCookie4,
+            color = if (hasEmoji) {
+                MaterialTheme.colorScheme.primaryContainer
             } else {
-                OsGlyph(
-                    os = os,
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(3.dp)
-                    .size(18.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = if (hasEmoji) Icons.Default.Edit else Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(11.dp)
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            },
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (hasEmoji) {
+                    val fontSize = 26.sp
+                    @Suppress("DEPRECATION")
+                    Text(
+                        text = emoji,
+                        fontSize = fontSize,
+                        textAlign = TextAlign.Center,
+                        style = LocalTextStyle.current.copy(
+                            platformStyle = PlatformTextStyle(includeFontPadding = false),
+                            lineHeight = fontSize,
+                            lineHeightStyle = LineHeightStyle(
+                                alignment = LineHeightStyle.Alignment.Center,
+                                trim = LineHeightStyle.Trim.Both
+                            )
+                        ),
+                        modifier = Modifier.wrapContentSize(Alignment.Center)
+                    )
+                } else {
+                    OsGlyph(
+                        os = os,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+        }
+
+        Surface(
+            onClick = onClick,
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.surface),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .size(20.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Icon(
+                    imageVector = if (hasEmoji) Icons.Outlined.Edit else Icons.Outlined.EmojiEmotions,
+                    contentDescription = null,
+                    modifier = Modifier.size(13.dp)
+                )
             }
         }
     }

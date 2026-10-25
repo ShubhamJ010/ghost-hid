@@ -191,7 +191,7 @@ fun ComboEditorScreen(
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     state.os = os
                                 },
-                                shape = if (selected) MaterialShapes.ShapeCookie4 else CircleShape,
+                                shape = CircleShape,
                                 color = if (selected) MaterialTheme.colorScheme.primaryContainer
                                 else MaterialTheme.colorScheme.surfaceContainerHigh,
                                 border = if (selected) {
