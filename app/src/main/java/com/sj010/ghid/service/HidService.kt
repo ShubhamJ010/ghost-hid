@@ -579,6 +579,13 @@ class HidService : Service() {
             log(">>> Executing Raw Report ID $reportId (${bytes.size} bytes)...")
             val ok = hid.sendReport(target, reportId, bytes)
             log("sendReport(id=$reportId) returned: $ok")
+            // Momentary button auto-release for Consumer Control (0x04) and System Control (0x03)
+            if ((reportId == CONSUMER_REPORT_ID || reportId == SYSTEM_REPORT_ID) && bytes.any { it != 0.toByte() }) {
+                try { Thread.sleep(60) } catch (ignored: Exception) {}
+                val zero = ByteArray(bytes.size)
+                val okUp = hid.sendReport(target, reportId, zero)
+                log("sendReport(id=$reportId) auto-release returned: $okUp")
+            }
         }
     }
 
