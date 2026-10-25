@@ -55,6 +55,7 @@ fun QuickSendHistoryCard(
     onRerun: () -> Unit,
     onSave: () -> Unit,
     targetOs: TargetOs = TargetOs.WINDOWS,
+    knownPayloads: Set<String>,
     modifier: Modifier = Modifier
 ) {
     val analysis = remember(entry.scheme, targetOs) { SequenceAnalyzer.analyze(entry.scheme, targetOs) }
@@ -138,6 +139,7 @@ fun QuickSendHistoryCard(
 
             SequencePreview(
                 analysis = analysis,
+                knownPayloads = knownPayloads,
                 compact = true,
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
             )

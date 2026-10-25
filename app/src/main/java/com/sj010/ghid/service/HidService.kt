@@ -889,6 +889,10 @@ class HidService : Service() {
                         sendMouse(step.action)
                         delay(100)
                     }
+                    is HidStep.MediaKey -> {
+                        sendRawReport(step.bytes, step.durationMs)
+                        delay(step.durationMs + 20)
+                    }
                     is HidStep.RawReport -> {
                         sendRawReport(step.bytes, step.durationMs)
                         delay(step.durationMs + 20)

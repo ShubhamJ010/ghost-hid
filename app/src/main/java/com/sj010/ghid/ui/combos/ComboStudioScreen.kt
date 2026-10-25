@@ -116,6 +116,7 @@ import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.theme.MaterialShapes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 private enum class ComboFilterCategory(val label: String, val os: TargetOs? = null) {
     ALL("All"),
@@ -562,6 +563,12 @@ fun ComboCard(
     )
 
     val analysis = remember(combo.effectiveSequence, combo.os) { SequenceAnalyzer.analyze(combo.effectiveSequence, combo.targetOs) }
+    val payloadsSnapshot by GhostHidApp.instance.payloadRepository.payloads.collectAsState()
+    val bundledPayloads = combo.payloads.orEmpty().keys
+    val knownPayloads = remember(payloadsSnapshot, bundledPayloads) {
+        GhostHidApp.instance.payloadRepository.knownNames() +
+            bundledPayloads.map { it.uppercase(Locale.ROOT) }
+    }
 
     // Expressive symmetric shape mapping per combo name to give visual variety while preserving visual center
     val expressiveShape = remember(combo.name) {
@@ -697,6 +704,7 @@ fun ComboCard(
             Box(modifier = Modifier.fillMaxWidth()) {
                 SequencePreview(
                     analysis = analysis,
+                    knownPayloads = knownPayloads,
                     compact = true,
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     showHeader = false,
@@ -810,6 +818,7 @@ fun ComboCard(
         SequencePreviewDialog(
             analysis = analysis,
             onDismiss = { showPreviewDialog = false },
+            knownPayloads = knownPayloads,
             onEdit = onEdit
         )
     }

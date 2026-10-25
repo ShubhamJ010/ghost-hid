@@ -32,12 +32,15 @@ object KeyTokens {
         }
     }
 
-    fun consumerKeyHex(token: String): String? {
+    /** Canonical display name paired with the consumer-control report hex. */
+    data class ConsumerKey(val name: String, val hex: String)
+
+    fun consumerKey(token: String): ConsumerKey? {
         return when (token.trim().lowercase(Locale.ROOT)) {
-            "volumeup", "volume_up", "volup" -> "e900"
-            "volumedown", "volume_down", "voldown" -> "ea00"
-            "mute" -> "e200"
-            "playpause", "play_pause" -> "cd00"
+            "volumeup", "volume_up", "volup" -> ConsumerKey("VOLUME_UP", "e900")
+            "volumedown", "volume_down", "voldown" -> ConsumerKey("VOLUME_DOWN", "ea00")
+            "mute" -> ConsumerKey("MUTE", "e200")
+            "playpause", "play_pause" -> ConsumerKey("PLAY_PAUSE", "cd00")
             else -> null
         }
     }

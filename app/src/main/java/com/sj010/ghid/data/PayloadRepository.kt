@@ -180,6 +180,25 @@ class PayloadRepository(
                 _payloads.value.firstOrNull { it.name.equals("PLAY_PAUSE", ignoreCase = true) || it.name.equals("play_pause", ignoreCase = true) }
             } else null)
     }
+
+    /**
+     * Uppercase payload names that a sequence may reference, including the legacy
+     * aliases handled by [resolve]. Used by the sequence preview to keep unknown
+     * `{VARIABLE}` chips red until the payload exists.
+     */
+    fun knownNames(): Set<String> {
+        val current = _payloads.value
+        val names = current.mapTo(mutableSetOf()) { it.name.uppercase(Locale.ROOT) }
+        if (current.any { it.name.equals("WIN_SLEEP", ignoreCase = true) || it.name.equals("sleep_windows", ignoreCase = true) }) {
+            names += "SLEEP"
+            names += "SLEEP_WINDOWS"
+        }
+        if (current.any { it.name.equals("PLAY_PAUSE", ignoreCase = true) || it.name.equals("play_pause", ignoreCase = true) }) {
+            names += "PLAYPAUSE"
+            names += "PLAY_PAUSE"
+        }
+        return names
+    }
 }
 
 /** Migration typealias */

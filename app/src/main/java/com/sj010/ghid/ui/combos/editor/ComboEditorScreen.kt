@@ -61,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sj010.ghid.GhostHidApp
 import com.sj010.ghid.domain.model.Combo
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.service.HidService
@@ -68,6 +69,8 @@ import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.sequence.SequencePreview
 
 import com.sj010.ghid.ui.theme.MaterialShapes
+
+import java.util.Locale
 
 /**
  * Full-screen combo editor. The scrollable form owns the identity fields and the single
@@ -93,6 +96,11 @@ fun ComboEditorScreen(
     val clipboard = LocalClipboardManager.current
     val haptic = LocalHapticFeedback.current
     var showEmojiPicker by remember { mutableStateOf(false) }
+    val payloadsSnapshot by GhostHidApp.instance.payloadRepository.payloads.collectAsState()
+    val knownPayloads = remember(payloadsSnapshot, initial) {
+        GhostHidApp.instance.payloadRepository.knownNames() +
+            initial?.payloads.orEmpty().keys.map { it.uppercase(Locale.ROOT) }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -364,6 +372,7 @@ fun ComboEditorScreen(
                     ) {
                         SequencePreview(
                             analysis = state.analysis,
+                            knownPayloads = knownPayloads,
                             compact = true,
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         )

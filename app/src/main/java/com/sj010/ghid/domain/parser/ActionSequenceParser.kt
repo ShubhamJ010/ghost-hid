@@ -103,12 +103,12 @@ object ActionSequenceParser {
         }
 
         // 3. Consumer / Media Keys (e.g. VolumeUp, PlayPause, Mute)
-        val consumerHex = KeyTokens.consumerKeyHex(tokenBody)
-        if (consumerHex != null) {
-            val bytes = ByteArray(consumerHex.length / 2) { idx ->
-                consumerHex.substring(idx * 2, idx * 2 + 2).toInt(16).toByte()
+        val consumer = KeyTokens.consumerKey(tokenBody)
+        if (consumer != null) {
+            val bytes = ByteArray(consumer.hex.length / 2) { idx ->
+                consumer.hex.substring(idx * 2, idx * 2 + 2).toInt(16).toByte()
             }
-            return HidStep.RawReport(bytes, consumerHex, durationMs = holdMs ?: 60L)
+            return HidStep.MediaKey(consumer.name, consumer.hex, bytes, durationMs = holdMs ?: 60L)
         }
 
         // 4. Mouse Action (e.g. click-left, scroll-up)

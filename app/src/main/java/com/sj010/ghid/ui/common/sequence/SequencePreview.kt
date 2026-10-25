@@ -21,10 +21,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeMute
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mouse
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Timer
@@ -40,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -69,6 +74,7 @@ fun formatStepCount(count: Int): String =
 @Composable
 fun SequencePreview(
     analysis: SequenceAnalysis,
+    knownPayloads: Set<String>? = null,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -125,7 +131,7 @@ fun SequencePreview(
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     if (showStatusPill) {
-                        PreviewStatusPill(analysis)
+                        PreviewStatusPill(analysis, knownPayloads)
                     }
                 }
             }
@@ -163,6 +169,7 @@ fun SequencePreview(
                 compact -> {
                     SequenceStepChips(
                         steps = analysis.steps,
+                        knownPayloads = knownPayloads,
                         maxItems = 8,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -179,7 +186,7 @@ fun SequencePreview(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            analysis.steps.forEach { StepBadge(step = it) }
+                            analysis.steps.forEach { StepBadge(step = it, knownPayloads = knownPayloads) }
                         }
                     }
                 }
@@ -197,6 +204,7 @@ fun SequencePreview(
 fun SequencePreviewDialog(
     analysis: SequenceAnalysis,
     onDismiss: () -> Unit,
+    knownPayloads: Set<String>? = null,
     onEdit: (() -> Unit)? = null
 ) {
     Dialog(
@@ -301,7 +309,7 @@ fun SequencePreviewDialog(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    analysis.steps.forEach { StepBadge(step = it) }
+                                    analysis.steps.forEach { StepBadge(step = it, knownPayloads = knownPayloads) }
                                 }
                             }
                         }
@@ -351,13 +359,18 @@ private fun DialogStatPill(text: String, color: Color, contentColor: Color) {
 }
 
 @Composable
-private fun PreviewStatusPill(analysis: SequenceAnalysis) {
+private fun PreviewStatusPill(analysis: SequenceAnalysis, knownPayloads: Set<String>?) {
     val label: String
     val background: Color
     val content: Color
     when {
         analysis.isInvalid -> {
             label = "Needs a fix"
+            background = MaterialTheme.colorScheme.errorContainer
+            content = MaterialTheme.colorScheme.onErrorContainer
+        }
+        hasUnknownPayload(analysis, knownPayloads) -> {
+            label = "Payload missing"
             background = MaterialTheme.colorScheme.errorContainer
             content = MaterialTheme.colorScheme.onErrorContainer
         }
@@ -384,38 +397,70 @@ private fun PreviewStatusPill(analysis: SequenceAnalysis) {
     }
 }
 
+/** True when the sequence references a payload name that does not exist yet. */
+fun hasUnknownPayload(analysis: SequenceAnalysis, knownPayloads: Set<String>?): Boolean =
+    knownPayloads != null && analysis.steps.any { isUnknownPayload(it, knownPayloads) }
+
+private fun isUnknownPayload(step: HidStep, knownPayloads: Set<String>): Boolean {
+    if (step !is HidStep.PayloadReference) return false
+    return step.name.uppercase(Locale.ROOT) !in knownPayloads
+}
+
+private fun mediaKeyIcon(name: String): ImageVector = when (name) {
+    "VOLUME_UP" -> Icons.AutoMirrored.Filled.VolumeUp
+    "VOLUME_DOWN" -> Icons.AutoMirrored.Filled.VolumeDown
+    "MUTE" -> Icons.AutoMirrored.Filled.VolumeMute
+    else -> Icons.Default.PlayArrow
+}
+
 @Composable
-fun StepBadge(step: HidStep) {
+fun StepBadge(step: HidStep, knownPayloads: Set<String>? = null) {
+    val unknownPayload = knownPayloads != null && isUnknownPayload(step, knownPayloads)
     val icon = when (step) {
         is HidStep.KeyboardChord -> Icons.Default.Keyboard
         is HidStep.TypeText -> Icons.Default.TextFields
-        is HidStep.PayloadReference -> Icons.Default.Key
+        is HidStep.PayloadReference -> if (unknownPayload) Icons.Default.Warning else Icons.Default.Key
         is HidStep.Delay -> Icons.Default.Timer
         is HidStep.MouseAction -> Icons.Default.Mouse
+        is HidStep.MediaKey -> mediaKeyIcon(step.name)
         is HidStep.RawReport -> Icons.Default.Bolt
     }
     val label = when (step) {
         is HidStep.KeyboardChord -> if (step.durationMs > 40L) "${step.label}:${step.durationMs}ms" else step.label
         is HidStep.TypeText -> "\"${step.text}\""
-        is HidStep.PayloadReference -> if (step.durationMs != null && step.durationMs > 0) "{${step.name}:${step.durationMs}ms}" else "{${step.name}}"
+        is HidStep.PayloadReference -> {
+            val vessel = "\$" + step.name.uppercase(Locale.ROOT)
+            if (step.durationMs != null && step.durationMs > 0) "$vessel:${step.durationMs}ms" else vessel
+        }
         is HidStep.Delay -> if (step.millis >= 1000 && step.millis % 1000 == 0L) "${step.millis / 1000}s" else "${step.millis}ms"
         is HidStep.MouseAction -> if (step.durationMs != null && step.durationMs > 0) "${step.action}:${step.durationMs}ms" else step.action
+        is HidStep.MediaKey -> if (step.durationMs != 60L) "${step.name}:${step.durationMs}ms" else step.name
         is HidStep.RawReport -> if (step.durationMs != 60L) "${step.hex}:${step.durationMs}ms" else step.hex
     }
     val background = when (step) {
         is HidStep.KeyboardChord -> MaterialTheme.colorScheme.primaryContainer
         is HidStep.TypeText -> MaterialTheme.colorScheme.secondaryContainer
-        is HidStep.PayloadReference -> MaterialTheme.colorScheme.tertiaryContainer
+        is HidStep.PayloadReference -> if (unknownPayload) {
+            MaterialTheme.colorScheme.errorContainer
+        } else {
+            MaterialTheme.colorScheme.tertiaryContainer
+        }
         is HidStep.Delay -> MaterialTheme.colorScheme.surfaceContainerHighest
         is HidStep.MouseAction -> MaterialTheme.colorScheme.primaryContainer
+        is HidStep.MediaKey -> MaterialTheme.colorScheme.surfaceContainerHighest
         is HidStep.RawReport -> MaterialTheme.colorScheme.tertiaryContainer
     }
     val content = when (step) {
         is HidStep.KeyboardChord -> MaterialTheme.colorScheme.onPrimaryContainer
         is HidStep.TypeText -> MaterialTheme.colorScheme.onSecondaryContainer
-        is HidStep.PayloadReference -> MaterialTheme.colorScheme.onTertiaryContainer
+        is HidStep.PayloadReference -> if (unknownPayload) {
+            MaterialTheme.colorScheme.onErrorContainer
+        } else {
+            MaterialTheme.colorScheme.onTertiaryContainer
+        }
         is HidStep.Delay -> MaterialTheme.colorScheme.onSurfaceVariant
         is HidStep.MouseAction -> MaterialTheme.colorScheme.onPrimaryContainer
+        is HidStep.MediaKey -> MaterialTheme.colorScheme.onSurface
         is HidStep.RawReport -> MaterialTheme.colorScheme.onTertiaryContainer
     }
 
@@ -447,6 +492,7 @@ fun StepBadge(step: HidStep) {
 @Composable
 fun SequenceStepChips(
     steps: List<HidStep>,
+    knownPayloads: Set<String>? = null,
     modifier: Modifier = Modifier,
     maxItems: Int = 4
 ) {
@@ -455,7 +501,7 @@ fun SequenceStepChips(
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-        steps.take(maxItems).forEach { StepBadge(step = it) }
+        steps.take(maxItems).forEach { StepBadge(step = it, knownPayloads = knownPayloads) }
         if (steps.size > maxItems) {
             Surface(
                 shape = RoundedCornerShape(9.dp),

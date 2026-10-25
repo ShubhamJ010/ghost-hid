@@ -86,6 +86,18 @@ sealed class HidStep {
     data class TypeText(val text: String) : HidStep()
     data class PayloadReference(val name: String, val durationMs: Long? = null) : HidStep()
     data class MouseAction(val action: String, val durationMs: Long? = null) : HidStep()
+    /**
+     * Named consumer-control key (VolumeUp, VolumeDown, Mute, PlayPause).
+     *
+     * Kept separate from [RawReport] so every preview shows the human name instead of
+     * the hex report while the HID transport still sends the same bytes.
+     */
+    data class MediaKey(
+        val name: String,
+        val hex: String,
+        val bytes: ByteArray,
+        val durationMs: Long = 60
+    ) : HidStep()
     data class Delay(val millis: Long) : HidStep()
     data class RawReport(val bytes: ByteArray, val hex: String, val durationMs: Long = 60) : HidStep() {
         override fun equals(other: Any?): Boolean {
