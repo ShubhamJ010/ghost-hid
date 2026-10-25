@@ -2,12 +2,17 @@ package com.sj010.ghid.ui.common.os
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.domain.model.Combo
@@ -36,11 +41,23 @@ fun ComboGlyph(
         )
         return
     }
+    val fontSize = (size.value * 0.86f).sp
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+        @Suppress("DEPRECATION")
         Text(
             text = emoji,
-            fontSize = (size.value * 0.86f).sp,
-            color = tint
+            fontSize = fontSize,
+            color = tint,
+            textAlign = TextAlign.Center,
+            style = LocalTextStyle.current.copy(
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                lineHeight = fontSize,
+                lineHeightStyle = LineHeightStyle(
+                    alignment = LineHeightStyle.Alignment.Center,
+                    trim = LineHeightStyle.Trim.Both
+                )
+            ),
+            modifier = Modifier.wrapContentSize(Alignment.Center)
         )
     }
 }

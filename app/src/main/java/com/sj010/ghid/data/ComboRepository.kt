@@ -81,11 +81,24 @@ class ComboRepository(private val context: Context) {
 
     fun ensureDefaults(): List<Combo> {
         val loaded = load()
+        var migrated = false
         val current = loaded.map { combo ->
+            var updated = combo
             val emoji = builtInEmoji.entries
                 .firstOrNull { it.key.equals(combo.name, ignoreCase = true) }
                 ?.value
-            if (combo.emoji.isNullOrBlank() && emoji != null) combo.copy(emoji = emoji) else combo
+            if (updated.emoji.isNullOrBlank() && emoji != null) {
+                updated = updated.copy(emoji = emoji)
+                migrated = true
+            }
+            if (updated.name.equals("Sleep", ignoreCase = true) && updated.keys.contains("win+x")) {
+                updated = updated.copy(
+                    keys = "raw:02 ->{0.06} raw:00",
+                    description = "Hardware ACPI sleep sequence"
+                )
+                migrated = true
+            }
+            updated
         }
         val hasExactBuiltIns = current.size >= 6 &&
                 current.any { it.name.equals("Login", ignoreCase = true) } &&
@@ -117,10 +130,10 @@ class ComboRepository(private val context: Context) {
                 ),
                 Combo(
                     name = "Sleep",
-                    keys = "win+x ->{0.5} u ->{0.3} s ->{5.0} !DISCONNECT ->{0.5} !EXIT",
+                    keys = "raw:02 ->{0.06} raw:00",
                     os = TargetOs.WINDOWS.token,
                     emoji = "😴",
-                    description = "Windows sleep sequence + countdown exit",
+                    description = "Hardware ACPI sleep sequence",
                     favorite = true,
                     createdAt = isoNow()
                 ),
@@ -155,8 +168,8 @@ class ComboRepository(private val context: Context) {
             save(defaults)
             return defaults
         }
-        // Backfill icons for built-ins saved before emoji metadata existed.
-        if (current != loaded) save(current)
+        // Backfill icons or migrate legacy combos for built-ins saved previously.
+        if (migrated || current != loaded) save(current)
         return current
     }
 

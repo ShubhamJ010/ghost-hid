@@ -563,18 +563,18 @@ fun ComboCard(
 
     val analysis = remember(combo.keys, combo.os) { SequenceAnalyzer.analyze(combo.keys, combo.targetOs) }
 
-    // Expressive shape mapping per combo name to give visual variety
+    // Expressive symmetric shape mapping per combo name to give visual variety while preserving visual center
     val expressiveShape = remember(combo.name) {
         val hash = kotlin.math.abs(combo.name.hashCode())
         val shapes = listOf(
             MaterialShapes.ShapeClover4,
             MaterialShapes.ShapeFlower,
-            MaterialShapes.ShapeArch,
-            MaterialShapes.ShapeDiamond,
-            MaterialShapes.ShapeSunny,
+            MaterialShapes.ShapeCookie4,
             MaterialShapes.ShapeCookie9,
-            MaterialShapes.ShapeGhostish,
-            MaterialShapes.ShapeSoftBurst
+            MaterialShapes.ShapeCookie6,
+            MaterialShapes.ShapeSunny,
+            MaterialShapes.ShapeSoftBurst,
+            MaterialShapes.ShapePuffy
         )
         shapes[hash % shapes.size]
     }
@@ -606,19 +606,49 @@ fun ComboCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    // Expressive shape badge carrying the target OS logo
+                    val hasEmoji = !combo.emoji.isNullOrBlank()
+
+                    // Expressive shape badge carrying the combo emoji or target OS logo
+                    // with an anchored circular badge in the bottom-right corner for the target OS logo
                     Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(expressiveShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
+                        modifier = Modifier.size(46.dp)
                     ) {
-                        ComboGlyph(
-                            combo = combo,
-                            size = 24.dp,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .align(if (hasEmoji) Alignment.TopStart else Alignment.Center)
+                                .clip(expressiveShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            ComboGlyph(
+                                combo = combo,
+                                size = 24.dp,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+
+                        if (hasEmoji) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.surfaceContainerHigh),
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(18.dp)
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    OsGlyph(
+                                        os = combo.targetOs,
+                                        modifier = Modifier.size(11.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.width(12.dp))
