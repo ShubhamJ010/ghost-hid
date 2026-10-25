@@ -98,6 +98,9 @@ object ActionSequenceParser {
 
         // 2. Chords with '+' (e.g. mod+s, ctrl+alt+del)
         if (tokenBody.contains("+")) {
+            // Consumer keys use their own HID report and cannot carry keyboard
+            // modifiers. Reject the mix instead of silently dropping the key.
+            if (mixedConsumerChord(tokenBody) != null) return null
             val (mod, key) = KeyTokens.parseChord(tokenBody, targetOs)
             return HidStep.KeyboardChord(mod, key, tokenBody, durationMs = holdMs ?: 40L)
         }
@@ -131,12 +134,28 @@ object ActionSequenceParser {
             return HidStep.RawReport(bytes, cleanHex.lowercase(Locale.ROOT), durationMs = holdMs ?: 60L)
         }
 
-        // 7. Named Payload Reference (e.g. {PASSWORD}, {EMAIL}, {WIN_SLEEP})
+        // 7. Bare modifier (e.g. {shift}, {ctrl}) -> modifier-only HID chord.
+        // Must come before the payload rule: parseChord("shift") has key=0, so
+        // isStandardKey() is false and the old order emitted $SHIFT instead.
+        if (KeyTokens.isModifier(tokenBody)) {
+            val (mod, key) = KeyTokens.parseChord(tokenBody, targetOs)
+            return HidStep.KeyboardChord(mod, key, tokenBody, durationMs = holdMs ?: 40L)
+        }
+
+        // 8. Named Payload Reference (e.g. {PASSWORD}, {EMAIL}, {WIN_SLEEP})
         if (tokenBody.all { it.isLetterOrDigit() || it == '_' || it == '-' }) {
             return HidStep.PayloadReference(tokenBody, durationMs = holdMs)
         }
 
         return null
+    }
+
+    /** Returns the consumer token in a mixed chord such as `ctrl+volumeup`. */
+    private fun mixedConsumerChord(token: String): String? {
+        if (!token.contains("+")) return null
+        return token.split("+")
+            .map { it.trim() }
+            .firstOrNull { it.isNotEmpty() && KeyTokens.consumerKey(it) != null }
     }
 
     /**
@@ -169,6 +188,17 @@ object ActionSequenceParser {
                     return Result.failure(IllegalArgumentException("Nested '{' is not allowed in sequence"))
                 }
                 inBracket = true
+                val closeIdx = sequence.indexOf('}', i + 1)
+                if (closeIdx != -1) {
+                    val consumer = mixedConsumerChord(sequence.substring(i + 1, closeIdx).trim())
+                    if (consumer != null) {
+                        return Result.failure(
+                            IllegalArgumentException(
+                                "Consumer key \"$consumer\" cannot be combined with modifiers; use {$consumer}"
+                            )
+                        )
+                    }
+                }
             } else if (c == '}') {
                 if (!inBracket) {
                     return Result.failure(IllegalArgumentException("Unexpected '}' without opening '{'"))

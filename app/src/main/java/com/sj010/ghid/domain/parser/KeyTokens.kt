@@ -35,12 +35,17 @@ object KeyTokens {
     /** Canonical display name paired with the consumer-control report hex. */
     data class ConsumerKey(val name: String, val hex: String)
 
+    /**
+     * Media-key tokens. `play_pause` is deliberately NOT an alias: it is the
+     * default raw payload name, so `{PLAY_PAUSE}` must resolve to a payload
+     * reference while `{playpause}` remains the consumer-control key.
+     */
     fun consumerKey(token: String): ConsumerKey? {
         return when (token.trim().lowercase(Locale.ROOT)) {
             "volumeup", "volume_up", "volup" -> ConsumerKey("VOLUME_UP", "e900")
             "volumedown", "volume_down", "voldown" -> ConsumerKey("VOLUME_DOWN", "ea00")
             "mute" -> ConsumerKey("MUTE", "e200")
-            "playpause", "play_pause" -> ConsumerKey("PLAY_PAUSE", "cd00")
+            "playpause" -> ConsumerKey("PLAY_PAUSE", "cd00")
             else -> null
         }
     }
@@ -157,8 +162,13 @@ object KeyTokens {
                 else -> {
                     if (p.startsWith("f") && p.length in 2..3) {
                         val fNum = p.substring(1).toIntOrNull()
-                        if (fNum != null && fNum in 1..12) {
-                            key = (0x3A + (fNum - 1)).toByte()
+                        if (fNum != null && fNum in 1..24) {
+                            // F1-F12 live at 0x3A-0x45; F13-F24 at 0x68-0x73.
+                            key = if (fNum <= 12) {
+                                (0x3A + (fNum - 1)).toByte()
+                            } else {
+                                (0x68 + (fNum - 13)).toByte()
+                            }
                         }
                     } else if (p.length == 1) {
                         val c = p[0]
