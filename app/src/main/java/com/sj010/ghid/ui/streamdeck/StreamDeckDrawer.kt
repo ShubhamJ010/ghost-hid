@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -109,8 +110,8 @@ fun StreamDeckDrawer(
             Surface(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .width(18.dp)
-                    .height(104.dp)
+                    .width(24.dp)
+                    .height(124.dp)
                     .graphicsLayer { alpha = 1f - progress }
                     .clickable(
                         enabled = progress < 0.1f,
@@ -135,22 +136,27 @@ fun StreamDeckDrawer(
                             onHorizontalDrag = { _, amount -> dragged += amount }
                         )
                     },
-                shape = RoundedCornerShape(topEnd = 10.dp, bottomEnd = 10.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                tonalElevation = 2.dp
+                shape = RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                ),
+                tonalElevation = 4.dp,
+                shadowElevation = 3.dp
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         repeat(3) {
                             Box(
                                 modifier = Modifier
-                                    .size(3.dp)
+                                    .size(4.5.dp)
                                     .clip(CircleShape)
                                     .background(
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                                        MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
                                     )
                             )
                         }

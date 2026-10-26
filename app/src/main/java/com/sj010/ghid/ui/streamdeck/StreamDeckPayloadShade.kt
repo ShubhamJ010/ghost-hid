@@ -1,6 +1,19 @@
 package com.sj010.ghid.ui.streamdeck
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +45,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,14 +82,17 @@ fun StreamDeckPayloadShade(
 ) {
     val sortedPayloads = remember(payloads, useCounts) { sortPayloads(payloads, useCounts) }
     val haptic = LocalHapticFeedback.current
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp)
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 18.dp)
+        ) {
         Spacer(modifier = Modifier.height(12.dp))
 
         Row(
@@ -168,8 +185,64 @@ fun StreamDeckPayloadShade(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(48.dp))
     }
+
+    // Circular downward chevron with animating downward arrow when scrollable downwards
+    AnimatedVisibility(
+        visible = scrollState.canScrollForward,
+        enter = fadeIn(animationSpec = tween(180)),
+        exit = fadeOut(animationSpec = tween(180)),
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .padding(bottom = 12.dp)
+    ) {
+        val infiniteTransition = rememberInfiniteTransition(label = "chevronDownwardAnimation")
+        val arrowOffsetY by infiniteTransition.animateFloat(
+            initialValue = -3f,
+            targetValue = 4f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "arrowOffsetY"
+        )
+
+        Surface(
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                coroutineScope.launch {
+                    scrollState.animateScrollTo(
+                        (scrollState.value + 200).coerceAtMost(scrollState.maxValue)
+                    )
+                }
+            },
+            modifier = Modifier.size(38.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            border = BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            ),
+            tonalElevation = 4.dp,
+            shadowElevation = 4.dp
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Scroll downwards",
+                    modifier = Modifier
+                        .size(24.dp)
+                        .graphicsLayer { translationY = arrowOffsetY.dp.toPx() }
+                )
+            }
+        }
+    }
+}
 }
 
 @Composable
