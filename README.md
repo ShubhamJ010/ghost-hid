@@ -31,9 +31,10 @@ GhostHID turns an Android device into a physical wireless keyboard and mouse. It
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" width="32%" alt="Dashboard screen" />
-  <img src="docs/images/combos.png" width="32%" alt="Combos screen" />
-  <img src="docs/images/trackpad.png" width="32%" alt="Trackpad screen" />
+  <img src="docs/images/dashboard.png" width="24%" alt="Dashboard screen" />
+  <img src="docs/images/payload.png" width="24%" alt="Secure payload drawer" />
+  <img src="docs/images/combos.png" width="24%" alt="Combos screen" />
+  <img src="docs/images/trackpad.png" width="24%" alt="Trackpad screen" />
 </p>
 
 ## Subsystems
@@ -46,6 +47,9 @@ The trackpad surface sends standard relative pointer reports over HID Report ID 
 
 ### Macro sequence parser
 The built-in action sequence parser processes bracket syntax strings such as `{mod+s}{500ms}rustdesk{Enter}`. It translates keys into USB HID scancodes, enforces modifier key down/up order, and sequences delays.
+
+### Secure payload vault
+The expandable payload drawer stores credentials, login secrets, and repetitive strings. It uses Android Keystore hardware-backed encryption to protect sensitive data and allows one-tap typing into active HID target sessions.
 
 ### Background service and IPC
 A foreground Android service registers the `BluetoothHidDevice` SDP profile and manages L2CAP transport channels. It exposes a broadcast receiver interface so external scripts and the [ghid-cli](https://github.com/ShubhamJ010/ghid-cli) companion tool can automate keystrokes, combos, and mouse events over ADB.
