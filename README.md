@@ -111,6 +111,10 @@ cd ghost-hid
 
 The release APK is written to `build/ghost-hid.apk`.
 
+## Documentation
+
+Complete architecture specifications, wire protocols, execution flows, and Architecture Decision Records (ADRs) are indexed in the **[Documentation Index](docs/README.md)**.
+
 ## License
 
 MIT
