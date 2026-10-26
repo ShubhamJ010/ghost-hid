@@ -5,7 +5,7 @@
 <h1 align="center">GhostHID</h1>
 
 <p align="center">
-  Native Android Bluetooth Classic Human Interface Device (HID) controller, trackpad, and full-bleed macro deck with Material 3 Expressive design.
+  Native Android Bluetooth Classic Human Interface Device (HID) controller, trackpad, raw payload injector, and full-bleed macro deck with Material 3 Expressive design.
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
   </a>
 </p>
 
-GhostHID turns an Android device into a physical wireless keyboard and mouse. It connects to paired computers over native Android Bluetooth Classic HID without host drivers, companion servers, or background agents on the target computer. The connected PC or Mac identifies the phone as a standard hardware peripheral.
+GhostHID turns an Android device into a physical wireless keyboard, mouse, and hardware HID injector. It connects to paired computers over native Android Bluetooth Classic HID without host drivers, companion servers, or background agents on the target computer. The connected PC or Mac identifies the phone as a standard hardware peripheral.
 
 ## Supported host platforms
 
@@ -38,14 +38,15 @@ Pair once through system Bluetooth settings and start sending inputs immediately
 
 ## Key features
 
-- **Native Bluetooth HID.** Uses the Android `BluetoothHidDevice` API directly. No desktop client, agent, or background relay runs on the host machine.
+- **Native Bluetooth HID.** Uses the Android `BluetoothHidDevice` API directly over L2CAP. No desktop client, agent, or background relay runs on the host machine.
+- **Raw HID payload injection.** Inject arbitrary raw USB HID hex packets directly across Bluetooth L2CAP channels. Supports all 4 report descriptors: Keyboard (Report 1), Mouse (Report 2), System Control (Report 3), and Consumer Control (Report 4) with automatic length-based inference and timed hold/release semantics.
 - **Material 3 Expressive UI.** Built with Jetpack Compose using the Material 3 Expressive design system, including expressive rounded polygon silhouettes, morphing device cards, and fluid motion.
 - **Multi-touch trackpad and mouse.** Sends standard relative pointer reports over HID Report ID 2. Supports single-tap left click, two-finger right click, edge scrolling, and middle click gestures.
 - **QuickSend and text snippets.** Type text strings, credentials, and clipboard contents directly to the active window on the host computer.
 - **Combo Studio and shortcut editor.** Build and assign complex modifier combinations (Ctrl, Alt, Shift, Super/Command, and custom keys) with OS-specific glyphs for Windows, macOS, and Linux.
 - **Landscape stream deck.** Rotate the phone horizontally into a full-bleed macro grid with hardware action slots, customizable button shapes, and a quick payload drawer.
 - **Hardware-encrypted payload vault.** Secure login credentials and repetitive text with Android Keystore hardware-backed encryption for one-tap automated typing.
-- **ADB and CLI companion.** Automate keystrokes, shortcuts, and mouse coordinates from terminal scripts or agent workflows using [ghid-cli](https://github.com/ShubhamJ010/ghid-cli).
+- **ADB and CLI companion.** Automate keystrokes, shortcuts, raw hex reports, and mouse clicks from terminal scripts or agent workflows using [ghid-cli](https://github.com/ShubhamJ010/ghid-cli).
 
 ## Interface overview
 
@@ -61,6 +62,14 @@ Pair once through system Bluetooth settings and start sending inputs immediately
 </p>
 
 ## Subsystems
+
+### Raw HID payload injection
+GhostHID supports direct raw HID report transmission across Bluetooth L2CAP channels without requiring intermediate keyboard scancode abstractions:
+- **Report ID 1 (Keyboard)**: 8-byte USB HID keyboard reports (`[modifiers, reserved, key1, key2, key3, key4, key5, key6]`).
+- **Report ID 2 (Mouse)**: 4-byte relative pointer reports (`[buttons, dx, dy, wheel]`).
+- **Report ID 3 (System Control)**: 1-byte ACPI power management controls (`0x01` System Power Down, `0x02` System Sleep, `0x04` System Wake Up).
+- **Report ID 4 (Consumer Control)**: 2-byte multimedia and hardware controls (`0xcd 0x00` Play/Pause, `0xe9 0x00` Volume Up, `0xea 0x00` Volume Down, `0xe2 0x00` Mute, media navigation, etc.).
+- **Automatic Report ID inference & hold semantics**: Payloads automatically infer their target report ID by byte count (1 byte -> Report 3, 2 bytes -> Report 4, 4 bytes -> Report 2, 8 bytes -> Report 1) or target a custom report ID explicitly. All momentary reports support timed holds (`hold_ms` / `{TOKEN:duration}`) with automatic zero-report release to prevent stuck keys.
 
 ### Material 3 Expressive UI
 The user interface uses Jetpack Compose with the Material 3 Expressive catalog (`androidx.compose.material3.MaterialShapes`). Buttons and action slots clip to distinct rounded polygon forms, including cookie, burst, clover, and arch shapes, while preserving accessibility and touch targets.
@@ -84,7 +93,7 @@ The built-in action sequence parser processes bracket syntax strings such as `{m
 The expandable payload drawer stores credentials, login secrets, and repetitive strings. It uses Android Keystore hardware-backed encryption to protect sensitive data and allows one-tap typing into active HID target sessions.
 
 ### Native background service and IPC
-A foreground Android service registers the native `BluetoothHidDevice` SDP profile and manages L2CAP transport channels. It exposes a broadcast receiver interface so external scripts and the [ghid-cli](https://github.com/ShubhamJ010/ghid-cli) companion tool can automate keystrokes, combos, and mouse events over ADB.
+A foreground Android service registers the native `BluetoothHidDevice` SDP profile and manages L2CAP transport channels. It exposes an IPC receiver protected by `android.permission.DUMP` so external scripts and the [ghid-cli](https://github.com/ShubhamJ010/ghid-cli) companion tool can automate keystrokes, raw payloads, combos, and mouse events over ADB without allowing unauthorized third-party apps to inject commands.
 
 ## Installation
 
@@ -93,7 +102,7 @@ A foreground Android service registers the native `BluetoothHidDevice` SDP profi
 2. Tap the badge below to add GhostHID directly:
 
 <p align="center">
-  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A//app/%7B%22id%22%3A%22com.sj010.ghid%22%2C%22url%22%3A%22https%3A//github.com/ShubhamJ010/ghost-hid%22%2C%22author%22%3A%22ShubhamJ010%22%2C%22name%22%3A%22GhostHID%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3A%20true%2C%20%5C%22fallbackToOlderReleases%5C%22%3A%20true%2C%20%5C%22filterReleaseTitlesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22filterReleaseNotesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22verifyLatestTag%5C%22%3A%20false%2C%20%5C%22sortMethodChoice%5C%22%3A%20%5C%22date%5C%22%2C%20%5C%22useLatestAssetDateAsReleaseDate%5C%22%3A%20false%2C%20%5C%22releaseTitleAsVersion%5C%22%3A%20false%2C%20%5C%22trackOnly%5C%22%3A%20false%2C%20%5C%22versionExtractionRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22matchGroupToUse%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22versionDetection%5C%22%3A%20true%2C%20%5C%22releaseDateAsVersion%5C%22%3A%20false%2C%20%5C%22useVersionCodeAsOSVersion%5C%22%3A%20false%2C%20%5C%22apkFilterRegEx%5C%22%3A%20%5C%22ghost-hid.*%5C%5C%5C%5C.apk%5C%22%2C%20%5C%22invertAPKFilter%5C%22%3A%20false%2C%20%5C%22autoApkFilterByArch%5C%22%3A%20true%2C%20%5C%22appName%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22appAuthor%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22shizukuPretendToBeGooglePlay%5C%22%3A%20false%2C%20%5C%22allowInsecure%5C%22%3A%20false%2C%20%5C%22exemptFromBackgroundUpdates%5C%22%3A%20false%2C%20%5C%22skipUpdateNotifications%5C%22%3A%20false%2C%20%5C%22about%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22refreshBeforeDownload%5C%22%3A%20false%2C%20%5C%22includeZips%5C%22%3A%20false%2C%20%5C%22zippedApkFilterRegEx%5C%22%3A%20%5C%22%5C%22%7D%22%2C%22overrideSource%22%3Anull%7D\">
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A//app/%7B%22id%22%3A%22com.sj010.ghid%22%2C%22url%22%3A%22https%3A//github.com/ShubhamJ010/ghost-hid%22%2C%22author%22%3A%22ShubhamJ010%22%2C%22name%22%3A%22GhostHID%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3A%20true%2C%20%5C%22fallbackToOlderReleases%5C%22%3A%20true%2C%20%5C%22filterReleaseTitlesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22filterReleaseNotesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22verifyLatestTag%5C%22%3A%20false%2C%20%5C%22sortMethodChoice%5C%22%3A%20%5C%22date%5C%22%2C%20%5C%22useLatestAssetDateAsReleaseDate%5C%22%3A%20false%2C%20%5C%22releaseTitleAsVersion%5C%22%3A%20false%2C%20%5C%22trackOnly%5C%22%3A%20false%2C%20%5C%22versionExtractionRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22matchGroupToUse%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22versionDetection%5C%22%3A%20true%2C%20%5C%22releaseDateAsVersion%5C%22%3A%20false%2C%20%5C%22useVersionCodeAsOSVersion%5C%22%3A%20false%2C%20%5C%22apkFilterRegEx%5C%22%3A%20%5C%22ghost-hid.*%5C%5C%5C%5C.apk%5C%22%2C%20%5C%22invertAPKFilter%5C%22%3A%20false%2C%20%5C%22autoApkFilterByArch%5C%22%3A%20true%2C%20%5C%22appName%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22appAuthor%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22shizukuPretendToBeGooglePlay%5C%22%3A%20false%2C%20%5C%22allowInsecure%5C%22%3A%20false%2C%20%5C%22exemptFromBackgroundUpdates%5C%22%3A%20false%2C%20%5C%22skipUpdateNotifications%5C%22%3A%20false%2C%20%5C%22about%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22refreshBeforeDownload%5C%22%3A%20false%2C%20%5C%22includeZips%5C%22%3A%20false%2C%20%5C%22zippedApkFilterRegEx%5C%22%3A%20%5C%22%5C%22%7D%22%2C%22overrideSource%22%3Anull%7D">
     <img src="https://img.shields.io/badge/Obtainium-Add_GhostHID-blue?style=for-the-badge&logo=android&logoColor=white" height="40" alt="Add GhostHID to Obtainium" />
   </a>
 </p>
@@ -129,6 +138,11 @@ go build -o ghid ./cmd/ghid
 ghid login
 ghid lock
 ghid combo "ctrl+shift+esc"
+
+# Inject raw HID reports (Consumer, System, Keyboard, Mouse)
+ghid raw "e900" --hold 500ms       # Volume Up held for 500ms
+ghid raw "02" --id 3               # System Sleep
+ghid raw "0800040000000000" --id 1 # Win+A chord
 ```
 
 ## Building from source
