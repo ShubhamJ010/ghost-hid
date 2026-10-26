@@ -1,8 +1,42 @@
+import java.io.File
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
+
+val signingPropsFile: File = rootProject.file("keystore.properties")
+val signingProps = Properties()
+if (signingPropsFile.exists()) {
+    FileInputStream(signingPropsFile).use { fis ->
+        signingProps.load(fis)
+    }
+}
+
+fun signingProp(key: String, envVar: String): String {
+    val propVal = signingProps.getProperty(key)
+    if (!propVal.isNullOrBlank()) return propVal
+    return System.getenv(envVar) ?: ""
+}
+
+val storeFilePath = signingProp("storeFile", "KEYSTORE_FILE").ifBlank { "release.jks" }
+val resolvedStoreFile: File? = run {
+    val f = File(storeFilePath)
+    val candidate = if (f.isAbsolute) f else rootProject.file(storeFilePath)
+    if (candidate.exists()) candidate else null
+}
+
+val storePasswordVal = signingProp("storePassword", "KEYSTORE_PASSWORD")
+val keyAliasVal = signingProp("keyAlias", "KEY_ALIAS")
+val keyPasswordVal = signingProp("keyPassword", "KEY_PASSWORD")
+
+val hasReleaseSigning = resolvedStoreFile != null &&
+        storePasswordVal.isNotBlank() &&
+        keyAliasVal.isNotBlank() &&
+        keyPasswordVal.isNotBlank()
 
 android {
     namespace = "com.sj010.ghid"
@@ -23,13 +57,25 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = resolvedStoreFile
+                storePassword = storePasswordVal
+                keyAlias = keyAliasVal
+                keyPassword = keyPasswordVal
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                null
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -48,6 +94,18 @@ android {
 
     buildFeatures {
         compose = true
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val hasReleaseTask = allTasks.any { it.name.contains("Release", ignoreCase = true) }
+    if (hasReleaseTask && !hasReleaseSigning) {
+        throw GradleException(
+            "Release signing configuration missing! " +
+            "Please create keystore.properties (see keystore.properties.example) " +
+            "or set environment variables: KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD. " +
+            "Release builds cannot fall back to debug.keystore."
+        )
     }
 }
 

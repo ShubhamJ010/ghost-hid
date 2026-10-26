@@ -15,7 +15,7 @@
 
     <application
         android:name=".GhostHidApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:label="GhostHID"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -38,11 +38,13 @@
         <service
             android:name=".service.HidService"
             android:exported="true"
+            android:permission="android.permission.DUMP"
             android:foregroundServiceType="connectedDevice" />
 
         <receiver
             android:name=".service.HidCommandReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.DUMP">
             <intent-filter>
                 <action android:name="com.sj010.ghid.ACTION_LOCK" />
                 <action android:name="com.sj010.ghid.ACTION_CMD" />

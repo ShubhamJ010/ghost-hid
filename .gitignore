@@ -12,10 +12,11 @@ app/build/
 local.properties
 .kotlin/
 
-# Signing keys
+# Signing keys & properties
 debug.keystore
 *.jks
 *.keystore
+keystore.properties
 
 # Logs & temp files
 *.log
