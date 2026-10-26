@@ -5,11 +5,11 @@
 <h1 align="center">GhostHID</h1>
 
 <p align="center">
-  Android Bluetooth Classic Human Interface Device (HID) controller, trackpad, and full-bleed macro deck.
+  Native Android Bluetooth Classic Human Interface Device (HID) controller, trackpad, and full-bleed macro deck with Material 3 Expressive design.
 </p>
 
 <p align="center">
-  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A//app/%7B%22id%22%3A%22com.sj010.ghid%22%2C%22url%22%3A%22https%3A//github.com/ShubhamJ010/ghost-hid%22%2C%22author%22%3A%22ShubhamJ010%22%2C%22name%22%3A%22GhostHID%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3A%20true%2C%20%5C%22fallbackToOlderReleases%5C%22%3A%20true%2C%20%5C%22filterReleaseTitlesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22filterReleaseNotesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22verifyLatestTag%5C%22%3A%20false%2C%20%5C%22sortMethodChoice%5C%22%3A%20%5C%22date%5C%22%2C%20%5C%22useLatestAssetDateAsReleaseDate%5C%22%3A%20false%2C%20%5C%22releaseTitleAsVersion%5C%22%3A%20false%2C%20%5C%22trackOnly%5C%22%3A%20false%2C%20%5C%22versionExtractionRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22matchGroupToUse%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22versionDetection%5C%22%3A%20true%2C%20%5C%22releaseDateAsVersion%5C%22%3A%20false%2C%20%5C%22useVersionCodeAsOSVersion%5C%22%3A%20false%2C%20%5C%22apkFilterRegEx%5C%22%3A%20%5C%22ghost-hid.*%5C%5C%5C%5C.apk%5C%22%2C%20%5C%22invertAPKFilter%5C%22%3A%20false%2C%20%5C%22autoApkFilterByArch%5C%22%3A%20true%2C%20%5C%22appName%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22appAuthor%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22shizukuPretendToBeGooglePlay%5C%22%3A%20false%2C%20%5C%22allowInsecure%5C%22%3A%20false%2C%20%5C%22exemptFromBackgroundUpdates%5C%22%3A%20false%2C%20%5C%22skipUpdateNotifications%5C%22%3A%20false%2C%20%5C%22about%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22refreshBeforeDownload%5C%22%3A%20false%2C%20%5C%22includeZips%5C%22%3A%20false%2C%20%5C%22zippedApkFilterRegEx%5C%22%3A%20%5C%22%5C%22%7D%22%2C%22overrideSource%22%3Anull%7D">
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A//app/%7B%22id%22%3A%22com.sj010.ghid%22%2C%22url%22%3A%22https%3A//github.com/ShubhamJ010/ghost-hid%22%2C%22author%22%3A%22ShubhamJ010%22%2C%22name%22%3A%22GhostHID%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3A%20true%2C%20%5C%22fallbackToOlderReleases%5C%22%3A%20true%2C%20%5C%22filterReleaseTitlesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22filterReleaseNotesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22verifyLatestTag%5C%22%3A%20false%2C%20%5C%22sortMethodChoice%5C%22%3A%20%5C%22date%5C%22%2C%20%5C%22useLatestAssetDateAsReleaseDate%5C%22%3A%20false%2C%20%5C%22releaseTitleAsVersion%5C%22%3A%20false%2C%20%5C%22trackOnly%5C%22%3A%20false%2C%20%5C%22versionExtractionRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22matchGroupToUse%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22versionDetection%5C%22%3A%20true%2C%20%5C%22releaseDateAsVersion%5C%22%3A%20false%2C%20%5C%22useVersionCodeAsOSVersion%5C%22%3A%20false%2C%20%5C%22apkFilterRegEx%5C%22%3A%20%5C%22ghost-hid.*%5C%5C%5C%5C.apk%5C%22%2C%20%5C%22invertAPKFilter%5C%22%3A%20false%2C%20%5C%22autoApkFilterByArch%5C%22%3A%20true%2C%20%5C%22appName%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22appAuthor%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22shizukuPretendToBeGooglePlay%5C%22%3A%20false%2C%20%5C%22allowInsecure%5C%22%3A%20false%2C%20%5C%22exemptFromBackgroundUpdates%5C%22%3A%20false%2C%20%5C%22skipUpdateNotifications%5C%22%3A%20false%2C%20%5C%22about%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22refreshBeforeDownload%5C%22%3A%20false%2C%20%5C%22includeZips%5C%22%3A%20false%2C%20%5C%22zippedApkFilterRegEx%5C%22%3A%20%5C%22%5C%22%7D%22%2C%22overrideSource%22%3Anull%7D\">
     <img src="https://img.shields.io/badge/Obtainium-Add_to_Obtainium-blue?style=for-the-badge&logo=android&logoColor=white" height="38" alt="Add to Obtainium" />
   </a>
   &nbsp;&nbsp;
@@ -22,7 +22,30 @@
   </a>
 </p>
 
-GhostHID turns an Android device into a physical wireless keyboard and mouse. It connects to paired computers over Bluetooth Classic HID without host drivers or companion software. The target computer identifies the phone as a standard USB/Bluetooth peripheral.
+GhostHID turns an Android device into a physical wireless keyboard and mouse. It connects to paired computers over native Android Bluetooth Classic HID without host drivers, companion servers, or background agents on the target computer. The connected PC or Mac identifies the phone as a standard hardware peripheral.
+
+## Supported host platforms
+
+GhostHID works with any host system that accepts standard Bluetooth HID input:
+
+- Windows 10 and Windows 11
+- Apple macOS
+- Linux and SteamOS
+- ChromeOS
+- Android TV and media players
+
+Pair once through system Bluetooth settings and start sending inputs immediately.
+
+## Key features
+
+- **Native Bluetooth HID.** Uses the Android `BluetoothHidDevice` API directly. No desktop client, agent, or background relay runs on the host machine.
+- **Material 3 Expressive UI.** Built with Jetpack Compose using the Material 3 Expressive design system, including expressive rounded polygon silhouettes, morphing device cards, and fluid motion.
+- **Multi-touch trackpad and mouse.** Sends standard relative pointer reports over HID Report ID 2. Supports single-tap left click, two-finger right click, edge scrolling, and middle click gestures.
+- **QuickSend and text snippets.** Type text strings, credentials, and clipboard contents directly to the active window on the host computer.
+- **Combo Studio and shortcut editor.** Build and assign complex modifier combinations (Ctrl, Alt, Shift, Super/Command, and custom keys) with OS-specific glyphs for Windows, macOS, and Linux.
+- **Landscape stream deck.** Rotate the phone horizontally into a full-bleed macro grid with hardware action slots, customizable button shapes, and a quick payload drawer.
+- **Hardware-encrypted payload vault.** Secure login credentials and repetitive text with Android Keystore hardware-backed encryption for one-tap automated typing.
+- **ADB and CLI companion.** Automate keystrokes, shortcuts, and mouse coordinates from terminal scripts or agent workflows using [ghid-cli](https://github.com/ShubhamJ010/ghid-cli).
 
 ## Interface overview
 
@@ -39,11 +62,20 @@ GhostHID turns an Android device into a physical wireless keyboard and mouse. It
 
 ## Subsystems
 
+### Material 3 Expressive UI
+The user interface uses Jetpack Compose with the Material 3 Expressive catalog (`androidx.compose.material3.MaterialShapes`). Buttons and action slots clip to distinct rounded polygon forms, including cookie, burst, clover, and arch shapes, while preserving accessibility and touch targets.
+
 ### Landscape stream deck
 Rotating the phone horizontally activates Ghost Stream Deck mode. The screen switches to a full-bleed button collage with hardware action slots, custom assigned macro buttons, and an expandable payload drawer.
 
 ### Touchpad and mouse emulation
 The trackpad surface sends standard relative pointer reports over HID Report ID 2. It supports single-tap left click, two-finger right click, edge scrolling, and middle click gestures.
+
+### QuickSend and Snippet Studio
+QuickSend enables rapid text injection into the active session on the host machine. Snippet Studio lets you manage recurring terminal commands, code snippets, and phrases for one-tap transmission without typing character by character.
+
+### Combo Studio
+The combo editor lets you assign custom key combinations with modifier ordering and custom icon glyphs. It detects the target operating system (Windows, macOS, or Linux) and adapts glyph display accordingly.
 
 ### Macro sequence parser
 The built-in action sequence parser processes bracket syntax strings such as `{mod+s}{500ms}rustdesk{Enter}`. It translates keys into USB HID scancodes, enforces modifier key down/up order, and sequences delays.
@@ -51,8 +83,8 @@ The built-in action sequence parser processes bracket syntax strings such as `{m
 ### Secure payload vault
 The expandable payload drawer stores credentials, login secrets, and repetitive strings. It uses Android Keystore hardware-backed encryption to protect sensitive data and allows one-tap typing into active HID target sessions.
 
-### Background service and IPC
-A foreground Android service registers the `BluetoothHidDevice` SDP profile and manages L2CAP transport channels. It exposes a broadcast receiver interface so external scripts and the [ghid-cli](https://github.com/ShubhamJ010/ghid-cli) companion tool can automate keystrokes, combos, and mouse events over ADB.
+### Native background service and IPC
+A foreground Android service registers the native `BluetoothHidDevice` SDP profile and manages L2CAP transport channels. It exposes a broadcast receiver interface so external scripts and the [ghid-cli](https://github.com/ShubhamJ010/ghid-cli) companion tool can automate keystrokes, combos, and mouse events over ADB.
 
 ## Installation
 
@@ -61,7 +93,7 @@ A foreground Android service registers the `BluetoothHidDevice` SDP profile and 
 2. Tap the badge below to add GhostHID directly:
 
 <p align="center">
-  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A//app/%7B%22id%22%3A%22com.sj010.ghid%22%2C%22url%22%3A%22https%3A//github.com/ShubhamJ010/ghost-hid%22%2C%22author%22%3A%22ShubhamJ010%22%2C%22name%22%3A%22GhostHID%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3A%20true%2C%20%5C%22fallbackToOlderReleases%5C%22%3A%20true%2C%20%5C%22filterReleaseTitlesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22filterReleaseNotesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22verifyLatestTag%5C%22%3A%20false%2C%20%5C%22sortMethodChoice%5C%22%3A%20%5C%22date%5C%22%2C%20%5C%22useLatestAssetDateAsReleaseDate%5C%22%3A%20false%2C%20%5C%22releaseTitleAsVersion%5C%22%3A%20false%2C%20%5C%22trackOnly%5C%22%3A%20false%2C%20%5C%22versionExtractionRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22matchGroupToUse%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22versionDetection%5C%22%3A%20true%2C%20%5C%22releaseDateAsVersion%5C%22%3A%20false%2C%20%5C%22useVersionCodeAsOSVersion%5C%22%3A%20false%2C%20%5C%22apkFilterRegEx%5C%22%3A%20%5C%22ghost-hid.*%5C%5C%5C%5C.apk%5C%22%2C%20%5C%22invertAPKFilter%5C%22%3A%20false%2C%20%5C%22autoApkFilterByArch%5C%22%3A%20true%2C%20%5C%22appName%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22appAuthor%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22shizukuPretendToBeGooglePlay%5C%22%3A%20false%2C%20%5C%22allowInsecure%5C%22%3A%20false%2C%20%5C%22exemptFromBackgroundUpdates%5C%22%3A%20false%2C%20%5C%22skipUpdateNotifications%5C%22%3A%20false%2C%20%5C%22about%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22refreshBeforeDownload%5C%22%3A%20false%2C%20%5C%22includeZips%5C%22%3A%20false%2C%20%5C%22zippedApkFilterRegEx%5C%22%3A%20%5C%22%5C%22%7D%22%2C%22overrideSource%22%3Anull%7D">
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A//app/%7B%22id%22%3A%22com.sj010.ghid%22%2C%22url%22%3A%22https%3A//github.com/ShubhamJ010/ghost-hid%22%2C%22author%22%3A%22ShubhamJ010%22%2C%22name%22%3A%22GhostHID%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3A%20true%2C%20%5C%22fallbackToOlderReleases%5C%22%3A%20true%2C%20%5C%22filterReleaseTitlesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22filterReleaseNotesByRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22verifyLatestTag%5C%22%3A%20false%2C%20%5C%22sortMethodChoice%5C%22%3A%20%5C%22date%5C%22%2C%20%5C%22useLatestAssetDateAsReleaseDate%5C%22%3A%20false%2C%20%5C%22releaseTitleAsVersion%5C%22%3A%20false%2C%20%5C%22trackOnly%5C%22%3A%20false%2C%20%5C%22versionExtractionRegEx%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22matchGroupToUse%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22versionDetection%5C%22%3A%20true%2C%20%5C%22releaseDateAsVersion%5C%22%3A%20false%2C%20%5C%22useVersionCodeAsOSVersion%5C%22%3A%20false%2C%20%5C%22apkFilterRegEx%5C%22%3A%20%5C%22ghost-hid.*%5C%5C%5C%5C.apk%5C%22%2C%20%5C%22invertAPKFilter%5C%22%3A%20false%2C%20%5C%22autoApkFilterByArch%5C%22%3A%20true%2C%20%5C%22appName%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22appAuthor%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22shizukuPretendToBeGooglePlay%5C%22%3A%20false%2C%20%5C%22allowInsecure%5C%22%3A%20false%2C%20%5C%22exemptFromBackgroundUpdates%5C%22%3A%20false%2C%20%5C%22skipUpdateNotifications%5C%22%3A%20false%2C%20%5C%22about%5C%22%3A%20%5C%22%5C%22%2C%20%5C%22refreshBeforeDownload%5C%22%3A%20false%2C%20%5C%22includeZips%5C%22%3A%20false%2C%20%5C%22zippedApkFilterRegEx%5C%22%3A%20%5C%22%5C%22%7D%22%2C%22overrideSource%22%3Anull%7D\">
     <img src="https://img.shields.io/badge/Obtainium-Add_GhostHID-blue?style=for-the-badge&logo=android&logoColor=white" height="40" alt="Add GhostHID to Obtainium" />
   </a>
 </p>
@@ -113,7 +145,7 @@ The release APK is written to `build/ghost-hid.apk`.
 
 ## Documentation
 
-Complete architecture specifications, wire protocols, execution flows, and Architecture Decision Records (ADRs) are indexed in the **[Documentation Index](docs/README.md)**.
+Architecture specifications, wire protocols, execution flows, and Architecture Decision Records (ADRs) are indexed in the [documentation index](docs/README.md).
 
 ## License
 
