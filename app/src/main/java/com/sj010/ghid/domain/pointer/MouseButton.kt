@@ -20,10 +20,10 @@ enum class MouseButton(val mask: Byte) {
          * grammar. Returns null when [token] is not a button gesture.
          */
         fun fromToken(token: String): MouseButton? = when (token.trim().lowercase(Locale.ROOT)) {
-            "click-left", "left-click", "leftclick", "lclick" -> LEFT
-            "click-right", "right-click", "rightclick", "rclick" -> RIGHT
-            "click-middle", "middle-click", "middleclick", "mclick" -> MIDDLE
-            "double-click", "doubleclick", "dblclick" -> LEFT
+            "click-left", "left-click", "leftclick", "lclick", "left", "l", "primary", "btn1", "button1" -> LEFT
+            "click-right", "right-click", "rightclick", "rclick", "right", "r", "secondary", "btn2", "button2" -> RIGHT
+            "click-middle", "middle-click", "middleclick", "mclick", "middle", "m", "wheel", "btn3", "button3" -> MIDDLE
+            "double-click", "doubleclick", "dblclick", "double" -> LEFT
             else -> null
         }
     }

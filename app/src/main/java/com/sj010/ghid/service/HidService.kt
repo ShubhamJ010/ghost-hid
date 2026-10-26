@@ -1092,6 +1092,16 @@ class HidService : Service() {
                     }
                 }
             }
+            "click".equals(cmd, ignoreCase = true) -> {
+                val buttonStr = intent.getStringExtra("button") ?: intent.getStringExtra("action") ?: "left"
+                val count = intent.getIntExtra("count", intent.getIntExtra("clicks", 1))
+                val isDouble = "double".equals(buttonStr, ignoreCase = true) ||
+                        "double-click".equals(buttonStr, ignoreCase = true) ||
+                        intent.getBooleanExtra("double", false)
+                val effectiveCount = if (isDouble && count == 1) 2 else count.coerceAtLeast(1)
+                val button = MouseButton.fromToken(buttonStr) ?: MouseButton.LEFT
+                sendMouseButton(button, effectiveCount)
+            }
             "mouse".equals(cmd, ignoreCase = true) -> sendMouse(intent.getStringExtra("action"))
             "connect".equals(cmd, ignoreCase = true) -> connectTarget(intent.getStringExtra("address"))
             "disconnect".equals(cmd, ignoreCase = true) -> disconnectTarget()
