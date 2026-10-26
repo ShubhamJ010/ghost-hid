@@ -154,6 +154,16 @@ fun FavPinnedCollage(
         Spacer(modifier = Modifier.height(4.dp))
     }
 
+    val availableCombos = remember(combos, connectedOs) {
+        val filtered = ComboOsPolicy.filter(combos, connectedOs)
+        val (favs, others) = filtered.partition { it.favorite }
+        val sortedFavs = favs.distinctBy { PinnedFavoritesPolicy.normalize(it.name) }
+            .sortedBy { it.name.lowercase() }
+        val sortedOthers = others.distinctBy { PinnedFavoritesPolicy.normalize(it.name) }
+            .sortedBy { it.name.lowercase() }
+        sortedFavs + sortedOthers
+    }
+
     pickerSlot?.let { config ->
         FavoritePickerSheet(
             slotId = config.slotId,
@@ -161,7 +171,7 @@ fun FavPinnedCollage(
             slotShape = config.shape,
             slotContainerColor = config.containerColor,
             slotContentColor = config.contentColor,
-            favorites = favorites,
+            favorites = availableCombos,
             pinnedBySlot = pinnedBySlot,
             shapeNames = shapeNames,
             onSelect = { combo ->
@@ -504,7 +514,7 @@ fun FavoritePickerSheet(
                 Spacer(modifier = Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Pin a favorite",
+                        text = "Pin a combo",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.onSurface
@@ -525,12 +535,12 @@ fun FavoritePickerSheet(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "No favorite combos yet",
+                        text = "No combos yet",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Star a combo in Combos, then come back and pin it to this shape.",
+                        text = "Create combos in the Combos tab, then come back and pin one to this shape.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

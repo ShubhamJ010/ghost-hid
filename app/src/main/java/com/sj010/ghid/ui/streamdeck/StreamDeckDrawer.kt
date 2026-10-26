@@ -234,7 +234,7 @@ fun StreamDeckComboDrawer(
                     )
                 },
             shape = RoundedCornerShape(topStart = 30.dp, bottomStart = 30.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = MaterialTheme.colorScheme.surfaceContainer,
             tonalElevation = 3.dp
         ) {
             panel()
