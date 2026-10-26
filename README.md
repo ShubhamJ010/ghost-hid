@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/icon.svg" width="110" height="110" alt="GhostHID icon" />
+  <img src="docs/images/icon.png" width="110" height="110" alt="GhostHID icon" />
 </p>
 
 <h1 align="center">GhostHID</h1>
