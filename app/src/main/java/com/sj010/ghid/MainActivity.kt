@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -40,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -47,6 +49,7 @@ import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.combos.ComboStudioScreen
 import com.sj010.ghid.ui.dashboard.DashboardScreen
 import com.sj010.ghid.ui.navigation.Screen
+import com.sj010.ghid.ui.streamdeck.StreamDeckScreen
 import com.sj010.ghid.ui.theme.GhostHidTheme
 import com.sj010.ghid.ui.trackpad.TrackpadScreen
 
@@ -206,6 +209,13 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}) {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
+
+    // Landscape turns the phone into a full-bleed stream deck. Portrait keeps
+    // the regular bottom-nav scaffold, and the current screen survives rotation.
+    if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+        StreamDeckScreen(service = service)
+        return
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,

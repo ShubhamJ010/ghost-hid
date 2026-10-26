@@ -6,6 +6,7 @@ import com.sj010.ghid.data.ComboRepository
 import com.sj010.ghid.data.ComboUsageRepository
 import com.sj010.ghid.data.DeviceOsCache
 import com.sj010.ghid.data.PayloadRepository
+import com.sj010.ghid.data.PayloadUsageRepository
 import com.sj010.ghid.data.PinnedFavoritesRepository
 import com.sj010.ghid.data.QuickSendHistoryRepository
 
@@ -14,6 +15,8 @@ class GhostHidApp : Application() {
     lateinit var vault: AndroidKeystoreVault
         private set
     lateinit var payloadRepository: PayloadRepository
+        private set
+    lateinit var payloadUsageRepository: PayloadUsageRepository
         private set
     lateinit var comboRepository: ComboRepository
         private set
@@ -36,6 +39,7 @@ class GhostHidApp : Application() {
 
         vault = AndroidKeystoreVault(this)
         payloadRepository = PayloadRepository(this, vault)
+        payloadUsageRepository = PayloadUsageRepository(this)
         comboRepository = ComboRepository(this, payloadRepository)
         comboUsageRepository = ComboUsageRepository(this)
         pinnedFavoritesRepository = PinnedFavoritesRepository(this)
