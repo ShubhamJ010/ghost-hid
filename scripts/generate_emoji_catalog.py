@@ -24,7 +24,7 @@ GROUPS = [
     ("Flags", "FLAGS", "Flags"),
 ]
 
-OUT = "android/app/src/main/java/com/sj010/ghid/ui/combos/editor/EmojiCatalog.kt"
+OUT = "app/src/main/java/com/sj010/ghid/ui/combos/editor/EmojiCatalog.kt"
 
 
 def main(source: str) -> None:

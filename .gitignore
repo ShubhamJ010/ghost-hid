@@ -25,3 +25,9 @@ debug.keystore
 # Python bytecode
 __pycache__/
 *.pyc
+
+# IDE & editor files
+.idea/
+*.iml
+captures/
+.vscode/
