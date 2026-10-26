@@ -41,19 +41,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.domain.model.Combo
 import com.sj010.ghid.ui.common.os.ComboGlyph
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 
 /**
- * One full-bleed deck slot. Positions are fractions of the available landscape
- * canvas so the same five pins spread out on every phone size without a grid.
+ * One deck tile. Sizes are fractions of the deck canvas so the same composition
+ * covers the whole display on every landscape aspect ratio.
  */
 data class StreamDeckSlot(
     val slotId: Int,
     val shapeName: String,
     val emptyLabel: String,
     val shape: Shape,
-    val width: Dp,
-    val height: Dp,
+    /** Shape height as a fraction of the deck height. */
+    val heightFraction: Float,
+    /** Width divided by height, so wide silhouettes stay wide. */
+    val aspect: Float,
     val centerX: Float,
     val centerY: Float,
     val rotation: Float,
@@ -68,114 +70,62 @@ private data class StreamDeckPalette(
     val border: Color
 )
 
-/**
- * Landscape stream-deck variant of the dashboard collage. It keeps the exact
- * same five pin slots, but swaps in distinct M3 Expressive silhouettes and
- * scatters them across the whole display instead of stacking them in a column.
- */
-fun streamDeckSlots(): List<StreamDeckSlot> {
-    val violet = StreamDeckPalette(
-        container = Color(0xFF4B3280),
-        content = Color(0xFFF3EDF7),
-        border = Color(0xFFD0BCFF)
-    )
-    val jade = StreamDeckPalette(
-        container = Color(0xFF00513B),
-        content = Color(0xFFA7F8D6),
-        border = Color(0xFF86F8CE)
-    )
-    val amber = StreamDeckPalette(
-        container = Color(0xFF943C00),
-        content = Color(0xFFFFDCC4),
-        border = Color(0xFFFFB68F)
-    )
-    val ocean = StreamDeckPalette(
-        container = Color(0xFF004C6E),
-        content = Color(0xFFCCE6FF),
-        border = Color(0xFF92CDFF)
-    )
-    val rose = StreamDeckPalette(
-        container = Color(0xFF8C1D40),
-        content = Color(0xFFFFD9E2),
-        border = Color(0xFFFFB1C8)
-    )
+private val deckPalettes = listOf(
+    StreamDeckPalette(Color(0xFF4B3280), Color(0xFFF3EDF7), Color(0xFFD0BCFF)),
+    StreamDeckPalette(Color(0xFF00513B), Color(0xFFA7F8D6), Color(0xFF86F8CE)),
+    StreamDeckPalette(Color(0xFF943C00), Color(0xFFFFDCC4), Color(0xFFFFB68F)),
+    StreamDeckPalette(Color(0xFF004C6E), Color(0xFFCCE6FF), Color(0xFF92CDFF)),
+    StreamDeckPalette(Color(0xFF8C1D40), Color(0xFFFFD9E2), Color(0xFFFFB1C8)),
+    StreamDeckPalette(Color(0xFF3F2E00), Color(0xFFFFE9A8), Color(0xFFF2D277))
+)
 
-    return listOf(
-        // Centre anchor: expressive pill, tilted just enough to feel hand-set.
-        StreamDeckSlot(
-            slotId = 0,
-            shapeName = "Pill",
-            emptyLabel = "Pill",
-            shape = MaterialShapes.ShapePill,
-            width = 156.dp,
-            height = 104.dp,
-            centerX = 0.50f,
-            centerY = 0.53f,
-            rotation = 18f,
-            containerColor = violet.container,
-            contentColor = violet.content,
-            borderColor = violet.border
-        ),
-        // Upper-left clover.
-        StreamDeckSlot(
-            slotId = 1,
-            shapeName = "Clover",
-            emptyLabel = "Clover",
-            shape = MaterialShapes.ShapeClover4,
-            width = 120.dp,
-            height = 120.dp,
-            centerX = 0.155f,
-            centerY = 0.255f,
-            rotation = -10f,
-            containerColor = jade.container,
-            contentColor = jade.content,
-            borderColor = jade.border
-        ),
-        // Upper-right heart.
-        StreamDeckSlot(
-            slotId = 2,
-            shapeName = "Heart",
-            emptyLabel = "Heart",
-            shape = MaterialShapes.ShapeHeart,
-            width = 128.dp,
-            height = 116.dp,
-            centerX = 0.845f,
-            centerY = 0.255f,
-            rotation = 8f,
-            containerColor = amber.container,
-            contentColor = amber.content,
-            borderColor = amber.border
-        ),
-        // Lower-left ghost.
-        StreamDeckSlot(
-            slotId = 3,
-            shapeName = "Ghost",
-            emptyLabel = "Ghost",
-            shape = MaterialShapes.ShapeGhostish,
-            width = 118.dp,
-            height = 110.dp,
-            centerX = 0.16f,
-            centerY = 0.775f,
-            rotation = 6f,
-            containerColor = ocean.container,
-            contentColor = ocean.content,
-            borderColor = ocean.border
-        ),
-        // Lower-right sunny.
-        StreamDeckSlot(
-            slotId = 4,
-            shapeName = "Sunny",
-            emptyLabel = "Sunny",
-            shape = MaterialShapes.ShapeSunny,
-            width = 124.dp,
-            height = 112.dp,
-            centerX = 0.84f,
-            centerY = 0.775f,
-            rotation = -6f,
-            containerColor = rose.container,
-            contentColor = rose.content,
-            borderColor = rose.border
-        )
+/** One deck row entry: shape, name, x centre, y centre, height fraction, tilt. */
+private data class DeckEntry(
+    val shapeName: String,
+    val shape: Shape,
+    val centerX: Float,
+    val centerY: Float,
+    val heightFraction: Float,
+    val rotation: Float
+)
+
+private val deckEntries = listOf(
+    // Upper band: the five dashboard pins land on slots 0..4.
+    DeckEntry("Pill", ExpressiveShapes.Pill, 0.12f, 0.30f, 0.40f, 6f),
+    DeckEntry("Clover", ExpressiveShapes.Clover4Leaf, 0.31f, 0.30f, 0.40f, -6f),
+    DeckEntry("Heart", ExpressiveShapes.Heart, 0.50f, 0.30f, 0.40f, 4f),
+    DeckEntry("Ghost", ExpressiveShapes.Ghostish, 0.69f, 0.30f, 0.40f, -5f),
+    DeckEntry("Sunny", ExpressiveShapes.Sunny, 0.88f, 0.30f, 0.40f, 6f),
+    // Lower band: the rest of the deck, empty until a combo is pinned there.
+    DeckEntry("Cookie", ExpressiveShapes.Cookie4Sided, 0.10f, 0.76f, 0.34f, -4f),
+    DeckEntry("Flower", ExpressiveShapes.Flower, 0.26f, 0.76f, 0.34f, 5f),
+    DeckEntry("Arch", ExpressiveShapes.Arch, 0.42f, 0.76f, 0.34f, -3f),
+    DeckEntry("Gem", ExpressiveShapes.Gem, 0.58f, 0.76f, 0.34f, 4f),
+    DeckEntry("Fan", ExpressiveShapes.Fan, 0.74f, 0.76f, 0.34f, -5f),
+    DeckEntry("Bun", ExpressiveShapes.Bun, 0.90f, 0.76f, 0.34f, 3f)
+)
+
+/**
+ * Full-bleed landscape stream deck. It is its own composition rather than the
+ * dashboard collage: eleven expressive tiles fill the display, and the five
+ * dashboard pin slots (0..4) map onto the upper band so the same favourites
+ * light up here. The remaining tiles are free slots for this view.
+ */
+fun streamDeckSlots(): List<StreamDeckSlot> = deckEntries.mapIndexed { index, entry ->
+    val palette = deckPalettes[index % deckPalettes.size]
+    StreamDeckSlot(
+        slotId = index,
+        shapeName = entry.shapeName,
+        emptyLabel = entry.shapeName,
+        shape = entry.shape,
+        heightFraction = entry.heightFraction,
+        aspect = 1f,
+        centerX = entry.centerX,
+        centerY = entry.centerY,
+        rotation = entry.rotation,
+        containerColor = palette.container,
+        contentColor = palette.content,
+        borderColor = palette.border
     )
 }
 
@@ -188,13 +138,9 @@ fun StreamDeckCollage(
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier) {
-        // Scale the silhouettes with the short edge so a 5.5" and a 6.9" phone
-        // both keep the same hand-spread composition.
-        val scale = (minOf(maxWidth, maxHeight) / 330.dp).coerceIn(0.78f, 1.16f)
-
         slots.forEach { slot ->
-            val width = slot.width * scale
-            val height = slot.height * scale
+            val height = maxHeight * slot.heightFraction
+            val width = (height * slot.aspect).coerceAtMost(maxWidth * 0.4f)
             val combo = pinnedBySlot[slot.slotId]
 
             Box(
@@ -266,17 +212,19 @@ private fun BoxScope.DeckShapeButton(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier
                 .rotate(-slot.rotation)
-                .padding(horizontal = 18.dp, vertical = 10.dp)
+                .padding(horizontal = width * 0.14f, vertical = height * 0.10f)
         ) {
             ComboGlyph(
                 combo = combo,
-                size = 32.dp,
+                size = (height.value * 0.26f).coerceIn(26f, 44f).dp,
                 tint = slot.contentColor
             )
             Spacer(modifier = Modifier.size(4.dp))
             Text(
                 text = combo.name,
-                style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontSize = (height.value * 0.095f).coerceIn(11f, 16f).sp
+                ),
                 fontWeight = FontWeight.Bold,
                 color = slot.contentColor,
                 maxLines = 1,
@@ -326,18 +274,20 @@ private fun BoxScope.DeckEmptyShape(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier
                 .rotate(-slot.rotation)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = width * 0.12f, vertical = height * 0.08f)
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Pin a favorite combo to the ${slot.emptyLabel} shape",
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size((height.value * 0.24f).coerceIn(22f, 38f).dp),
                 tint = slot.contentColor.copy(alpha = 0.9f)
             )
             Spacer(modifier = Modifier.size(4.dp))
             Text(
                 text = slot.emptyLabel,
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = (height.value * 0.08f).coerceIn(10f, 14f).sp
+                ),
                 fontWeight = FontWeight.Bold,
                 color = slot.contentColor.copy(alpha = 0.9f),
                 maxLines = 1,

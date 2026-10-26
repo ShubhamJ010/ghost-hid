@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -13,7 +14,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -29,15 +32,16 @@ import com.sj010.ghid.domain.model.Payload
 import com.sj010.ghid.domain.model.PinnedFavoritesPolicy
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.service.HidService
-import com.sj010.ghid.ui.common.shade.PullDownShade
 import com.sj010.ghid.ui.dashboard.FavoritePickerSheet
 
 /**
- * Full-screen landscape "Ghost Deck".
+ * Full-screen landscape "Ghost Stream Deck".
  *
- * The five dashboard pin slots become large, scattered M3 Expressive shapes.
- * Pulling from the notification edge reveals every payload as a shaped pill,
- * ordered by dispatch count.
+ * This is its own view, not the dashboard collage: eleven expressive tiles fill
+ * the display, with the five dashboard pin slots (0..4) mapped onto the upper
+ * band so the same favourites light up here and the rest are free slots.
+ * A drawer on the left edge slides sideways over the deck to reveal every
+ * payload as a shaped pill, ordered by dispatch count.
  */
 @Composable
 fun StreamDeckScreen(
@@ -62,6 +66,7 @@ fun StreamDeckScreen(
     val slots = remember { streamDeckSlots() }
     val shapeNames = remember(slots) { slots.associate { it.slotId to it.shapeName } }
     var pickerSlot by remember { mutableStateOf<StreamDeckSlot?>(null) }
+    var drawerOpen by rememberSaveable { mutableStateOf(false) }
 
     ImmersiveDeck()
 
@@ -78,42 +83,34 @@ fun StreamDeckScreen(
                 )
             )
     ) {
-        PullDownShade(
-            modifier = Modifier.fillMaxSize(),
-            dock = { scope ->
-                StreamDeckDock(
-                    progress = scope.progress,
-                    payloadCount = payloads.size,
-                    onDismiss = { scope.dismiss() },
-                    onOpen = { scope.open() },
-                    dragHandleModifier = scope.dragHandleModifier
-                )
+        StreamDeckCollage(
+            pinnedBySlot = pinnedCombos,
+            slots = slots,
+            onRunCombo = { combo ->
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                service?.executeCombo(combo.effectiveSequence)
             },
-            shade = {
-                StreamDeckPayloadShade(
-                    payloads = payloads,
-                    useCounts = payloadUseCounts,
-                    targetOs = targetOs,
-                    onSend = { payload -> dispatchPayload(service, payload) }
-                )
+            onOpenPicker = { slot ->
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                pickerSlot = slot
             },
-            dockHeight = 56.dp,
-            openDockHeight = 56.dp,
-            drawBorder = false,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            modifier = Modifier.fillMaxSize()
+        )
+
+        StreamDeckTitle(modifier = Modifier.align(Alignment.TopStart))
+
+        StreamDeckDrawer(
+            open = drawerOpen,
+            onOpen = { drawerOpen = true },
+            onClose = { drawerOpen = false },
+            modifier = Modifier.fillMaxSize()
         ) {
-            StreamDeckCollage(
-                pinnedBySlot = pinnedCombos,
-                slots = slots,
-                onRunCombo = { combo ->
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    service?.executeCombo(combo.effectiveSequence)
-                },
-                onOpenPicker = { slot ->
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    pickerSlot = slot
-                },
-                modifier = Modifier.fillMaxSize()
+            StreamDeckPayloadShade(
+                payloads = payloads,
+                useCounts = payloadUseCounts,
+                targetOs = targetOs,
+                onSend = { payload -> dispatchPayload(service, payload) },
+                onClose = { drawerOpen = false }
             )
         }
     }
