@@ -89,7 +89,7 @@ import com.sj010.ghid.domain.pointer.MouseButton
 import com.sj010.ghid.domain.pointer.PointerMath
 import com.sj010.ghid.domain.pointer.WheelAccumulator
 import com.sj010.ghid.service.HidService
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlinx.coroutines.delay
@@ -363,7 +363,7 @@ private fun PointerPad(
             Box(
                 modifier = Modifier
                     .size(58.dp)
-                    .clip(MaterialShapes.ShapeGhostish)
+                    .clip(ExpressiveShapes.Ghostish)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -806,7 +806,7 @@ private fun ScrollStepKey(
             modifier = Modifier
                 .matchParentSize()
                 .rotate(if (isUp) 0f else 180f)
-                .clip(MaterialShapes.ShapeArch)
+                .clip(ExpressiveShapes.Arch)
                 .background(MaterialTheme.colorScheme.primary)
         )
 

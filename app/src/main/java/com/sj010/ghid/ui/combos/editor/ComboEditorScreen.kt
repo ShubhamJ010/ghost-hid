@@ -68,7 +68,7 @@ import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.sequence.SequencePreview
 
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 
 import java.util.Locale
 
@@ -155,7 +155,7 @@ fun ComboEditorScreen(
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .clip(MaterialShapes.ShapeArch)
+                            .clip(ExpressiveShapes.Arch)
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {

@@ -113,7 +113,7 @@ import com.sj010.ghid.ui.common.sequence.SequencePreviewDialog
 import com.sj010.ghid.ui.common.sequence.formatSequenceDuration
 import com.sj010.ghid.ui.snippets.SnippetsShade
 import com.sj010.ghid.service.HidService
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -574,14 +574,14 @@ fun ComboCard(
     val expressiveShape = remember(combo.name) {
         val hash = kotlin.math.abs(combo.name.hashCode())
         val shapes = listOf(
-            MaterialShapes.ShapeClover4,
-            MaterialShapes.ShapeFlower,
-            MaterialShapes.ShapeCookie4,
-            MaterialShapes.ShapeCookie9,
-            MaterialShapes.ShapeCookie6,
-            MaterialShapes.ShapeSunny,
-            MaterialShapes.ShapeSoftBurst,
-            MaterialShapes.ShapePuffy
+            ExpressiveShapes.Clover4Leaf,
+            ExpressiveShapes.Flower,
+            ExpressiveShapes.Cookie4Sided,
+            ExpressiveShapes.Cookie9Sided,
+            ExpressiveShapes.Cookie6Sided,
+            ExpressiveShapes.Sunny,
+            ExpressiveShapes.SoftBurst,
+            ExpressiveShapes.Puffy
         )
         shapes[hash % shapes.size]
     }
@@ -856,7 +856,7 @@ private fun EmptyCombosState(
         Box(
             modifier = Modifier
                 .size(72.dp)
-                .clip(MaterialShapes.ShapeFlower)
+                .clip(ExpressiveShapes.Flower)
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest),
             contentAlignment = Alignment.Center
         ) {
@@ -946,7 +946,7 @@ fun ExpressiveSnippetsHeaderCard(
                     Box(
                         modifier = Modifier
                             .size(46.dp)
-                            .clip(MaterialShapes.ShapeClover4)
+                            .clip(ExpressiveShapes.Clover4Leaf)
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {

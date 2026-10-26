@@ -97,7 +97,7 @@ import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.os.HostOsClassifier
 import com.sj010.ghid.domain.model.Snippet
 import com.sj010.ghid.service.HidService
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.shade.PullDownShade
 import com.sj010.ghid.ui.common.shade.ShadeScope
@@ -336,7 +336,7 @@ fun DashboardScreen(
                 onClick = { showQuickSend = true },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = MaterialShapes.ShapeClover4,
+                shape = ExpressiveShapes.Clover4Leaf,
                 elevation = FloatingActionButtonDefaults.elevation(
                     defaultElevation = 0.dp,
                     pressedElevation = 0.dp,

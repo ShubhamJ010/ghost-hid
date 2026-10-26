@@ -47,7 +47,7 @@ import com.sj010.ghid.domain.parser.SequenceAnalyzer
 import com.sj010.ghid.ui.common.sequence.SequencePreview
 import com.sj010.ghid.ui.common.sequence.formatSequenceDuration
 import com.sj010.ghid.ui.common.sequence.formatStepCount
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 
 @Composable
 fun QuickSendHistoryCard(
@@ -82,7 +82,7 @@ fun QuickSendHistoryCard(
                 Box(
                     modifier = Modifier
                         .size(32.dp)
-                        .clip(MaterialShapes.ShapeClover4)
+                        .clip(ExpressiveShapes.Clover4Leaf)
                         .background(MaterialTheme.colorScheme.tertiaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
@@ -229,7 +229,7 @@ fun QuickSendEmptyState(
         Box(
             modifier = Modifier
                 .size(88.dp)
-                .clip(MaterialShapes.ShapePuffy)
+                .clip(ExpressiveShapes.Puffy)
                 .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {

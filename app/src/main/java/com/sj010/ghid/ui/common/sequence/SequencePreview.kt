@@ -54,7 +54,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.sj010.ghid.domain.model.HidStep
 import com.sj010.ghid.domain.parser.SequenceAnalysis
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 import java.util.Locale
 
 fun formatSequenceDuration(millis: Long): String {
@@ -111,7 +111,7 @@ fun SequencePreview(
                     Box(
                         modifier = Modifier
                             .size(32.dp)
-                            .clip(MaterialShapes.ShapeClover4)
+                            .clip(ExpressiveShapes.Clover4Leaf)
                             .background(MaterialTheme.colorScheme.tertiaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
@@ -232,7 +232,7 @@ fun SequencePreviewDialog(
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
-                                .clip(MaterialShapes.ShapeClover4)
+                                .clip(ExpressiveShapes.Clover4Leaf)
                                 .background(MaterialTheme.colorScheme.tertiaryContainer),
                             contentAlignment = Alignment.Center
                         ) {

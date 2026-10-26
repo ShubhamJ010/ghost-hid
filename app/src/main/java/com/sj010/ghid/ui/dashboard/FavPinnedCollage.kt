@@ -67,7 +67,7 @@ import com.sj010.ghid.domain.model.PinnedFavoritesPolicy
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.ui.common.os.ComboGlyph
 import com.sj010.ghid.ui.common.os.OsGlyph
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 
 /**
  * Dashboard "fav pinned collage": five expressive shapes, each an empty add
@@ -298,7 +298,7 @@ private fun collageConfigs(): List<CollageConfig> {
             height = 112.dp,
             align = Alignment.TopEnd,
             rot = -4f,
-            shape = MaterialShapes.ShapeFan,
+            shape = ExpressiveShapes.Fan,
             offsetX = (-14).dp,
             offsetY = 10.dp,
             containerColor = p3.container,
@@ -314,7 +314,7 @@ private fun collageConfigs(): List<CollageConfig> {
             height = 114.dp,
             align = Alignment.BottomStart,
             rot = 6f,
-            shape = MaterialShapes.ShapeGhostish,
+            shape = ExpressiveShapes.Ghostish,
             offsetX = 18.dp,
             offsetY = 4.dp,
             containerColor = p4.container,

@@ -95,7 +95,7 @@ import com.sj010.ghid.ui.combos.editor.ComboEditorScreen
 import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.sequence.SequencePreview
 import com.sj010.ghid.ui.common.sequence.formatStepCount
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 import kotlinx.coroutines.launch
 
 /**
@@ -348,7 +348,7 @@ private fun QuickSendCollapsedButton(
                 Box(
                     modifier = Modifier
                         .size(42.dp)
-                        .clip(MaterialShapes.ShapeClover4)
+                        .clip(ExpressiveShapes.Clover4Leaf)
                         .background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center
                 ) {
@@ -432,7 +432,7 @@ private fun QuickSendSheetHeader(
         Box(
             modifier = Modifier
                 .size(44.dp)
-                .clip(MaterialShapes.ShapeClover4)
+                .clip(ExpressiveShapes.Clover4Leaf)
                 .background(MaterialTheme.colorScheme.tertiaryContainer),
             contentAlignment = Alignment.Center
         ) {

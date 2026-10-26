@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.common.shade.PullDownShade
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 
 /**
  * Snippets shade morphing directly out of the status bar.
@@ -173,7 +173,7 @@ fun SnippetMorphingDock(
                             scaleX = 0.3f + 0.7f * sideProgress
                             scaleY = 0.3f + 0.7f * sideProgress
                         },
-                    shape = MaterialShapes.ShapeDiamond,
+                    shape = ExpressiveShapes.Diamond,
                     color = if (filterActive) {
                         MaterialTheme.colorScheme.primaryContainer
                     } else {

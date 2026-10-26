@@ -74,7 +74,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.ui.common.os.OsGlyph
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 
 /**
  * Full emoji picker for the combo icon metadata.
@@ -328,7 +328,7 @@ private fun EmojiCell(
         modifier = Modifier
             .size(50.dp)
             .semantics { contentDescription = entry.name },
-        shape = if (selected) MaterialShapes.ShapeCookie4 else CircleShape,
+        shape = if (selected) ExpressiveShapes.Cookie4Sided else CircleShape,
         color = if (selected) {
             MaterialTheme.colorScheme.primaryContainer
         } else {
@@ -420,7 +420,7 @@ fun ComboIconSlot(
             modifier = Modifier
                 .size(54.dp)
                 .align(Alignment.Center),
-            shape = MaterialShapes.ShapeCookie4,
+            shape = ExpressiveShapes.Cookie4Sided,
             color = if (hasEmoji) {
                 MaterialTheme.colorScheme.primaryContainer
             } else {

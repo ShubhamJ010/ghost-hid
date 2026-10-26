@@ -8,7 +8,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.sj010.ghid.domain.model.TargetOs
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 
 /** Physical direction of a multi-finger swipe on the virtual trackpad. */
 enum class GestureDirection {
@@ -64,12 +64,12 @@ data class TrackpadGesture(
 
     /** Expressive container shape for this gesture's badge. */
     fun resolveShape(): Shape = when (shapeType) {
-        GestureShapeType.ARCH -> MaterialShapes.ShapeArch
-        GestureShapeType.SEMI_CIRCLE -> MaterialShapes.ShapeSemiCircle
-        GestureShapeType.FAN -> MaterialShapes.ShapeFan
-        GestureShapeType.BOOM -> MaterialShapes.ShapeBoom
-        GestureShapeType.CLOVER -> MaterialShapes.ShapeClover4
-        GestureShapeType.SUNNY -> MaterialShapes.ShapeSunny
+        GestureShapeType.ARCH -> ExpressiveShapes.Arch
+        GestureShapeType.SEMI_CIRCLE -> ExpressiveShapes.SemiCircle
+        GestureShapeType.FAN -> ExpressiveShapes.Fan
+        GestureShapeType.BOOM -> ExpressiveShapes.Boom
+        GestureShapeType.CLOVER -> ExpressiveShapes.Clover4Leaf
+        GestureShapeType.SUNNY -> ExpressiveShapes.Sunny
     }
 
     /** Direction arrow drawn inside the badge. */

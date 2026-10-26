@@ -110,7 +110,7 @@ import androidx.compose.ui.unit.sp
 import com.sj010.ghid.GhostHidApp
 import com.sj010.ghid.domain.model.Snippet
 import com.sj010.ghid.service.HidService
-import com.sj010.ghid.ui.theme.MaterialShapes
+import com.sj010.ghid.ui.theme.ExpressiveShapes
 
 /**
  * The full Material 3 Expressive snippet screen inside the morphing notification shade.
@@ -409,7 +409,7 @@ fun SnippetShadeContent(
                             Box(
                                 modifier = Modifier
                                     .size(64.dp)
-                                    .clip(MaterialShapes.ShapeClover4) // Official M3E shape
+                                    .clip(ExpressiveShapes.Clover4Leaf) // Official M3E shape
                                     .background(MaterialTheme.colorScheme.primaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -587,14 +587,14 @@ private fun SnippetFilterChip(
 
 /** Curated M3E shapes for snippet card leading icons, chosen for visual variety. */
 private val snippetLeadingShapes: List<Shape> = listOf(
-    MaterialShapes.ShapeCookie4,
-    MaterialShapes.ShapeFlower,
-    MaterialShapes.ShapeArch,
-    MaterialShapes.ShapeDiamond,
-    MaterialShapes.ShapeSunny,
-    MaterialShapes.ShapeGhostish,
-    MaterialShapes.ShapeCookie9,
-    MaterialShapes.ShapeSoftBurst
+    ExpressiveShapes.Cookie4Sided,
+    ExpressiveShapes.Flower,
+    ExpressiveShapes.Arch,
+    ExpressiveShapes.Diamond,
+    ExpressiveShapes.Sunny,
+    ExpressiveShapes.Ghostish,
+    ExpressiveShapes.Cookie9Sided,
+    ExpressiveShapes.SoftBurst
 )
 
 @Composable
@@ -963,7 +963,7 @@ fun SnippetEditorPage(
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .clip(MaterialShapes.ShapeClover4)
+                            .clip(ExpressiveShapes.Clover4Leaf)
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
