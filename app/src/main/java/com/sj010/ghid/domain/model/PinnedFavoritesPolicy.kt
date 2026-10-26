@@ -24,6 +24,12 @@ object PinnedFavoritesPolicy {
             .plus(slotId to name)
     }
 
+    /** Removes any pin on [slotId]. */
+    fun unpin(pins: Map<Int, String>, slotId: Int): Map<Int, String> {
+        if (!pins.containsKey(slotId)) return pins
+        return pins.filterKeys { it != slotId }
+    }
+
     /** Shape slot currently holding [comboName], or null when it is unpinned. */
     fun slotFor(pins: Map<Int, String>, comboName: String): Int? {
         val key = normalize(comboName)

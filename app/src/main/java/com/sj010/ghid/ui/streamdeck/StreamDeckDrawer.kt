@@ -1,5 +1,6 @@
 package com.sj010.ghid.ui.streamdeck
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -62,6 +63,10 @@ fun StreamDeckDrawer(
         ),
         label = "deckDrawer"
     )
+
+    BackHandler(enabled = open) {
+        onClose()
+    }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val panelWidth = (maxWidth * 0.46f).coerceAtMost(460.dp)
@@ -163,6 +168,76 @@ fun StreamDeckDrawer(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Landscape-only combo picker side drawer. Slides in from the right edge
+ * (opposite end of the payload drawer) when a shape is held or an empty shape is clicked.
+ * Has no handle on the edge, but closes on scrim click, dragging back to the right,
+ * or back gesture.
+ */
+@Composable
+fun StreamDeckComboDrawer(
+    open: Boolean,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+    panel: @Composable () -> Unit
+) {
+    val progress by animateFloatAsState(
+        targetValue = if (open) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = 0.9f,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "deckComboDrawer"
+    )
+
+    BackHandler(enabled = open) {
+        onClose()
+    }
+
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val panelWidth = (maxWidth * 0.46f).coerceAtMost(460.dp)
+        val panelWidthPx = with(LocalDensity.current) { panelWidth.toPx() }
+
+        // Dim the deck while the panel is out.
+        if (progress > 0.01f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f * progress))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClose
+                    )
+            )
+        }
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .width(panelWidth)
+                .fillMaxHeight()
+                .graphicsLayer { translationX = panelWidthPx * (1f - progress) }
+                .pointerInput(Unit) {
+                    var dragged = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { dragged = 0f },
+                        onDragEnd = {
+                            if (dragged > 60f) onClose()
+                        },
+                        onDragCancel = { dragged = 0f },
+                        onHorizontalDrag = { _, amount -> dragged += amount }
+                    )
+                },
+            shape = RoundedCornerShape(topStart = 30.dp, bottomStart = 30.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 3.dp
+        ) {
+            panel()
         }
     }
 }

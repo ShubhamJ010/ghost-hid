@@ -32,7 +32,6 @@ import com.sj010.ghid.domain.model.Payload
 import com.sj010.ghid.domain.model.PinnedFavoritesPolicy
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.service.HidService
-import com.sj010.ghid.ui.dashboard.FavoritePickerSheet
 
 /**
  * Full-screen landscape "Ghost Stream Deck".
@@ -42,6 +41,8 @@ import com.sj010.ghid.ui.dashboard.FavoritePickerSheet
  * band so the same favourites light up here and the rest are free slots.
  * A drawer on the left edge slides sideways over the deck to reveal every
  * payload as a shaped pill, ordered by dispatch count.
+ * A matching drawer on the right edge slides in when a slot is held or an empty slot
+ * is clicked to add or change the pinned combo.
  */
 @Composable
 fun StreamDeckScreen(
@@ -60,13 +61,11 @@ fun StreamDeckScreen(
         PinnedFavoritesPolicy.resolve(pins, allCombos)
             .filterValues { ComboOsPolicy.matches(it, targetOs) }
     }
-    val favorites = remember(allCombos, targetOs) {
-        ComboOsPolicy.favorites(allCombos, targetOs)
-    }
     val slots = remember { streamDeckSlots() }
     val shapeNames = remember(slots) { slots.associate { it.slotId to it.shapeName } }
-    var pickerSlot by remember { mutableStateOf<StreamDeckSlot?>(null) }
-    var drawerOpen by rememberSaveable { mutableStateOf(false) }
+    var activePickerSlot by remember { mutableStateOf<StreamDeckSlot?>(null) }
+    var comboDrawerOpen by rememberSaveable { mutableStateOf(false) }
+    var payloadDrawerOpen by rememberSaveable { mutableStateOf(false) }
 
     ImmersiveDeck()
 
@@ -92,17 +91,23 @@ fun StreamDeckScreen(
             },
             onOpenPicker = { slot ->
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                pickerSlot = slot
+                activePickerSlot = slot
+                comboDrawerOpen = true
+                payloadDrawerOpen = false
             },
             modifier = Modifier.fillMaxSize()
         )
 
         StreamDeckTitle(modifier = Modifier.align(Alignment.TopStart))
 
+        // Left drawer: Payloads
         StreamDeckDrawer(
-            open = drawerOpen,
-            onOpen = { drawerOpen = true },
-            onClose = { drawerOpen = false },
+            open = payloadDrawerOpen,
+            onOpen = {
+                payloadDrawerOpen = true
+                comboDrawerOpen = false
+            },
+            onClose = { payloadDrawerOpen = false },
             modifier = Modifier.fillMaxSize()
         ) {
             StreamDeckPayloadShade(
@@ -110,28 +115,36 @@ fun StreamDeckScreen(
                 useCounts = payloadUseCounts,
                 targetOs = targetOs,
                 onSend = { payload -> dispatchPayload(service, payload) },
-                onClose = { drawerOpen = false }
+                onClose = { payloadDrawerOpen = false }
             )
         }
-    }
 
-    pickerSlot?.let { slot ->
-        FavoritePickerSheet(
-            slotId = slot.slotId,
-            slotLabel = slot.emptyLabel,
-            slotShape = slot.shape,
-            slotContainerColor = slot.containerColor,
-            slotContentColor = slot.contentColor,
-            favorites = favorites,
-            pinnedBySlot = pinnedCombos,
-            shapeNames = shapeNames,
-            onSelect = { combo ->
-                app.pinnedFavoritesRepository.pin(slot.slotId, combo.name)
-                pickerSlot = null
-            },
-            onBrowseCombos = null,
-            onDismiss = { pickerSlot = null }
-        )
+        // Right drawer: Add & Change Combos (opposite end of payload drawer, opens on hold or empty shape clicked)
+        StreamDeckComboDrawer(
+            open = comboDrawerOpen && activePickerSlot != null,
+            onClose = { comboDrawerOpen = false },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            activePickerSlot?.let { slot ->
+                StreamDeckComboShade(
+                    slot = slot,
+                    currentCombo = pinnedCombos[slot.slotId],
+                    allCombos = allCombos,
+                    targetOs = targetOs,
+                    pinnedBySlot = pinnedCombos,
+                    shapeNames = shapeNames,
+                    onSelectCombo = { combo ->
+                        app.pinnedFavoritesRepository.pin(slot.slotId, combo.name)
+                        comboDrawerOpen = false
+                    },
+                    onUnpin = {
+                        app.pinnedFavoritesRepository.unpin(slot.slotId)
+                        comboDrawerOpen = false
+                    },
+                    onClose = { comboDrawerOpen = false }
+                )
+            }
+        }
     }
 }
 

@@ -39,6 +39,13 @@ class PinnedFavoritesRepository(private val context: Context) {
         persist(updated)
     }
 
+    fun unpin(slotId: Int) {
+        val updated = PinnedFavoritesPolicy.unpin(_pins.value, slotId)
+        if (updated == _pins.value) return
+        _pins.value = updated
+        persist(updated)
+    }
+
     private fun persist(pins: Map<Int, String>) {
         val entries = pins
             .map { (slotId, comboName) -> PinnedFavorite(slotId = slotId, comboName = comboName) }
