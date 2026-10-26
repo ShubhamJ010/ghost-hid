@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ghost-hid-android"
+rootProject.name = "ghost-hid"
 include(":app")
