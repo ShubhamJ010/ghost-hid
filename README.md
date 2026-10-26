@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/icon.png?v=2" width="110" height="110" alt="GhostHID icon" />
+  <img src="docs/images/app-launcher-icon.png" width="110" height="110" alt="GhostHID icon" />
 </p>
 
 <h1 align="center">GhostHID</h1>
@@ -27,14 +27,14 @@ GhostHID turns an Android device into a physical wireless keyboard and mouse. It
 ## Interface overview
 
 <p align="center">
-  <img src="docs/images/streamdeck.png?v=2" width="100%" alt="Ghost Stream Deck mode in landscape orientation" />
+  <img src="docs/images/screenshot-streamdeck.png" width="100%" alt="Ghost Stream Deck mode in landscape orientation" />
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png?v=2" width="24%" alt="Dashboard screen" />
-  <img src="docs/images/payload.png?v=2" width="24%" alt="Secure payload drawer" />
-  <img src="docs/images/combos.png?v=2" width="24%" alt="Combos screen" />
-  <img src="docs/images/trackpad.png?v=2" width="24%" alt="Trackpad screen" />
+  <img src="docs/images/screenshot-dashboard.png" width="24%" alt="Dashboard screen" />
+  <img src="docs/images/screenshot-payload.png" width="24%" alt="Secure payload drawer" />
+  <img src="docs/images/screenshot-combos.png" width="24%" alt="Combos screen" />
+  <img src="docs/images/screenshot-trackpad.png" width="24%" alt="Trackpad screen" />
 </p>
 
 ## Subsystems
