@@ -125,16 +125,30 @@ object ActionSequenceParser {
             return HidStep.KeyboardChord(mod, key, tokenBody, durationMs = holdMs ?: 40L)
         }
 
-        // 6. Direct Raw Report Hex (e.g. 02, cd00, 08000f0000000000)
+        // 6. Explicit raw report prefix: {raw:02}, {raw:cd00}, {raw:08000f0000000000}
+        if (tokenBody.startsWith("raw:", ignoreCase = true)) {
+            val rawHex = tokenBody.substring(4).trim().replace(" ", "")
+            if (rawHex.length in listOf(2, 4, 8, 16) && rawHex.all { it in "0123456789abcdefABCDEF" }) {
+                val bytes = ByteArray(rawHex.length / 2) { idx ->
+                    rawHex.substring(idx * 2, idx * 2 + 2).toInt(16).toByte()
+                }
+                return HidStep.RawReport(bytes, rawHex.lowercase(Locale.ROOT), durationMs = holdMs ?: 60L)
+            }
+        }
+
+        // 7. Direct Raw Report Hex (e.g. 02, cd00, 08000f0000000000)
+        // Note: All-digit tokens of length >= 4 (e.g. 1234) are payload references, not raw reports.
         val cleanHex = tokenBody.replace(" ", "")
-        if (cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }) {
+        val isAllDigits = cleanHex.isNotEmpty() && cleanHex.all { it.isDigit() }
+        val isRawCandidate = (cleanHex.length == 2 && isAllDigits) || (!isAllDigits && cleanHex.length in listOf(2, 4, 8, 16))
+        if (isRawCandidate && cleanHex.all { it in "0123456789abcdefABCDEF" }) {
             val bytes = ByteArray(cleanHex.length / 2) { idx ->
                 cleanHex.substring(idx * 2, idx * 2 + 2).toInt(16).toByte()
             }
             return HidStep.RawReport(bytes, cleanHex.lowercase(Locale.ROOT), durationMs = holdMs ?: 60L)
         }
 
-        // 7. Bare modifier (e.g. {shift}, {ctrl}) -> modifier-only HID chord.
+        // 8. Bare modifier (e.g. {shift}, {ctrl}) -> modifier-only HID chord.
         // Must come before the payload rule: parseChord("shift") has key=0, so
         // isStandardKey() is false and the old order emitted $SHIFT instead.
         if (KeyTokens.isModifier(tokenBody)) {
@@ -142,7 +156,7 @@ object ActionSequenceParser {
             return HidStep.KeyboardChord(mod, key, tokenBody, durationMs = holdMs ?: 40L)
         }
 
-        // 8. Named Payload Reference (e.g. {PASSWORD}, {EMAIL}, {WIN_SLEEP})
+        // 9. Named Payload Reference (e.g. {PASSWORD}, {EMAIL}, {WIN_SLEEP}, {1234})
         if (tokenBody.all { it.isLetterOrDigit() || it == '_' || it == '-' }) {
             return HidStep.PayloadReference(tokenBody, durationMs = holdMs)
         }

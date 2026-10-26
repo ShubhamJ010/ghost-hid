@@ -859,15 +859,18 @@ class HidService : Service() {
                     }
                     is HidStep.PayloadReference -> {
                         val pRepo = GhostHidApp.instance.payloadRepository
-                        val p = pRepo.get(step.name)
-                        val value = pRepo.resolve(step.name)
+                        val comboPayload = combo?.payloads?.get(step.name)
+                        val p = pRepo.get(step.name) ?: comboPayload
+                        val value = pRepo.resolve(step.name) ?: comboPayload?.value
                         val hold = step.durationMs ?: 60L
                         if (!value.isNullOrEmpty()) {
                             val cleanVal = value.trim()
-                            val cleanHex = (if (cleanVal.startsWith("raw:", ignoreCase = true)) cleanVal.substring(4) else cleanVal)
-                                .replace(" ", "")
-                            val isHexMatch = cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }
-                            if (p?.isRaw == true || cleanVal.startsWith("raw:", ignoreCase = true) || isHexMatch) {
+                            val isExplicitRawPrefix = cleanVal.startsWith("raw:", ignoreCase = true)
+                            val isPayloadRaw = p?.isRaw == true || isExplicitRawPrefix
+                            if (isPayloadRaw) {
+                                val hexStr = if (isExplicitRawPrefix) cleanVal.substring(4).trim() else cleanVal
+                                val cleanHex = hexStr.replace(" ", "")
+                                val isHexMatch = cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }
                                 if (isHexMatch) {
                                     val bytes = ByteArray(cleanHex.length / 2) { i ->
                                         cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
