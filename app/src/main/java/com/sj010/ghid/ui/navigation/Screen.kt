@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Mouse
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
 enum class Screen(
@@ -14,11 +15,11 @@ enum class Screen(
 ) {
     Dashboard("dashboard", "Dashboard", Icons.Default.Dashboard, isBottomNav = true),
     Combos("combos", "Combos", Icons.Default.Code, isBottomNav = true),
-    Trackpad("trackpad", "Trackpad", Icons.Default.Mouse, isBottomNav = true);
+    Trackpad("trackpad", "Trackpad", Icons.Default.Mouse, isBottomNav = true),
+    Settings("settings", "Settings", Icons.Default.Settings, isBottomNav = false);
 
     companion object {
         val bottomNavScreens: List<Screen>
             get() = entries.filter { it.isBottomNav }
     }
 }
-

@@ -61,6 +61,7 @@ fun MostUsedCombosSection(
     Surface(
         modifier = Modifier
             .padding(top = 16.dp)
+            .padding(bottom = 64.dp)
             .fillMaxWidth(),
         shape = cardShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow

@@ -17,6 +17,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,7 +48,9 @@ import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SyncAlt
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -109,6 +112,7 @@ import kotlinx.coroutines.launch
 fun DashboardScreen(
     service: HidService?,
     onNavigateToCombos: (() -> Unit)? = null,
+    onNavigateToSettings: (() -> Unit)? = null,
     onQuit: () -> Unit = {}
 ) {
     val connectionState by service?.connectionState?.collectAsState()
@@ -177,7 +181,6 @@ fun DashboardScreen(
         }
     }
 
-
     PullDownShade(
         dock = { scope ->
             MorphingDeviceCard(
@@ -211,7 +214,7 @@ fun DashboardScreen(
         ) {
 
             // ==========================================
-            // SECTION 1: APP HEADING
+            // SECTION 1: APP HEADING & SETTINGS SHORTCUT
             // ==========================================
             item {
                 val hidAccent = MaterialTheme.colorScheme.primary
@@ -223,14 +226,21 @@ fun DashboardScreen(
                         }
                     }
                 }
-                Text(
-                    text = heading,
-                    style = MaterialTheme.typography.displayMedium,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = (-1.5).sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(top = 8.dp, start = 4.dp)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, start = 4.dp, end = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = heading,
+                        style = MaterialTheme.typography.displayMedium,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-1.5).sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
 
             // ==========================================
@@ -283,37 +293,101 @@ fun DashboardScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            Button(
-                onClick = onQuit,
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(
-                    topStart = 28.dp,
-                    topEnd = 18.dp,
-                    bottomEnd = 28.dp,
-                    bottomStart = 18.dp
-                ),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFD32F2F),
-                    contentColor = Color.White
-                ),
-                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 22.dp),
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 3.dp,
-                    pressedElevation = 1.dp
-                )
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.PowerSettingsNew,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "QUIT APP",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.2.sp
-                )
+                // Material 3 Expressive Settings Button (placed right above Quit App)
+                Surface(
+                    onClick = { onNavigateToSettings?.invoke() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(
+                        topStart = 24.dp,
+                        topEnd = 16.dp,
+                        bottomEnd = 24.dp,
+                        bottomStart = 16.dp
+                    ),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    shadowElevation = 3.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(ExpressiveShapes.Cookie9Sided)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Settings",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = "Settings & Tuning",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Trackpad, HID timing, host OS & display",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                    }
+                }
+
+                // Quit App Button
+                Button(
+                    onClick = onQuit,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(
+                        topStart = 28.dp,
+                        topEnd = 18.dp,
+                        bottomEnd = 28.dp,
+                        bottomStart = 18.dp
+                    ),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFD32F2F),
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(horizontal = 28.dp, vertical = 18.dp),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 3.dp,
+                        pressedElevation = 1.dp
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PowerSettingsNew,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "QUIT APP",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.2.sp
+                    )
+                }
             }
         }
 

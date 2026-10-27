@@ -9,6 +9,7 @@ import com.sj010.ghid.data.PayloadRepository
 import com.sj010.ghid.data.PayloadUsageRepository
 import com.sj010.ghid.data.PinnedFavoritesRepository
 import com.sj010.ghid.data.QuickSendHistoryRepository
+import com.sj010.ghid.data.SettingsRepository
 
 class GhostHidApp : Application() {
 
@@ -28,6 +29,8 @@ class GhostHidApp : Application() {
         private set
     lateinit var deviceOsCache: DeviceOsCache
         private set
+    lateinit var settingsRepository: SettingsRepository
+        private set
 
     /** Backward compatibility alias */
     val snippetRepository: PayloadRepository
@@ -38,6 +41,7 @@ class GhostHidApp : Application() {
         instance = this
 
         vault = AndroidKeystoreVault(this)
+        settingsRepository = SettingsRepository(this)
         payloadRepository = PayloadRepository(this, vault)
         payloadUsageRepository = PayloadUsageRepository(this)
         comboRepository = ComboRepository(this, payloadRepository)

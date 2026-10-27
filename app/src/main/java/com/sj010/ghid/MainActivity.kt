@@ -14,8 +14,10 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.Process
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,8 +25,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -36,19 +38,26 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.sj010.ghid.domain.model.ThemeMode
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.combos.ComboStudioScreen
 import com.sj010.ghid.ui.dashboard.DashboardScreen
 import com.sj010.ghid.ui.navigation.Screen
+import com.sj010.ghid.ui.settings.SettingsScreen
 import com.sj010.ghid.ui.streamdeck.StreamDeckScreen
 import com.sj010.ghid.ui.theme.GhostHidTheme
 import com.sj010.ghid.ui.trackpad.TrackpadScreen
@@ -74,7 +83,7 @@ class MainActivity : ComponentActivity() {
 
     private val requestPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
+    ) { _ ->
         if (hasRequiredBluetoothPermission()) {
             startAndBindService()
         }
@@ -98,7 +107,41 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            GhostHidTheme {
+            val settings by GhostHidApp.instance.settingsRepository.settings.collectAsState()
+
+            // Keep screen awake toggle
+            DisposableEffect(settings.keepScreenAwake) {
+                if (settings.keepScreenAwake) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                onDispose {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+            }
+
+            // High refresh rate toggle
+            LaunchedEffect(settings.highRefreshRate) {
+                if (settings.highRefreshRate) {
+                    preferHighRefreshRate()
+                } else {
+                    window.attributes = window.attributes.apply {
+                        preferredRefreshRate = 60f
+                    }
+                }
+            }
+
+            val darkTheme = when (settings.themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.DARK -> true
+                ThemeMode.LIGHT -> false
+            }
+
+            GhostHidTheme(
+                darkTheme = darkTheme,
+                dynamicColor = settings.dynamicColor
+            ) {
                 MainAppScaffold(
                     service = hidService,
                     onQuit = { quitApp() }
@@ -210,6 +253,10 @@ class MainActivity : ComponentActivity() {
 fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}) {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
 
+    BackHandler(enabled = currentScreen == Screen.Settings) {
+        currentScreen = Screen.Dashboard
+    }
+
     // Landscape turns the phone into a full-bleed stream deck. Portrait keeps
     // the regular bottom-nav scaffold, and the current screen survives rotation.
     if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) {
@@ -222,11 +269,13 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}) {
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         bottomBar = {
             NavigationBar(
+                modifier = Modifier.alpha(if (currentScreen == Screen.Settings) 0f else 1f),
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
             ) {
                 Screen.bottomNavScreens.forEach { screen ->
                     NavigationBarItem(
                         selected = currentScreen == screen,
+                        enabled = currentScreen != Screen.Settings,
                         onClick = { currentScreen = screen },
                         icon = { Icon(screen.icon, contentDescription = screen.title) },
                         label = {
@@ -238,8 +287,8 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}) {
                             )
                         }
                     )
+                    }
                 }
-            }
         }
     ) { innerPadding ->
         Surface(
@@ -251,8 +300,8 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}) {
             AnimatedContent(
                 targetState = currentScreen,
                 transitionSpec = {
-                    (fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.98f)).togetherWith(
-                        fadeOut(animationSpec = tween(150))
+                    fadeIn(animationSpec = tween(180)).togetherWith(
+                        fadeOut(animationSpec = tween(180))
                     )
                 },
                 label = "screenTransition"
@@ -266,11 +315,13 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}) {
                         DashboardScreen(
                             service = service,
                             onNavigateToCombos = { currentScreen = Screen.Combos },
+                            onNavigateToSettings = { currentScreen = Screen.Settings },
                             onQuit = onQuit
                         )
                     }
                     Screen.Combos -> ComboStudioScreen(service = service)
                     Screen.Trackpad -> TrackpadScreen(service = service)
+                    Screen.Settings -> SettingsScreen(onBack = { currentScreen = Screen.Dashboard })
                 }
             }
         }

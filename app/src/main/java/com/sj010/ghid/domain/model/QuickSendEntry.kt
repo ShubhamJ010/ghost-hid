@@ -20,13 +20,14 @@ object QuickSendHistoryPolicy {
     fun record(
         current: List<QuickSendEntry>,
         scheme: String,
-        createdAt: String
+        createdAt: String,
+        maxEntries: Int = MAX_ENTRIES
     ): List<QuickSendEntry> {
         val clean = scheme.trim()
         if (clean.isEmpty()) return current
 
         val withoutDuplicate = current.filterNot { it.scheme.trim() == clean }
         return (listOf(QuickSendEntry(scheme = clean, createdAt = createdAt)) + withoutDuplicate)
-            .take(MAX_ENTRIES)
+            .take(maxEntries)
     }
 }

@@ -1,16 +1,17 @@
 package com.sj010.ghid.data
 
 import android.content.Context
+import com.sj010.ghid.GhostHidApp
 import com.sj010.ghid.domain.model.QuickSendEntry
 import com.sj010.ghid.domain.model.QuickSendHistoryPolicy
 import com.sj010.ghid.domain.model.QuickSendTime
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
 
 /**
  * Persists dispatched quick-send schemes so the composer can offer rerun and
@@ -34,10 +35,15 @@ class QuickSendHistoryRepository(private val context: Context) {
     }
 
     fun record(scheme: String) {
+        val limit = try {
+            GhostHidApp.instance.settingsRepository.settings.value.quickSendHistoryLimit
+        } catch (_: Exception) { QuickSendHistoryPolicy.MAX_ENTRIES }
+
         val updated = QuickSendHistoryPolicy.record(
             current = _entries.value,
             scheme = scheme,
-            createdAt = QuickSendTime.isoNow()
+            createdAt = QuickSendTime.isoNow(),
+            maxEntries = limit
         )
         _entries.value = updated
         persist(updated)
