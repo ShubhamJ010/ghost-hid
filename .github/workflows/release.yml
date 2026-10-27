@@ -111,6 +111,7 @@ jobs:
           path: app/build/outputs/apk/release/ghost-hid-*.apk
 
       - name: Create GitHub Release
+        if: startsWith(github.ref_name, 'v')
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/release/ghost-hid-*.apk
