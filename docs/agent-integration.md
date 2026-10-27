@@ -152,11 +152,11 @@ Parses a sequence for the target grammar **and resolves every payload reference*
 ```json
 {
   "valid": true,
-  "sequence": "{mod+r}{500ms}notepad{300ms}{Enter}",
+  "sequence": "{win+r}{500ms}notepad{300ms}{Enter}",
   "os": "windows",
   "os_source": "selected_device",
   "steps": [
-    {"type": "keyboard", "value": "mod+r", "delay_ms": 500, "modifier": 1, "keycode": 21, "report_hex": "0100150000000000"},
+    {"type": "keyboard", "value": "win+r", "delay_ms": 500, "modifier": 8, "keycode": 21, "report_hex": "0800150000000000"},
     {"type": "text", "value": "notepad", "delay_ms": 300},
     {"type": "keyboard", "value": "enter", "delay_ms": 0, "keycode": 40, "report_hex": "0000280000000000"}
   ],
@@ -197,8 +197,8 @@ Reads a saved combo back without touching `combos.json` by hand.
 ```json
 {
   "status": "success",
-  "combo": {"name": "Open Terminal", "sequence": "{mod+r}", "os": "windows", "favorite": true, "created_at": "2026-10-23T01:00:00Z"},
-  "steps": [{"type": "keyboard", "value": "mod+r", "delay_ms": 0, "modifier": 1, "keycode": 21, "report_hex": "0100150000000000"}],
+  "combo": {"name": "Open Terminal", "sequence": "{win+r}", "os": "windows", "favorite": true, "created_at": "2026-10-23T01:00:00Z"},
+  "steps": [{"type": "keyboard", "value": "win+r", "delay_ms": 0, "modifier": 8, "keycode": 21, "report_hex": "0800150000000000"}],
   "payloads": [],
   "resolved_payloads": [],
   "unresolved_payloads": [],
@@ -253,7 +253,7 @@ Returns all saved combos in the local library (`~/.config/ghid/combos.json`).
   },
   {
     "name": "Lock",
-    "sequence": "{mod+l}",
+    "sequence": "{win+l}",
     "os": "windows",
     "emoji": "🔒",
     "description": "Instant Windows lock screen (Win + L)",
@@ -586,7 +586,7 @@ if ! ghid status --json >/dev/null 2>&1; then
 fi
 
 # 2. Inject command
-ghid combo "{mod+r}{500ms}cmd{300ms}{Enter}"
+ghid combo "{win+r}{500ms}cmd{300ms}{Enter}"
 ```
 
 ### Python: Automated Diagnostic and Action Dispatch

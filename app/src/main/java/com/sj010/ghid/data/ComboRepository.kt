@@ -116,16 +116,25 @@ class ComboRepository(
                 )
                 migrated = true
             }
-            if (updated.name.equals("Lock", ignoreCase = true) && updated.effectiveSequence.contains("win+l")) {
-                updated = updated.copy(sequence = "{mod+l}")
+            if (updated.name.equals("Lock", ignoreCase = true) && (updated.effectiveSequence.contains("mod+l") || updated.sequence.contains("mod+l") || !updated.effectiveSequence.contains("{win+l}"))) {
+                updated = updated.copy(
+                    sequence = "{win+l}",
+                    description = "Instant Windows lock screen (Win + L)"
+                )
                 migrated = true
             }
-            if (updated.name.equals("MacSleep", ignoreCase = true) && updated.effectiveSequence.contains("->")) {
-                updated = updated.copy(sequence = "{mod+ctrl+q}{500ms}{Escape}")
+            if (updated.name.equals("MacSleep", ignoreCase = true) && (updated.effectiveSequence.contains("->") || updated.sequence.contains("mod+ctrl+q"))) {
+                updated = updated.copy(
+                    sequence = "{cmd+ctrl+q}{500ms}{Escape}",
+                    description = "Instant macOS lock and display sleep"
+                )
                 migrated = true
             }
-            if (updated.name.equals("ForceQuit", ignoreCase = true) && updated.effectiveSequence.contains("->")) {
-                updated = updated.copy(sequence = "{mod+alt+esc}{400ms}{Enter}{300ms}{Enter}")
+            if (updated.name.equals("ForceQuit", ignoreCase = true) && (updated.effectiveSequence.contains("->") || updated.sequence.contains("mod+alt+esc"))) {
+                updated = updated.copy(
+                    sequence = "{cmd+alt+esc}{400ms}{Enter}{300ms}{Enter}",
+                    description = "Force quit frontmost unresponsive app"
+                )
                 migrated = true
             }
             updated
@@ -152,7 +161,7 @@ class ComboRepository(
                 ),
                 Combo(
                     name = "Lock",
-                    sequence = "{mod+l}",
+                    sequence = "{win+l}",
                     os = TargetOs.WINDOWS.token,
                     emoji = "🔒",
                     description = "Instant Windows lock screen (Win + L)",
@@ -171,7 +180,7 @@ class ComboRepository(
                 ),
                 Combo(
                     name = "MacSleep",
-                    sequence = "{mod+ctrl+q}{500ms}{Escape}",
+                    sequence = "{cmd+ctrl+q}{500ms}{Escape}",
                     os = TargetOs.MACOS.token,
                     emoji = "🌙",
                     description = "Instant macOS lock and display sleep",
@@ -180,7 +189,7 @@ class ComboRepository(
                 ),
                 Combo(
                     name = "ForceQuit",
-                    sequence = "{mod+alt+esc}{400ms}{Enter}{300ms}{Enter}",
+                    sequence = "{cmd+alt+esc}{400ms}{Enter}{300ms}{Enter}",
                     os = TargetOs.MACOS.token,
                     emoji = "⚡",
                     description = "Force quit frontmost unresponsive app",
