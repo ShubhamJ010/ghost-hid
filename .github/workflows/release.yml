@@ -27,6 +27,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 11076708
 
       - name: Decode signing key
         env:
@@ -47,19 +49,21 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          cat > keystore.properties <<EOF
-          storeFile=release.jks
-          storePassword=${RELEASE_STORE_PASSWORD}
-          keyAlias=${RELEASE_KEY_ALIAS}
-          keyPassword=${RELEASE_KEY_PASSWORD}
-          EOF
+          printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$RELEASE_STORE_PASSWORD" "$RELEASE_KEY_ALIAS" "$RELEASE_KEY_PASSWORD" > keystore.properties
           echo "keystore.properties written"
+          cat keystore.properties
 
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      - name: Capture Gradle and Java versions
+        run: |
+          echo "java: $(java -version 2>&1 | head -1)"
+          echo "gradle: $(./gradlew --version | head -3)"
+
       - name: Build release APK
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease --no-daemon --info
 
       - name: Verify APK signature
         env:
@@ -67,10 +71,15 @@ jobs:
         run: |
           set -euo pipefail
           APK=app/build/outputs/apk/release/app-release.apk
-          echo "=== APK info ==="
-          cat "$APK/../output-metadata.json" || true
+          echo "APK=$APK"
+          ls -la "$APK" || true
+          echo "=== output-metadata.json ==="
+          find . -path "*/build/outputs/apk/release/output-metadata.json" -exec cat {} \; || true
           echo "=== Signature verification ==="
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | tail -1)/apksigner" verify --print-certs "$APK"
+          BT=$(ls "$ANDROID_HOME/build-tools" | tail -1)
+          echo "build-tools=$BT"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          "$ANDROID_HOME/build-tools/$BT/apksigner" verify --print-certs "$APK"
 
       - name: Rename APK with version
         id: version
@@ -85,15 +94,11 @@ jobs:
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "Built $NEW_NAME (versionName=$VERSION_NAME, versionCode=$VERSION_CODE)"
 
-      - name: Package release assets
-        run: |
-          set -euo pipefail
-          APP_DIR=app/build/outputs/apk/release
-          # Strip any previous release apks so only the freshly built one is attached
-          find . -maxdepth 3 -name "ghost-hid-*.apk" ! -path "./ghost-hid-*.apk" -delete || true
+
 
       - name: Upload release APK
         uses: softprops/action-gh-release@v2
+        if: success()
         with:
           tag_name: ${{ github.ref_name }}
           name: GhostHID ${{ steps.version.outputs.version_name }}
