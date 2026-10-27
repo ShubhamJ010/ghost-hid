@@ -13,8 +13,8 @@
     <img src="https://img.shields.io/badge/Obtainium-Add_to_Obtainium-blue?style=for-the-badge&logo=android&logoColor=white" height="38" alt="Add to Obtainium" />
   </a>
   &nbsp;&nbsp;
-  <a href="https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.0">
-    <img src="https://img.shields.io/badge/Release-v0.1.0-00C853?style=for-the-badge&logo=github&logoColor=white" height="38" alt="Download Release v0.1.0" />
+  <a href="https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.1">
+    <img src="https://img.shields.io/badge/Release-v0.1.1-00C853?style=for-the-badge&logo=github&logoColor=white" height="38" alt="Download Release v0.1.1" />
   </a>
   &nbsp;&nbsp;
   <a href="https://github.com/ShubhamJ010/ghid-cli">
