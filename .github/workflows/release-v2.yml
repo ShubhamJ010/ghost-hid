@@ -79,8 +79,9 @@ jobs:
         id: version
         run: |
           set -euo pipefail
-          VERSION_NAME=$(grep -o '"versionName":"[^"]*"' app/build/outputs/apk/release/output-metadata.json | sed 's/"versionName":"//;s/"//')
-          VERSION_CODE=$(grep -o '"versionCode":[0-9]*' app/build/outputs/apk/release/output-metadata.json | sed 's/"versionCode"://')
+          META=app/build/outputs/apk/release/output-metadata.json
+          VERSION_NAME=$(python3 -c "import json;print(json.load(open('$META'))['elements'][0]['versionName'])")
+          VERSION_CODE=$(python3 -c "import json;print(json.load(open('$META'))['elements'][0]['versionCode'])")
           APK=app/build/outputs/apk/release/app-release.apk
           NEW_NAME="ghost-hid-${VERSION_NAME}-v${VERSION_CODE}.apk"
           cp "$APK" "$NEW_NAME"
