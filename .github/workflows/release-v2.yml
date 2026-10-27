@@ -129,15 +129,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          chmod +x ./scripts/update-changelog.sh 2>/dev/null || true
-          if [ -x ./scripts/update-changelog.sh ]; then
-            TAG=${{ github.ref_name }}
-            ./scripts/update-changelog.sh "$TAG"
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add CHANGELOG.md
-            git commit -m "chore: mark ${{ github.ref_name }} as released in CHANGELOG.md" || true
-            git push
-          else
+          if [ ! -f ./scripts/update-changelog.sh ]; then
             echo "::notice::scripts/update-changelog.sh not present; skipping changelog bump"
+            exit 0
+          fi
+          git fetch origin main
+          git checkout -B main origin/main
+          chmod +x ./scripts/update-changelog.sh
+          ./scripts/update-changelog.sh "${{ github.ref_name }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No changelog changes to commit"
+          else
+            git commit -m "chore: mark ${{ github.ref_name }} as released in CHANGELOG.md"
+            git push origin main
           fi
