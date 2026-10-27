@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TAG="${1:?usage: scripts/update-changelog.sh <tag>}"
 CHANGELOG="CHANGELOG.md"
 
 if [ ! -f "$CHANGELOG" ]; then
-  echo "::error::CHANGELOG.md not found at repo root"
+  echo "::error::CHANGELOG.md not found in repo root" >&2
   exit 1
 fi
 
-# Add a new release section, dropping any existing "Unreleased" block.
-perl -0777 -i -pe '
-  s/## \[Unreleased\].*?(?=\n## \[)/## [Unreleased]\n\n### Added\n\n### Changed\n\n### Fixed\n\n\n/s;
-  # Insert the new release section right before the first ## [version] line,
-  # or before the ## [Unreleased] line if that is the only header.
-  s/^(## \[Unreleased\]\n)/## ['"${TAG}"'] - '"$(date +%Y-%m-%d)"'\n\n### Added\n\n### Changed\n\n### Fixed\n\n\n$1/s;
-' "$CHANGELOG"
+# If an "Unreleased" section already exists, do nothing.
+if grep -q '^## \[Unreleased\]' "$CHANGELOG"; then
+  echo "Unreleased section already present; nothing to do."
+  exit 0
+fi
 
-echo "CHANGELOG.md updated for $TAG"
+# Insert an Unreleased section right after the first line (the title).
+perl -0777 -i -pe 's/^(# Changelog\n)/$1## [Unreleased] - YYYY-MM-DD\n\n### Added\n\n### Changed\n\n### Fixed\n\n/' "$CHANGELOG"
+
+echo "Added '## [Unreleased]' section to $CHANGELOG"

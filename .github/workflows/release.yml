@@ -1,34 +1,35 @@
-name: Release build
+name: Release Build
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
-concurrency:
-  group: release-${{ github.ref_name }}
-  cancel-in-progress: true
+permissions:
+  contents: write
+
+env:
+  JAVA_VERSION: '17'
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: 11076708
 
       - name: Decode signing key
         env:
@@ -42,104 +43,79 @@ jobs:
           echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > release.jks
           echo "release.jks decoded ($(stat -c%s release.jks) bytes)"
 
-      - name: Write keystore.properties
+      - name: Decode keystore credentials
         env:
-          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
-            "$RELEASE_STORE_PASSWORD" "$RELEASE_KEY_ALIAS" "$RELEASE_KEY_PASSWORD" > keystore.properties
-          echo "keystore.properties written"
-          cat keystore.properties
+          echo "release.jks_password=${RELEASE_KEYSTORE_PASSWORD}" >> gradle.properties
+          echo "release_key_alias=${RELEASE_KEY_ALIAS}" >> gradle.properties
+          echo "release_key_password=${RELEASE_KEY_PASSWORD}" >> gradle.properties
 
-      - name: Make gradlew executable
-        run: chmod +x gradlew
+      - name: Build signed release APK
+        run: ./gradlew :app:assembleRelease
 
-      - name: Capture Gradle and Java versions
+      - name: Rename APK
         run: |
-          echo "java: $(java -version 2>&1 | head -1)"
-          echo "gradle: $(./gradlew --version | head -3)"
+          cd app/build/outputs/apk/release
+          APK="$(ls app-release.apk)"
+          TAG="${{ github.ref_name }}"
+          mv "$APK" "ghost-hid-v${TAG#v}.apk"
 
-      - name: Build release APK
-        run: ./gradlew :app:assembleRelease --no-daemon --info
-
-      - name: Verify APK signature
-        env:
-          ANDROID_HOME: ${{ android.sdk_path }}
-        run: |
-          set -euo pipefail
-          APK=app/build/outputs/apk/release/app-release.apk
-          echo "APK=$APK"
-          ls -la "$APK" || true
-          echo "=== output-metadata.json ==="
-          find . -path "*/build/outputs/apk/release/output-metadata.json" -exec cat {} \; || true
-          echo "=== Signature verification ==="
-          BT=$(ls "$ANDROID_HOME/build-tools" | tail -1)
-          echo "build-tools=$BT"
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          "$ANDROID_HOME/build-tools/$BT/apksigner" verify --print-certs "$APK"
-
-      - name: Rename APK with version
+      - name: Determine versioning from source
         id: version
         run: |
           set -euo pipefail
-          VERSION_NAME=$(grep -o '"versionName":"[^"]*"' app/build/outputs/apk/release/output-metadata.json | sed 's/"versionName":"//;s/"//')
-          VERSION_CODE=$(grep -o '"versionCode":[0-9]*' app/build/outputs/apk/release/output-metadata.json | sed 's/"versionCode"://')
-          APK=app/build/outputs/apk/release/app-release.apk
-          NEW_NAME="ghost-hid-${VERSION_NAME}-v${VERSION_CODE}.apk"
-          cp "$APK" "$NEW_NAME"
-          echo "apk_name=$NEW_NAME" >> "$GITHUB_OUTPUT"
+
+          VERSION_NAME=$(grep 'versionName' app/build.gradle.kts | head -n1 | tr -d '"' | sed 's/.*versionName = *"\([^"]*\)".*/\1/')
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
-          echo "Built $NEW_NAME (versionName=$VERSION_NAME, versionCode=$VERSION_CODE)"
 
+          VERSION_CODE=$(grep 'versionCode' app/build.gradle.kts | head -n1 | sed 's/.*versionCode = *\([0-9]*\).*/\1/')
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
 
+          RELEASE_TAG="${{ github.ref_name }}"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Upload release APK
-        uses: softprops/action-gh-release@v2
-        if: success()
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: GhostHID ${{ steps.version.outputs.version_name }}
-          files: ${{ steps.version.outputs.apk_name }}
-          draft: false
-          prerelease: false
+      - name: Read changelog
+        id: changelog
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload debug APK as fallback (unsigned)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ghost-hid-release-fallback
-          path: app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: ignore
-
-  publish-changelog:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref_name, 'v')
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Update changelog unreleased section
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          chmod +x ./scripts/update-changelog.sh 2>/dev/null || true
-          if [ -x ./scripts/update-changelog.sh ]; then
-            TAG=${{ github.ref_name }}
-            ./scripts/update-changelog.sh "$TAG"
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add CHANGELOG.md
-            git commit -m "chore: mark ${{ github.ref_name }} as released in CHANGELOG.md" || true
-            git push
-          else
-            echo "::notice::scripts/update-changelog.sh not present; skipping changelog bump"
-          fi
+          TAG="${GITHUB_REF_NAME}"
+          RELEASE_TAG="${TAG#v}"
+          python3 - "$RELEASE_TAG" <<'PY'
+          import sys, re
+          tag = sys.argv[1]
+          text = open("CHANGELOG.md", "r", encoding="utf-8").read()
+          target = f"## [{tag}]"
+          pat = re.compile(rf"^{re.escape(target)}.*$", re.MULTILINE)
+          m = pat.search(text)
+          if not m:
+            print("::warning::release section '[{tag}]' not found in CHANGELOG.md", file=sys.stderr)
+            print("full_changelog<<'CHANGELOG_EOF'\n(No matching [X.Y.Z] section found in CHANGELOG.md. Full changelog attached.)\nCHANGELOG_EOF")
+            sys.exit(0)
+          start = m.end(0)
+          next_section = re.search(r"\n## \[", text, m.end(0))
+          end = next_section.start(0) if next_section else len(text)
+          section = text[m.start(0) : end].rstrip() + "\n"
+          print("release_body<<'RELEASE_BODY_EOF'\n" + section + "\nRELEASE_BODY_EOF")
+          PY
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghost-hid-release
+          path: app/build/outputs/apk/release/ghost-hid-*.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/ghost-hid-*.apk
+          title: GhostHID ${{ steps.version.outputs.version_name }}
+          body: ${{ steps.changelog.outputs.release_body }}
+          tag_name: ${{ steps.version.outputs.release_tag }}
+          draft: false
+          prerelease: false
