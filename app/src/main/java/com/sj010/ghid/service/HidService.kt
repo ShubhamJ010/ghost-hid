@@ -3,6 +3,7 @@ package com.sj010.ghid.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
@@ -17,6 +18,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import com.sj010.ghid.GhostHidApp
+import com.sj010.ghid.MainActivity
 import com.sj010.ghid.R
 import com.sj010.ghid.data.DeviceOsCache
 import com.sj010.ghid.domain.model.ConnectionStatus
@@ -105,6 +107,9 @@ class HidService : Service() {
     private var osDetectionJob: Job? = null
     private var ledHandshakeSeen = false
 
+    /** Last status line shown in the foreground notification, reused when only the OS changes. */
+    private var notificationText: String = "Ready"
+
     companion object {
         var instance: HidService? = null
             private set
@@ -114,6 +119,13 @@ class HidService : Service() {
         const val ACTION_CMD = "com.sj010.ghid.ACTION_CMD"
         const val ACTION_LOCK = "com.sj010.ghid.ACTION_LOCK"
         const val ACTION_TYPE = "com.sj010.ghid.ACTION_TYPE"
+        /** Extra on the notification content intent: open the app on the dashboard. */
+        const val EXTRA_OPEN_DASHBOARD = "com.sj010.ghid.extra.OPEN_DASHBOARD"
+        /** Extra on the "Stop gateway" action: tear down the service *and* close the app. */
+        const val EXTRA_QUIT_APP = "com.sj010.ghid.extra.QUIT_APP"
+        private const val REQUEST_OPEN_APP = 4101
+        private const val REQUEST_NOTIFICATION_CONNECT = 4102
+        private const val REQUEST_NOTIFICATION_STOP = 4103
         private const val TARGET_PREFERENCES = "ghosthid_target"
         private const val KEY_LAST_CONNECTED_ADDRESS = "last_connected_address"
         private const val KEY_SELECTED_ADDRESS = "selected_address"
@@ -241,6 +253,8 @@ class HidService : Service() {
 
     fun updateEffectiveTargetOs() {
         _effectiveTargetOs.value = resolveEffectiveOs()
+        // The host OS is part of the notification status line, refresh it when detection lands.
+        updateNotification(notificationText)
     }
 
     private fun createNotificationChannel() {
@@ -263,16 +277,97 @@ class HidService : Service() {
         } else {
             Notification.Builder(this)
         }
+        val connected = _connectionState.value == ConnectionStatus.CONNECTED
+        val os = resolveEffectiveOs()
+        // Richer status line: device name + host OS while linked, plain state otherwise.
+        val body = if (connected && os.isKnown && text.startsWith("Connected to")) {
+            "$text · ${os.label}"
+        } else {
+            text
+        }
+        val stateLabel = when (_connectionState.value) {
+            ConnectionStatus.CONNECTED -> "Connected"
+            ConnectionStatus.CONNECTING -> "Connecting"
+            ConnectionStatus.DISCONNECTING -> "Disconnecting"
+            ConnectionStatus.DISCONNECTED -> "Disconnected"
+            ConnectionStatus.UNKNOWN -> "Idle"
+        }
         return builder
             .setContentTitle("GhostHID")
-            .setContentText(text)
+            .setContentText(body)
+            .setSubText(stateLabel)
             .setSmallIcon(R.drawable.ic_notification_ghost)
-            .setOngoing(false)
+            .setContentIntent(openAppIntent())
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setOnlyAlertOnce(true)
+            .setOngoing(true)
+            .addAction(
+                R.drawable.ic_notification_connect,
+                if (connected) "Disconnect" else "Connect",
+                serviceCommandIntent(if (connected) "disconnect" else "connect", REQUEST_NOTIFICATION_CONNECT)
+            )
+            .addAction(
+                R.drawable.ic_notification_stop,
+                "Stop gateway",
+                quitAppIntent()
+            )
             .build()
+    }
+
+    /** Tapping the notification brings the app to the front on the dashboard. */
+    private fun openAppIntent(): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(EXTRA_OPEN_DASHBOARD, true)
+        }
+        return PendingIntent.getActivity(
+            this,
+            REQUEST_OPEN_APP,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    /** Notification action buttons route into the existing `cmd` handling of this service. */
+    private fun serviceCommandIntent(cmd: String, requestCode: Int): PendingIntent {
+        val intent = Intent(this, HidService::class.java).putExtra("cmd", cmd)
+        return PendingIntent.getService(
+            this,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    /**
+     * "Stop gateway" goes through the activity's full quit path instead of `cmd=stop`, so
+     * the app closes too. Quitting from the service alone leaves the activity bound to a
+     * torn-down service, and the gateway can never come back without killing the process.
+     */
+    private fun quitAppIntent(): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(EXTRA_QUIT_APP, true)
+        }
+        return PendingIntent.getActivity(
+            this,
+            REQUEST_NOTIFICATION_STOP,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun statusText(status: ConnectionStatus): String = when (status) {
+        ConnectionStatus.CONNECTING -> "Connecting…"
+        ConnectionStatus.DISCONNECTING -> "Disconnecting…"
+        ConnectionStatus.DISCONNECTED -> "Not connected"
+        else -> "Idle"
     }
 
     private fun updateNotification(text: String) {
         if (isTornDown) return
+        notificationText = text
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         nm?.notify(1001, buildNotification(text))
     }
@@ -348,7 +443,7 @@ class HidService : Service() {
                 startOsDetection(device)
             } else {
                 stopOsDetection()
-                updateNotification("Status: $status")
+                updateNotification(statusText(status))
             }
             updateEffectiveTargetOs()
             writeStatusFile()

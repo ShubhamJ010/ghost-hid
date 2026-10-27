@@ -68,6 +68,9 @@ class MainActivity : ComponentActivity() {
     private var isBound by mutableStateOf(false)
     private var isQuitting = false
 
+    /** Bumped when the notification content intent is tapped; the scaffold jumps home. */
+    private var openDashboardRequests by mutableStateOf(0)
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as? HidService.LocalBinder
@@ -99,6 +102,13 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
         )
         preferHighRefreshRate()
+
+        // "Stop gateway" from the notification: quit through the regular path so the
+        // service is torn down *and* the app is closed, never left half-stopped.
+        if (intent?.getBooleanExtra(HidService.EXTRA_QUIT_APP, false) == true) {
+            quitApp()
+            return
+        }
 
         if (hasRequiredBluetoothPermission()) {
             startAndBindService()
@@ -144,9 +154,23 @@ class MainActivity : ComponentActivity() {
             ) {
                 MainAppScaffold(
                     service = hidService,
-                    onQuit = { quitApp() }
+                    onQuit = { quitApp() },
+                    dashboardRequests = openDashboardRequests
                 )
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(HidService.EXTRA_QUIT_APP, false)) {
+            // Quitting clears the task, so there is nothing left to navigate.
+            quitApp()
+            return
+        }
+        if (intent.getBooleanExtra(HidService.EXTRA_OPEN_DASHBOARD, false)) {
+            openDashboardRequests++
         }
     }
 
@@ -250,8 +274,13 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}) {
+fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequests: Int = 0) {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
+
+    // A notification tap always lands on the dashboard, even if another tab is showing.
+    LaunchedEffect(dashboardRequests) {
+        if (dashboardRequests > 0) currentScreen = Screen.Dashboard
+    }
 
     BackHandler(enabled = currentScreen == Screen.Settings) {
         currentScreen = Screen.Dashboard
