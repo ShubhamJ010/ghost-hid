@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -80,10 +81,15 @@ fun PullDownShade(
     cornerRadius: Dp = 28.dp,
     drawBorder: Boolean = true,
     containerColor: Color? = null,
+    onOpenChanged: ((Boolean) -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     var isOpen by rememberSaveable { mutableStateOf(false) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(isOpen) {
+        onOpenChanged?.invoke(isOpen)
+    }
 
     BoxWithConstraints(
         modifier = modifier

@@ -56,6 +56,7 @@ import com.sj010.ghid.domain.model.ThemeMode
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.combos.ComboStudioScreen
 import com.sj010.ghid.ui.dashboard.DashboardScreen
+import com.sj010.ghid.ui.interactive.InteractiveModeScreen
 import com.sj010.ghid.ui.navigation.Screen
 import com.sj010.ghid.ui.settings.SettingsScreen
 import com.sj010.ghid.ui.streamdeck.StreamDeckScreen
@@ -282,7 +283,7 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequ
         if (dashboardRequests > 0) currentScreen = Screen.Dashboard
     }
 
-    BackHandler(enabled = currentScreen == Screen.Settings) {
+    BackHandler(enabled = currentScreen == Screen.Settings || currentScreen == Screen.Interactive) {
         currentScreen = Screen.Dashboard
     }
 
@@ -297,27 +298,30 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequ
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            NavigationBar(
-                modifier = Modifier.alpha(if (currentScreen == Screen.Settings) 0f else 1f),
-                containerColor = MaterialTheme.colorScheme.surfaceContainer
-            ) {
-                Screen.bottomNavScreens.forEach { screen ->
-                    NavigationBarItem(
-                        selected = currentScreen == screen,
-                        enabled = currentScreen != Screen.Settings,
-                        onClick = { currentScreen = screen },
-                        icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        label = {
-                            Text(
-                                text = screen.title,
-                                maxLines = 1,
-                                fontSize = 11.sp,
-                                softWrap = false
-                            )
-                        }
-                    )
+            // Interactive mode hands the bottom of the screen to the system IME.
+            if (currentScreen != Screen.Interactive) {
+                NavigationBar(
+                    modifier = Modifier.alpha(if (currentScreen == Screen.Settings) 0f else 1f),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Screen.bottomNavScreens.forEach { screen ->
+                        NavigationBarItem(
+                            selected = currentScreen == screen,
+                            enabled = currentScreen != Screen.Settings,
+                            onClick = { currentScreen = screen },
+                            icon = { Icon(screen.icon, contentDescription = screen.title) },
+                            label = {
+                                Text(
+                                    text = screen.title,
+                                    maxLines = 1,
+                                    fontSize = 11.sp,
+                                    softWrap = false
+                                )
+                            }
+                        )
                     }
                 }
+            }
         }
     ) { innerPadding ->
         Surface(
@@ -345,11 +349,13 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequ
                             service = service,
                             onNavigateToCombos = { currentScreen = Screen.Combos },
                             onNavigateToSettings = { currentScreen = Screen.Settings },
+                            onNavigateToInteractive = { currentScreen = Screen.Interactive },
                             onQuit = onQuit
                         )
                     }
                     Screen.Combos -> ComboStudioScreen(service = service)
                     Screen.Trackpad -> TrackpadScreen(service = service)
+                    Screen.Interactive -> InteractiveModeScreen(service = service)
                     Screen.Settings -> SettingsScreen(onBack = { currentScreen = Screen.Dashboard })
                 }
             }
