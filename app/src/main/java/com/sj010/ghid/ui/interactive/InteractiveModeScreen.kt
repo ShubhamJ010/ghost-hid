@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,7 +20,6 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,8 +27,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -78,7 +77,7 @@ import kotlinx.coroutines.delay
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun InteractiveModeScreen(service: HidService?) {
+fun InteractiveModeScreen(service: HidService?, onExit: () -> Unit) {
     val connectionState by service?.connectionState?.collectAsState()
         ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
     val isLinked = connectionState == ConnectionStatus.CONNECTED
@@ -154,25 +153,23 @@ fun InteractiveModeScreen(service: HidService?) {
                 ) {
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.Center,
+                        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_ghost_keyboard_mode),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
-                            modifier = Modifier.size(84.dp)
+                            modifier = Modifier.size(72.dp)
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
                         Text(
                             text = "Interactive mode",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Black,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (isLinked) {
                                 "Every key you type is sent to the device."
@@ -267,38 +264,34 @@ fun InteractiveModeScreen(service: HidService?) {
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             QuickKey(
                                 modifier = Modifier.weight(1f),
                                 label = "Esc",
-                                onClick = { sendCatalogKey(InteractiveKeys.catalog.first { it.token == "esc" }) }
-                            )
-                            QuickKey(
-                                modifier = Modifier.weight(1f),
-                                label = "Tab",
-                                onClick = { sendCatalogKey(InteractiveKeys.catalog.first { it.token == "tab" }) }
-                            )
-                            QuickKey(
-                                modifier = Modifier.weight(1.6f),
-                                label = "Space",
-                                onClick = { sendCatalogKey(InteractiveKeys.catalog.first { it.token == "space" }) }
-                            )
-                            QuickKey(
-                                modifier = Modifier.weight(1f),
-                                label = "⌫",
-                                contentDescription = "Backspace",
                                 onClick = {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    InteractiveKeys.sendBackspace(service)
-                                    history = (listOf("⌫") + history).take(8)
+                                    sendCatalogKey(
+                                        InteractiveKeys.catalog.first { it.token == "esc" }
+                                    )
+                                }
+                            )
+                            ExitInteractiveKey(
+                                modifier = Modifier.weight(1.35f),
+                                onClick = {
+                                    keyboardController?.hide()
+                                    onExit()
                                 }
                             )
                             QuickKey(
                                 modifier = Modifier.weight(1f),
-                                label = "⏎",
-                                contentDescription = "Enter",
-                                onClick = { sendCatalogKey(InteractiveKeys.catalog.first { it.token == "enter" }) }
+                                label = "",
+                                contentDescription = "Play/Pause",
+                                icon = Icons.Default.PlayArrow,
+                                onClick = {
+                                    sendCatalogKey(
+                                        InteractiveKeys.catalog.first { it.token == "playpause" }
+                                    )
+                                }
                             )
                         }
 
@@ -506,6 +499,7 @@ private fun QuickKey(
     modifier: Modifier,
     label: String,
     contentDescription: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     onClick: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
@@ -525,7 +519,7 @@ private fun QuickKey(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            if (contentDescription == null) {
+            if (icon == null) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelLarge,
@@ -535,16 +529,44 @@ private fun QuickKey(
                 )
             } else {
                 Icon(
-                    imageVector = if (contentDescription == "Backspace") {
-                        Icons.AutoMirrored.Filled.Backspace
-                    } else {
-                        Icons.AutoMirrored.Filled.KeyboardReturn
-                    },
+                    imageVector = icon,
                     contentDescription = contentDescription,
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(18.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ExitInteractiveKey(
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    Surface(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(
+            topStart = 14.dp,
+            topEnd = 8.dp,
+            bottomEnd = 14.dp,
+            bottomStart = 8.dp
+        ),
+        color = MaterialTheme.colorScheme.error,
+        contentColor = MaterialTheme.colorScheme.onError
+    ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                text = "Exit",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Black,
+                maxLines = 1
+            )
         }
     }
 }

@@ -355,7 +355,10 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequ
                     }
                     Screen.Combos -> ComboStudioScreen(service = service)
                     Screen.Trackpad -> TrackpadScreen(service = service)
-                    Screen.Interactive -> InteractiveModeScreen(service = service)
+                    Screen.Interactive -> InteractiveModeScreen(
+                        service = service,
+                        onExit = { currentScreen = Screen.Dashboard }
+                    )
                     Screen.Settings -> SettingsScreen(onBack = { currentScreen = Screen.Dashboard })
                 }
             }
