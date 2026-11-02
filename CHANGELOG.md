@@ -13,6 +13,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.2.0] - 2026-11-02
+
+### Added
+- **Interactive keyboard mode.** Full-screen interactive mode turning the mobile software keyboard into an instantaneous live Bluetooth HID keyboard forwarder. Supports character-by-character typing directly to the paired host PC/Mac, live text capture, and automatic focus management.
+- **Configurable 4-slot Key Mapper.** Top utility strip with 4 user-customizable key slots providing sticky modifier chaining (Shift, Ctrl, Alt, Meta/Cmd/Win) and fast access to frequently used keys.
+- **Pull-down Key Drawer shade.** Collapsible bottom sheet drawer organizing system modifiers, navigation arrow keys, editing cluster (Home, End, PageUp, PageDown, Delete, Insert), full function row (F1–F12), media playback controls, and system actions.
+- **Integrated trackpad in Interactive Mode.** When the software keyboard is dismissed, an integrated gesture trackpad appears automatically, allowing seamless transitions between typing and pointer manipulation.
+- **Virtual trackpad window hold-to-drag & grab.**
+  - Double-tap and hold gesture on trackpad surface to grab windows, move files, or drag-select text without releasing mouse button state.
+  - Persistent held button state in `HidService` (`setMouseButton()`, `releaseAllMouseButtons()`, and `heldButtons` mask) maintained across relative mouse motion and scroll wheel reports.
+  - Two-thumb / two-finger deck drag: hold the "Left" action key on the bottom click deck with thumb while moving cursor with index finger on the trackpad.
+  - Visual and haptic feedback during drag operations: 2.5dp accent border, intensified touch glow, "HOLD & DRAG" HUD pill banner, and vibration on grab start / release drop.
+
+### Changed
+- **Mouse report engine.** Relative mouse movement (`emitMove`) and scroll wheel (`emitWheel`) now carry the persistent `heldButtons` mask instead of hardcoded 0, allowing sustained drag operations across high-frequency pointer movements.
+- **Bluetooth disconnect safety.** Disconnecting from host or stopping HID service automatically releases all held mouse buttons and resets state to prevent stuck button inputs on the host.
+- **Click deck interaction.** Replaced standard click detectors on the trackpad action deck with precise pointer press/release tracking to support holding buttons down across multiple fingers.
+
 ## [0.1.1] - 2026-10-28
 
 ### Added
@@ -50,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hardware-encrypted payload vault backed by Android Keystore.
 - ADB/CLI companion (`ghid-cli`) for terminal and agent automation.
 
+[0.2.0]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.0
 [0.1.1]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.0
-[Unreleased]: https://github.com/ShubhamJ010/ghost-hid/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/ShubhamJ010/ghost-hid/compare/v0.2.0...HEAD

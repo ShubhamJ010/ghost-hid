@@ -442,6 +442,7 @@ class HidService : Service() {
                 updateNotification("Connected to $name")
                 startOsDetection(device)
             } else {
+                releaseAllMouseButtons()
                 stopOsDetection()
                 updateNotification(statusText(status))
             }
@@ -792,6 +793,9 @@ class HidService : Service() {
     private var pendingDy = 0
     private var pointerFlushScheduled = false
 
+    @Volatile
+    private var heldButtons: Byte = 0
+
     /**
      * Emits a real press/release cycle. Multiple clicks are emitted as
      * separate cycles so Windows and macOS both interpret them natively
@@ -805,12 +809,47 @@ class HidService : Service() {
         runOnPointerThread {
             repeat(count) { index ->
                 if (index > 0) sleep(CLICK_GAP_MS)
-                hid.sendReport(target, MOUSE_REPORT_ID, mouseReport(button.mask, 0, 0, 0))
+                val pressMask = (heldButtons.toInt() or button.mask.toInt()).toByte()
+                hid.sendReport(target, MOUSE_REPORT_ID, mouseReport(pressMask, 0, 0, 0))
                 sleep(CLICK_PRESS_MS)
-                hid.sendReport(target, MOUSE_REPORT_ID, RELEASE_REPORT)
+                hid.sendReport(target, MOUSE_REPORT_ID, mouseReport(heldButtons, 0, 0, 0))
                 sleep(CLICK_SETTLE_MS)
             }
             log(">>> Mouse ${button.name.lowercase(Locale.ROOT)} x$count")
+        }
+    }
+
+    /**
+     * Sets a mouse button pressed or released persistently.
+     * When isDown is true, the button stays held down across subsequent sendMouseMove
+     * calls, enabling window drag / grab operations until isDown is set to false.
+     */
+    fun setMouseButton(button: MouseButton, isDown: Boolean) {
+        val hid = hidDevice ?: return
+        val target = targetDevice ?: return
+
+        runOnPointerThread {
+            heldButtons = if (isDown) {
+                (heldButtons.toInt() or button.mask.toInt()).toByte()
+            } else {
+                (heldButtons.toInt() and button.mask.toInt().inv()).toByte()
+            }
+            hid.sendReport(target, MOUSE_REPORT_ID, mouseReport(heldButtons, 0, 0, 0))
+            log(">>> Mouse ${button.name.lowercase(Locale.ROOT)} ${if (isDown) "down" else "up"}")
+        }
+    }
+
+    /** Releases all held mouse buttons immediately. */
+    fun releaseAllMouseButtons() {
+        if (heldButtons.toInt() == 0) return
+        val hid = hidDevice
+        val target = targetDevice
+        heldButtons = 0
+        if (hid != null && target != null) {
+            runOnPointerThread {
+                hid.sendReport(target, MOUSE_REPORT_ID, RELEASE_REPORT)
+                log(">>> Released all held mouse buttons")
+            }
         }
     }
 
@@ -887,10 +926,11 @@ class HidService : Service() {
         val xChunks = PointerMath.chunks(dx)
         val yChunks = PointerMath.chunks(dy)
         val reports = maxOf(xChunks.size, yChunks.size)
+        val buttons = heldButtons
 
         for (index in 0 until reports) {
             val report = mouseReport(
-                buttons = 0,
+                buttons = buttons,
                 dx = xChunks.getOrElse(index) { 0 },
                 dy = yChunks.getOrElse(index) { 0 },
                 wheel = 0
@@ -905,8 +945,9 @@ class HidService : Service() {
     private fun emitWheel(notches: Int) {
         val hid = hidDevice ?: return
         val target = targetDevice ?: return
+        val buttons = heldButtons
         for (chunk in PointerMath.chunks(notches)) {
-            hid.sendReport(target, MOUSE_REPORT_ID, mouseReport(0, 0, 0, chunk))
+            hid.sendReport(target, MOUSE_REPORT_ID, mouseReport(buttons, 0, 0, chunk))
             sleep(WHEEL_SETTLE_MS)
         }
     }
@@ -1252,6 +1293,7 @@ class HidService : Service() {
             nm?.cancelAll()
         } catch (ignored: Exception) {}
 
+        releaseAllMouseButtons()
         val hid = hidDevice
         if (hid != null) {
             try {

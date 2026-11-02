@@ -21,6 +21,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Mouse
+import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -213,8 +215,22 @@ fun TrackpadScreen(
             // Mouse Click Deck
             ClickDeck(
                 enabled = isLinked,
-                onLeftClick = { service?.sendMouseButton(MouseButton.LEFT) },
-                onRightClick = { service?.sendMouseButton(MouseButton.RIGHT) }
+                onLeftDown = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    service?.setMouseButton(MouseButton.LEFT, true)
+                },
+                onLeftUp = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    service?.setMouseButton(MouseButton.LEFT, false)
+                },
+                onRightDown = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    service?.setMouseButton(MouseButton.RIGHT, true)
+                },
+                onRightUp = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    service?.setMouseButton(MouseButton.RIGHT, false)
+                }
             )
         }
     }
@@ -264,17 +280,18 @@ private fun PointerPad(
     val scope = rememberCoroutineScope()
 
     var pressed by remember { mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
     var touch by remember { mutableStateOf<Offset?>(null) }
     var rippleOrigin by remember { mutableStateOf(Offset.Zero) }
     val ripple = remember { Animatable(1f) }
 
     val idleAlpha by animateFloatAsState(
-        targetValue = if (pressed) 0f else 1f,
+        targetValue = if (pressed || isDragging) 0f else 1f,
         animationSpec = tween(180),
         label = "padIdleAlpha"
     )
     val glowStrength by animateFloatAsState(
-        targetValue = if (pressed) 1f else 0f,
+        targetValue = if (isDragging) 1.2f else if (pressed) 1f else 0f,
         animationSpec = tween(120),
         label = "padGlow"
     )
@@ -296,8 +313,8 @@ private fun PointerPad(
                 )
             )
             .border(
-                width = 1.dp,
-                color = if (pressed) accent.copy(alpha = 0.75f) else bracketColor,
+                width = if (isDragging) 2.5.dp else 1.dp,
+                color = if (isDragging) accent else if (pressed) accent.copy(alpha = 0.75f) else bracketColor,
                 shape = shape
             )
             .drawWithCache {
@@ -344,12 +361,20 @@ private fun PointerPad(
                         ripple.animateTo(1f, tween(360, easing = FastOutSlowInEasing))
                     }
                 },
+                onDraggingChange = { dragging ->
+                    if (dragging && !isDragging) {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    } else if (!dragging && isDragging) {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    }
+                    isDragging = dragging
+                },
                 onMultiFingerGesture = onMultiFingerGesture
             ),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawTouchFeedback(touch, glowStrength, accent)
+            drawTouchFeedback(touch, glowStrength, accent, isDragging = isDragging)
             drawTapRipple(ripple.value, rippleOrigin, accent)
         }
 
@@ -378,9 +403,61 @@ private fun PointerPad(
             )
         }
 
+        // Drag / Grab HUD Overlay
+        AnimatedVisibility(
+            visible = isDragging,
+            enter = scaleIn(spring(stiffness = 500f)) + fadeIn(),
+            exit = scaleOut(spring(stiffness = 500f)) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 18.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.OpenWith,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = "HOLD & DRAG",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "Window / Item Grabbed",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+
         // Animated Gesture HUD Overlay
         AnimatedVisibility(
-            visible = activeGestureHud != null,
+            visible = !isDragging && activeGestureHud != null,
             enter = scaleIn(spring(stiffness = 500f)) + fadeIn(),
             exit = scaleOut(spring(stiffness = 500f)) + fadeOut(),
             modifier = Modifier
@@ -451,11 +528,13 @@ private fun Modifier.trackpadGestures(
     onPressedChange: (Boolean) -> Unit,
     onTouchChange: (Offset?) -> Unit,
     onTapRipple: (Offset) -> Unit,
+    onDraggingChange: (Boolean) -> Unit,
     onMultiFingerGesture: (TrackpadGesture) -> Unit
 ): Modifier = pointerInput(isLinked, config, targetOs) {
     val tapTimeoutMs = config.tapMaxDurationMs
-    val doubleTapTimeoutMs = 300L
+    val doubleTapTimeoutMs = 320L
     val slopPx = 10.dp.toPx()
+    val dragStartPx = config.dragStartDp.dp.toPx()
     val gestureThresholdPx = 45.dp.toPx()
 
     var lastTapUpTime = 0L
@@ -471,6 +550,11 @@ private fun Modifier.trackpadGestures(
         var moved = false
         var lastPos = down.position
         val pointerId = down.id
+
+        val isDoubleTapCandidate = (downTime - lastTapUpTime) <= doubleTapTimeoutMs &&
+            (down.position - lastTapPos).getDistance() <= slopPx * 2.5f
+
+        var isDragging = false
 
         // Multi-touch tracking
         var multiTouchFired = false
@@ -489,15 +573,23 @@ private fun Modifier.trackpadGestures(
                 val duration = upTime - downTime
                 val totalDist = (lastPos - down.position).getDistance()
 
-                if (!moved && !multiTouchFired && duration <= tapTimeoutMs && totalDist <= slopPx && isLinked) {
-                    val isDouble = (upTime - lastTapUpTime) <= doubleTapTimeoutMs &&
-                        (lastPos - lastTapPos).getDistance() <= slopPx * 2f
+                if (isDragging) {
+                    isDragging = false
+                    onDraggingChange(false)
+                    if (isLinked) {
+                        service?.setMouseButton(MouseButton.LEFT, false)
+                    }
+                    lastTapUpTime = 0L
+                    lastTapPos = Offset.Zero
+                } else if (!moved && !multiTouchFired && duration <= tapTimeoutMs && totalDist <= slopPx && isLinked) {
+                    val isDouble = isDoubleTapCandidate
 
                     onTapRipple(lastPos)
                     if (isDouble) {
                         service?.sendMouseButton(MouseButton.LEFT)
                         service?.sendMouseButton(MouseButton.LEFT)
                         lastTapUpTime = 0L
+                        lastTapPos = Offset.Zero
                     } else {
                         service?.sendMouseButton(MouseButton.LEFT)
                         lastTapUpTime = upTime
@@ -516,6 +608,12 @@ private fun Modifier.trackpadGestures(
 
             // Check for 3-finger or 4-finger swipes
             if (!multiTouchFired && initialPointers.size in 3..4 && pressedChanges.size in 3..4) {
+                if (isDragging) {
+                    isDragging = false
+                    onDraggingChange(false)
+                    if (isLinked) service?.setMouseButton(MouseButton.LEFT, false)
+                }
+
                 var dxSum = 0f
                 var dySum = 0f
                 var validCount = 0
@@ -552,12 +650,25 @@ private fun Modifier.trackpadGestures(
                 }
             }
 
-            // 1-finger relative mouse cursor movement
+            // 1-finger relative mouse cursor movement & tap-drag
             if (!multiTouchFired) {
                 val primaryChange = pressedChanges.firstOrNull { it.id == pointerId } ?: pressedChanges.first()
                 val delta = primaryChange.position - lastPos
                 lastPos = primaryChange.position
                 onTouchChange(primaryChange.position)
+
+                // Double-tap hold-to-drag initiation
+                if (isDoubleTapCandidate && !isDragging) {
+                    val totalTravel = (primaryChange.position - down.position).getDistance()
+                    val timeHeld = System.currentTimeMillis() - downTime
+                    if (totalTravel >= dragStartPx || timeHeld >= 180L) {
+                        isDragging = true
+                        onDraggingChange(true)
+                        if (isLinked) {
+                            service?.setMouseButton(MouseButton.LEFT, true)
+                        }
+                    }
+                }
 
                 if (delta.getDistance() > 0.5f) {
                     moved = true
@@ -599,24 +710,26 @@ private fun DrawScope.drawCornerBrackets(color: Color, inset: Float, arm: Float,
 private fun DrawScope.drawTouchFeedback(
     point: Offset?,
     strength: Float,
-    color: Color
+    color: Color,
+    isDragging: Boolean = false
 ) {
     if (point == null || strength <= 0.01f) return
 
-    val radius = 150.dp.toPx()
+    val radius = if (isDragging) 180.dp.toPx() else 150.dp.toPx()
+    val baseAlpha = if (isDragging) 0.45f else 0.26f
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(color.copy(alpha = 0.26f * strength), Color.Transparent),
+            colors = listOf(color.copy(alpha = baseAlpha * strength), Color.Transparent),
             center = point,
             radius = radius
         ),
         radius = radius,
         center = point
     )
-    drawCircle(color = color.copy(alpha = 0.4f * strength), radius = 14.dp.toPx(), center = point)
+    drawCircle(color = color.copy(alpha = if (isDragging) 0.65f else 0.4f * strength), radius = (if (isDragging) 20.dp else 14.dp).toPx(), center = point)
     drawCircle(
         color = color.copy(alpha = 0.95f * strength),
-        radius = 5.5.dp.toPx(),
+        radius = (if (isDragging) 7.5.dp else 5.5.dp).toPx(),
         center = point
     )
 }
@@ -826,9 +939,13 @@ private fun ScrollStepKey(
 // -----------------------------------------------------------------------------
 
 @Composable
-private fun ClickDeck(enabled: Boolean, onLeftClick: () -> Unit, onRightClick: () -> Unit) {
-    val haptics = LocalHapticFeedback.current
-
+private fun ClickDeck(
+    enabled: Boolean,
+    onLeftDown: () -> Unit,
+    onLeftUp: () -> Unit,
+    onRightDown: () -> Unit,
+    onRightUp: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -844,10 +961,8 @@ private fun ClickDeck(enabled: Boolean, onLeftClick: () -> Unit, onRightClick: (
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             enabled = enabled,
-            onClick = {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                onLeftClick()
-            }
+            onDown = onLeftDown,
+            onUp = onLeftUp
         )
         PointerActionKey(
             modifier = Modifier
@@ -858,10 +973,8 @@ private fun ClickDeck(enabled: Boolean, onLeftClick: () -> Unit, onRightClick: (
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             enabled = enabled,
-            onClick = {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                onRightClick()
-            }
+            onDown = onRightDown,
+            onUp = onRightUp
         )
     }
 }
@@ -874,12 +987,12 @@ private fun PointerActionKey(
     containerColor: Color,
     contentColor: Color,
     enabled: Boolean,
-    onClick: () -> Unit
+    onDown: () -> Unit,
+    onUp: () -> Unit
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
+    var isPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.955f else 1f,
+        targetValue = if (isPressed) 0.945f else 1f,
         animationSpec = spring(dampingRatio = 0.55f, stiffness = 700f),
         label = "keyScale"
     )
@@ -891,18 +1004,31 @@ private fun PointerActionKey(
             .clip(RoundedCornerShape(14.dp))
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(
-                        containerColor,
-                        containerColor.copy(alpha = 0.86f)
-                    )
+                    colors = if (isPressed) {
+                        listOf(
+                            containerColor.copy(alpha = 0.78f),
+                            containerColor
+                        )
+                    } else {
+                        listOf(
+                            containerColor,
+                            containerColor.copy(alpha = 0.86f)
+                        )
+                    }
                 )
             )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
-            )
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        onDown()
+                        val released = tryAwaitRelease()
+                        isPressed = false
+                        onUp()
+                    }
+                )
+            }
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center
     ) {

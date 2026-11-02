@@ -84,6 +84,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -92,6 +93,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.GhostHidApp
+import com.sj010.ghid.R
 import com.sj010.ghid.domain.model.ComboOsPolicy
 import com.sj010.ghid.domain.model.ConnectionStatus
 import com.sj010.ghid.domain.model.HostOsFingerprint
@@ -113,6 +115,7 @@ fun DashboardScreen(
     service: HidService?,
     onNavigateToCombos: (() -> Unit)? = null,
     onNavigateToSettings: (() -> Unit)? = null,
+    onNavigateToInteractive: (() -> Unit)? = null,
     onQuit: () -> Unit = {}
 ) {
     val connectionState by service?.connectionState?.collectAsState()
@@ -240,6 +243,23 @@ fun DashboardScreen(
                         letterSpacing = (-1.5).sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+
+                    // Interactive mode: ghost floating on the keyboard.
+                    FilledTonalIconButton(
+                        onClick = { onNavigateToInteractive?.invoke() },
+                        modifier = Modifier.size(54.dp),
+                        shape = ExpressiveShapes.Ghostish,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_ghost_keyboard_mode),
+                            contentDescription = "Interactive mode",
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
                 }
             }
 
