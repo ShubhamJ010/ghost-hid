@@ -98,6 +98,7 @@ import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.pointer.MouseButton
 import com.sj010.ghid.domain.pointer.PointerMath
 import com.sj010.ghid.service.HidService
+import kotlinx.coroutines.delay
 
 /**
  * Interactive mode: the phone's own keyboard becomes the Bluetooth keyboard of
@@ -165,6 +166,12 @@ fun InteractiveModeScreen(service: HidService?, onExit: () -> Unit) {
             current[index] = token
         }
         settingsRepository.update { it.copy(interactiveMapperKeys = current) }
+    }
+
+    // Open keyboard initially on entering Interactive Mode
+    LaunchedEffect(Unit) {
+        delay(150)
+        focusCaptureField()
     }
 
     // Dismiss keyboard when drawer opens or when exiting
