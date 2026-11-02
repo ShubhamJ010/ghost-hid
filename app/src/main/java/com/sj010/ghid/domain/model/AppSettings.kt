@@ -85,7 +85,10 @@ data class AppSettings(
     // 5. Quick Send & Deck
     @SerialName("qs_auto_clear") val quickSendAutoClear: Boolean = false,
     @SerialName("qs_history_limit") val quickSendHistoryLimit: Int = 25,
-    @SerialName("qs_haptics") val quickSendHaptics: Boolean = true
+    @SerialName("qs_haptics") val quickSendHaptics: Boolean = true,
+
+    // 6. Interactive Mode
+    @SerialName("interactive_mapper_keys") val interactiveMapperKeys: List<String> = listOf("esc", "tab", "shift+tab", "")
 ) {
     fun toTrackpadConfig(): TrackpadConfig = TrackpadConfig(
         pointerSensitivity = trackpadPointerSensitivity,

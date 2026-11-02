@@ -25,6 +25,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -283,7 +285,7 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequ
         if (dashboardRequests > 0) currentScreen = Screen.Dashboard
     }
 
-    BackHandler(enabled = currentScreen == Screen.Settings || currentScreen == Screen.Interactive) {
+    BackHandler(enabled = currentScreen == Screen.Settings) {
         currentScreen = Screen.Dashboard
     }
 
@@ -333,9 +335,16 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequ
             AnimatedContent(
                 targetState = currentScreen,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(180)).togetherWith(
-                        fadeOut(animationSpec = tween(180))
-                    )
+                    if (targetState == Screen.Interactive || initialState == Screen.Interactive) {
+                        (fadeIn(tween(220)) + scaleIn(initialScale = 0.96f, animationSpec = tween(220)))
+                            .togetherWith(
+                                fadeOut(tween(160)) + scaleOut(targetScale = 0.98f, animationSpec = tween(160))
+                            )
+                    } else {
+                        fadeIn(animationSpec = tween(180)).togetherWith(
+                            fadeOut(animationSpec = tween(180))
+                        )
+                    }
                 },
                 label = "screenTransition"
             ) { screen ->

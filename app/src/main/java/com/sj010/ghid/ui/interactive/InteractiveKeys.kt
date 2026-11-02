@@ -59,6 +59,7 @@ object InteractiveKeys {
         InteractiveKey("Backspace", "backspace", InteractiveKeyCategory.NAVIGATION),
         InteractiveKey("Enter", "enter", InteractiveKeyCategory.NAVIGATION),
         InteractiveKey("Tab", "tab", InteractiveKeyCategory.NAVIGATION),
+        InteractiveKey("Stab", "shift+tab", InteractiveKeyCategory.NAVIGATION),
         InteractiveKey("Esc", "esc", InteractiveKeyCategory.NAVIGATION),
         InteractiveKey("Space", "space", InteractiveKeyCategory.NAVIGATION),
         InteractiveKey("Menu", "menu", InteractiveKeyCategory.NAVIGATION)
@@ -86,6 +87,11 @@ object InteractiveKeys {
 
     val catalog: List<InteractiveKey> = navigationKeys + mediaKeys + functionKeys
 
+    fun findByToken(token: String): InteractiveKey? {
+        if (token.isBlank()) return null
+        return catalog.firstOrNull { it.token.equals(token, ignoreCase = true) }
+    }
+
     fun keysIn(category: InteractiveKeyCategory): List<InteractiveKey> =
         catalog.filter { it.category == category }
 
@@ -106,9 +112,10 @@ object InteractiveKeys {
             svc.sendConsumerKey(usage)
             return
         }
-        val (_, keyCode) = KeyTokens.parseChord(key.token)
+        val (chordMod, keyCode) = KeyTokens.parseChord(key.token)
         if (keyCode != 0.toByte()) {
-            svc.sendKey(modifierByte(modifiers), keyCode)
+            val combinedMod = (modifierByte(modifiers).toInt() or chordMod.toInt()).toByte()
+            svc.sendKey(combinedMod, keyCode)
         }
     }
 
