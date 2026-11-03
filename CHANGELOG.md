@@ -13,6 +13,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.2.1] - 2026-11-03
+
+### Added
+- **Interactive Mode typing preview enhancements.**
+  - **Letter chaining & typing buffer:** Fast consecutive keystrokes from the software IME keyboard remain grouped into a single preview text block during active typing with a 1.2s cooldown rather than spamming individual single-letter chips.
+  - **Live backspace editing:** Pressing backspace dynamically trims characters from the active typing chunk in the preview HUD.
+  - **Keypress repetition counter:** Consecutive identical non-character keypresses (e.g. arrow keys, backspace, volume keys) collapse into a single chip with an `xN` count badge.
+  - **Dedicated key and media icons:** Navigation arrows, media keys (volume up/down, mute, play/pause, prev/next track, stop), tab, enter, and backspace display vector icons with compact labels.
+  - **Auto-clearing preview slate:** The preview slate automatically fades out and resets after 4 seconds of inactivity.
+- **Hardware volume buttons mapping.**
+  - Physical volume up/down keys are intercepted while Interactive Mode is active.
+  - Configurable mapping options under Settings: **Volume** (host HID volume ±), **Right / Left Arrow** (presentation slide navigation / cursor stepping), and **Next / Previous Track** (media playback track skipping).
+  - Keyboard island status subtext and center prompt dynamically indicate the active volume button mode.
+- **Interactive Mode settings section.** Added an "Interactive Mode" settings card in the Settings tab with an interactive choice group for volume key behavior.
+
+### Changed
+- **Default display sleep behavior.** Default `keepScreenAwake` preference changed to `false` so the device respects standard Android display sleep settings out of the box, with clarified description in Settings.
+
 ## [0.2.0] - 2026-11-02
 
 ### Added
@@ -68,7 +86,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hardware-encrypted payload vault backed by Android Keystore.
 - ADB/CLI companion (`ghid-cli`) for terminal and agent automation.
 
+[0.2.1]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.0
 [0.1.1]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.0
-[Unreleased]: https://github.com/ShubhamJ010/ghost-hid/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ShubhamJ010/ghost-hid/compare/v0.2.1...HEAD
