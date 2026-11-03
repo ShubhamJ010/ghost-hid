@@ -35,6 +35,8 @@ import com.sj010.ghid.domain.model.ComboUsagePolicy
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.ui.common.os.ComboGlyph
 
+import com.sj010.ghid.domain.model.UsageTrackingScope
+
 /**
  * Dashboard "most used" module.
  *
@@ -50,6 +52,8 @@ fun MostUsedCombosSection(
     combos: List<Combo>,
     useCounts: Map<String, Int>,
     connectedOs: TargetOs = TargetOs.UNKNOWN,
+    deviceName: String? = null,
+    scope: UsageTrackingScope = UsageTrackingScope.DEVICE_TYPE,
     onRunCombo: (Combo) -> Unit,
     onViewAll: () -> Unit
 ) {
@@ -61,19 +65,24 @@ fun MostUsedCombosSection(
     Surface(
         modifier = Modifier
             .padding(top = 16.dp)
-            .padding(bottom = 64.dp)
+            .padding(bottom = 8.dp)
             .fillMaxWidth(),
         shape = cardShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column {
-            MostUsedHeader(
-                basis = if (connectedOs.isKnown) {
+            val basis = when {
+                scope == UsageTrackingScope.DEVICE_NAME && !deviceName.isNullOrBlank() -> {
+                    "Based on $deviceName history"
+                }
+                connectedOs.isKnown -> {
                     "Based on ${connectedOs.label} history"
-                } else {
+                }
+                else -> {
                     "Based on history"
-                },
-            )
+                }
+            }
+            MostUsedHeader(basis = basis)
 
             if (mostUsed.isEmpty()) {
                 MostUsedEmptyState(onViewAll = onViewAll)

@@ -977,7 +977,13 @@ class HidService : Service() {
                 ?: app.comboRepository.combos.value.firstOrNull { it.sequence == rawOrName || it.effectiveSequence == rawOrName }
             val raw = combo?.effectiveSequence ?: rawOrName
             val steps = ActionSequenceParser.parse(raw, _effectiveTargetOs.value)
-            combo?.let { app.comboUsageRepository.recordUse(it.name) }
+            combo?.let {
+                app.comboUsageRepository.recordUse(
+                    name = it.name,
+                    os = _effectiveTargetOs.value,
+                    deviceName = targetDevice?.name
+                )
+            }
             log(">>> Executing sequence ($raw)")
 
             for (step in steps) {

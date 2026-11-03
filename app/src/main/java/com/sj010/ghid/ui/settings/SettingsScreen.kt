@@ -91,6 +91,7 @@ import com.sj010.ghid.domain.model.AppSettings
 import com.sj010.ghid.domain.model.InteractiveVolumeKeyMode
 import com.sj010.ghid.domain.model.OsOverrideMode
 import com.sj010.ghid.domain.model.ThemeMode
+import com.sj010.ghid.domain.model.UsageTrackingScope
 import com.sj010.ghid.ui.theme.ExpressiveShapes
 import kotlin.math.roundToInt
 
@@ -462,6 +463,22 @@ fun SettingsScreen(
                             accentColor = secondaryColor,
                             onValueChange = { newVal ->
                                 repository.update { it.copy(ledHandshakeWindowMs = (newVal / 100f).roundToInt() * 100L) }
+                            }
+                        )
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                        // Most Used Tracking Scope
+                        ExpressiveChoiceGroup(
+                            title = "Most Used History Scope",
+                            description = "Group most used combos and payloads across all devices with the same OS (Device Type) or isolate history per connected device name (Device Name, e.g. Mac A vs Mac B)",
+                            options = UsageTrackingScope.entries.map { it.label },
+                            selectedOption = settings.usageTrackingScope.label,
+                            accentColor = secondaryColor,
+                            onOptionSelected = { label ->
+                                val selectedScope = UsageTrackingScope.entries.firstOrNull { it.label == label }
+                                    ?: UsageTrackingScope.DEVICE_TYPE
+                                repository.update { it.copy(usageTrackingScope = selectedScope) }
                             }
                         )
                     }

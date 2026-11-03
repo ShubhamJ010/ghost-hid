@@ -184,13 +184,27 @@ private fun dispatchPayload(service: HidService?, payload: Payload) {
             cleanHex.all { it in "0123456789abcdefABCDEF" }
         if (!validHex) return
 
-        GhostHidApp.instance.payloadUsageRepository.recordUse(payload.name)
+        val targetOs = sender.effectiveTargetOs.value
+        val deviceName = sender.targetDeviceState.value?.name
+
+        GhostHidApp.instance.payloadUsageRepository.recordUse(
+            name = payload.name,
+            os = targetOs,
+            deviceName = deviceName
+        )
         val bytes = ByteArray(cleanHex.length / 2) { index ->
             cleanHex.substring(index * 2, index * 2 + 2).toInt(16).toByte()
         }
         sender.sendRawReport(bytes)
     } else {
-        GhostHidApp.instance.payloadUsageRepository.recordUse(payload.name)
+        val targetOs = sender.effectiveTargetOs.value
+        val deviceName = sender.targetDeviceState.value?.name
+
+        GhostHidApp.instance.payloadUsageRepository.recordUse(
+            name = payload.name,
+            os = targetOs,
+            deviceName = deviceName
+        )
         sender.typeText(value)
     }
 }

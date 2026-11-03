@@ -151,9 +151,27 @@ fun DashboardScreen(
         ?: remember { mutableStateOf(false) }
     val needsInitialTargetSelection by service?.needsInitialTargetSelection?.collectAsState()
         ?: remember { mutableStateOf(false) }
+    val settings by GhostHidApp.instance.settingsRepository.settings.collectAsState()
     val comboRepo = GhostHidApp.instance.comboRepository
     val allCombos by comboRepo.combos.collectAsState()
-    val comboUseCounts by GhostHidApp.instance.comboUsageRepository.useCounts.collectAsState()
+    val allComboUsage by GhostHidApp.instance.comboUsageRepository.allUsage.collectAsState()
+    val comboUseCounts = remember(allComboUsage, settings.usageTrackingScope, connectedOs, targetDevice?.name) {
+        GhostHidApp.instance.comboUsageRepository.resolveCounts(
+            scope = settings.usageTrackingScope,
+            os = connectedOs,
+            deviceName = targetDevice?.name ?: targetDevice?.address
+        )
+    }
+    val payloadRepo = GhostHidApp.instance.payloadRepository
+    val allPayloads by payloadRepo.payloads.collectAsState()
+    val allPayloadUsage by GhostHidApp.instance.payloadUsageRepository.allUsage.collectAsState()
+    val payloadUseCounts = remember(allPayloadUsage, settings.usageTrackingScope, connectedOs, targetDevice?.name) {
+        GhostHidApp.instance.payloadUsageRepository.resolveCounts(
+            scope = settings.usageTrackingScope,
+            os = connectedOs,
+            deviceName = targetDevice?.name ?: targetDevice?.address
+        )
+    }
     val pinnedFavorites by GhostHidApp.instance.pinnedFavoritesRepository.pins.collectAsState()
     val pinnedCombos = remember(pinnedFavorites, allCombos, connectedOs) {
         PinnedFavoritesPolicy.resolve(pinnedFavorites, allCombos)
@@ -212,7 +230,7 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 6.dp),
-            contentPadding = PaddingValues(bottom = 104.dp),
+            contentPadding = PaddingValues(bottom = 220.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
@@ -287,10 +305,28 @@ fun DashboardScreen(
                     combos = allCombos,
                     useCounts = comboUseCounts,
                     connectedOs = connectedOs,
+                    deviceName = targetDevice?.name ?: targetDevice?.address,
+                    scope = settings.usageTrackingScope,
                     onRunCombo = { combo ->
                         service?.executeCombo(combo.effectiveSequence)
                     },
                     onViewAll = { onNavigateToCombos?.invoke() }
+                )
+            }
+
+            // ==========================================
+            // SECTION 4: MOST USED PAYLOADS (PILL CAROUSEL)
+            // ==========================================
+            item {
+                MostUsedPayloadsSection(
+                    payloads = allPayloads,
+                    useCounts = payloadUseCounts,
+                    connectedOs = connectedOs,
+                    deviceName = targetDevice?.name ?: targetDevice?.address,
+                    scope = settings.usageTrackingScope,
+                    onRunPayload = { payload ->
+                        PayloadDispatcher.dispatch(service, payload)
+                    }
                 )
             }
 

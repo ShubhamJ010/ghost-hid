@@ -66,6 +66,20 @@ enum class InteractiveVolumeKeyMode(val label: String) {
     }
 }
 
+@Serializable
+enum class UsageTrackingScope(val label: String, val description: String) {
+    @SerialName("device_type")
+    DEVICE_TYPE("Device Type", "Group history by operating system (all Macs share macOS history)"),
+
+    @SerialName("device_name")
+    DEVICE_NAME("Device Name", "Track history separately per device name (Mac A vs Mac B)");
+
+    companion object {
+        fun fromToken(token: String?): UsageTrackingScope =
+            entries.firstOrNull { it.name.equals(token, ignoreCase = true) } ?: DEVICE_TYPE
+    }
+}
+
 /**
  * Global configuration preferences for GhostHID.
  * Backed by persistent storage and reactive StateFlow.
@@ -92,6 +106,7 @@ data class AppSettings(
     @SerialName("host_os_override") val osOverride: OsOverrideMode = OsOverrideMode.AUTO,
     @SerialName("host_auto_connect") val autoConnectOnLaunch: Boolean = true,
     @SerialName("host_led_window_ms") val ledHandshakeWindowMs: Long = 500L,
+    @SerialName("host_usage_tracking_scope") val usageTrackingScope: UsageTrackingScope = UsageTrackingScope.DEVICE_TYPE,
 
     // 4. Display & System Appearance
     @SerialName("ui_theme_mode") val themeMode: ThemeMode = ThemeMode.SYSTEM,
