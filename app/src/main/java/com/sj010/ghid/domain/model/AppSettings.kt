@@ -49,6 +49,23 @@ enum class ThemeMode(val label: String) {
     }
 }
 
+@Serializable
+enum class InteractiveVolumeKeyMode(val label: String) {
+    @SerialName("volume")
+    VOLUME("Volume"),
+
+    @SerialName("arrows")
+    ARROWS("Right / Left Arrow"),
+
+    @SerialName("tracks")
+    TRACKS("Next / Previous Track");
+
+    companion object {
+        fun fromToken(token: String?): InteractiveVolumeKeyMode =
+            entries.firstOrNull { it.name.equals(token, ignoreCase = true) } ?: VOLUME
+    }
+}
+
 /**
  * Global configuration preferences for GhostHID.
  * Backed by persistent storage and reactive StateFlow.
@@ -88,7 +105,8 @@ data class AppSettings(
     @SerialName("qs_haptics") val quickSendHaptics: Boolean = true,
 
     // 6. Interactive Mode
-    @SerialName("interactive_mapper_keys") val interactiveMapperKeys: List<String> = listOf("esc", "tab", "shift+tab", "")
+    @SerialName("interactive_mapper_keys") val interactiveMapperKeys: List<String> = listOf("esc", "tab", "shift+tab", ""),
+    @SerialName("interactive_volume_key_mode") val interactiveVolumeKeyMode: InteractiveVolumeKeyMode = InteractiveVolumeKeyMode.VOLUME
 ) {
     fun toTrackpadConfig(): TrackpadConfig = TrackpadConfig(
         pointerSensitivity = trackpadPointerSensitivity,

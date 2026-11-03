@@ -45,8 +45,23 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
+import androidx.compose.material.icons.automirrored.filled.KeyboardTab
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeMute
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Mouse
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -56,11 +71,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,6 +91,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -89,11 +107,14 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.GhostHidApp
+import com.sj010.ghid.MainActivity
 import com.sj010.ghid.R
 import com.sj010.ghid.domain.model.ConnectionStatus
+import com.sj010.ghid.domain.model.InteractiveVolumeKeyMode
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.pointer.MouseButton
 import com.sj010.ghid.domain.pointer.PointerMath
@@ -124,7 +145,8 @@ fun InteractiveModeScreen(service: HidService?, onExit: () -> Unit) {
     val trackpadSensitivity = settings.trackpadPointerSensitivity
 
     var heldModifiers by remember { mutableStateOf(emptySet<InteractiveModifier>()) }
-    var history by remember { mutableStateOf(emptyList<String>()) }
+    var history by remember { mutableStateOf(emptyList<PreviewItem>()) }
+    var lastTypeTime by remember { mutableStateOf(0L) }
     var isKeyDrawerOpen by remember { mutableStateOf(false) }
     var isExiting by remember { mutableStateOf(false) }
     var assigningSlotIndex by remember { mutableStateOf<Int?>(null) }
@@ -144,17 +166,85 @@ fun InteractiveModeScreen(service: HidService?, onExit: () -> Unit) {
 
     val imeVisible = WindowInsets.isImeVisible
 
-    fun log(keyLabel: String, modifiers: Set<InteractiveModifier>) {
+    fun logKey(token: String, label: String, modifiers: Set<InteractiveModifier>) {
         val prefix = InteractiveKeys.modifierLabel(modifiers, detectedOs)
-        val entry = if (prefix == null) keyLabel else "$prefix + $keyLabel"
-        history = (listOf(entry) + history).take(8)
+        val (icon, displayText) = previewIconForKey(token, label)
+        val now = android.os.SystemClock.uptimeMillis()
+        val first = history.firstOrNull()
+
+        if (first is PreviewItem.KeyPress && first.label == label && first.modifierPrefix == prefix) {
+            val updated = first.copy(count = first.count + 1, timestamp = now)
+            history = listOf(updated) + history.drop(1)
+        } else {
+            val newEntry = PreviewItem.KeyPress(
+                label = label,
+                modifierPrefix = prefix,
+                count = 1,
+                icon = icon,
+                displayText = displayText,
+                timestamp = now
+            )
+            history = (listOf(newEntry) + history).take(MAX_HISTORY_ITEMS)
+        }
         heldModifiers = emptySet()
+    }
+
+    fun onCharTyped(char: Char) {
+        InteractiveKeys.sendChar(service, char, heldModifiers)
+
+        if (heldModifiers.isNotEmpty()) {
+            logKey(char.toString(), labelForChar(char), heldModifiers)
+            return
+        }
+
+        if (char == '\n' || char == '\r') {
+            logKey("enter", "Enter", emptySet())
+            return
+        }
+        if (char == '\t') {
+            logKey("tab", "Tab", emptySet())
+            return
+        }
+
+        // Letter chaining: fast consecutive characters stay in one container until cooldown
+        val now = android.os.SystemClock.uptimeMillis()
+        val isWithinCooldown = (now - lastTypeTime) <= TYPING_COOLDOWN_MS
+        lastTypeTime = now
+
+        val first = history.firstOrNull()
+        if (isWithinCooldown && first is PreviewItem.TextChunk) {
+            val updated = first.copy(text = first.text + char, timestamp = now)
+            history = listOf(updated) + history.drop(1)
+        } else {
+            val newChunk = PreviewItem.TextChunk(text = char.toString(), timestamp = now)
+            history = (listOf(newChunk) + history).take(MAX_HISTORY_ITEMS)
+        }
+        heldModifiers = emptySet()
+    }
+
+    fun onBackspace() {
+        InteractiveKeys.sendBackspace(service)
+        val now = android.os.SystemClock.uptimeMillis()
+        val isWithinCooldown = (now - lastTypeTime) <= TYPING_COOLDOWN_MS
+        val first = history.firstOrNull()
+
+        if (isWithinCooldown && first is PreviewItem.TextChunk && first.text.isNotEmpty()) {
+            lastTypeTime = now
+            val updatedText = first.text.dropLast(1)
+            history = if (updatedText.isEmpty()) {
+                history.drop(1)
+            } else {
+                listOf(first.copy(text = updatedText, timestamp = now)) + history.drop(1)
+            }
+        } else {
+            logKey("backspace", "Backspace", emptySet())
+        }
     }
 
     val sendCatalogKey: (InteractiveKey) -> Unit = { key ->
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         InteractiveKeys.send(service, key, heldModifiers)
-        log(key.label, heldModifiers)
+        logKey(key.token, key.label, heldModifiers)
     }
 
     val updateSlot: (Int, String) -> Unit = { index, token ->
@@ -166,6 +256,42 @@ fun InteractiveModeScreen(service: HidService?, onExit: () -> Unit) {
             current[index] = token
         }
         settingsRepository.update { it.copy(interactiveMapperKeys = current) }
+    }
+
+    val currentSendCatalogKey by rememberUpdatedState(sendCatalogKey)
+    val currentSettings by rememberUpdatedState(settings)
+
+    // Intercept hardware volume keys when Interactive Mode is active
+    DisposableEffect(Unit) {
+        var lastTime = 0L
+        MainActivity.volumeKeyHandler = { isUp, repeatCount ->
+            val now = android.os.SystemClock.uptimeMillis()
+            if (repeatCount == 0 || (now - lastTime) >= 120L) {
+                lastTime = now
+                val key = when (currentSettings.interactiveVolumeKeyMode) {
+                    InteractiveVolumeKeyMode.VOLUME ->
+                        if (isUp) InteractiveKeys.findByToken("volumeup") else InteractiveKeys.findByToken("volumedown")
+                    InteractiveVolumeKeyMode.ARROWS ->
+                        if (isUp) InteractiveKeys.findByToken("right") else InteractiveKeys.findByToken("left")
+                    InteractiveVolumeKeyMode.TRACKS ->
+                        if (isUp) InteractiveKeys.findByToken("nexttrack") else InteractiveKeys.findByToken("previoustrack")
+                }
+                if (key != null) {
+                    currentSendCatalogKey(key)
+                }
+            }
+        }
+        onDispose {
+            MainActivity.volumeKeyHandler = null
+        }
+    }
+
+    // Auto-clear preview slate after 4 seconds of inactivity
+    LaunchedEffect(history) {
+        if (history.isNotEmpty()) {
+            delay(4000L)
+            history = emptyList()
+        }
     }
 
     // Open keyboard initially on entering Interactive Mode
@@ -280,6 +406,17 @@ fun InteractiveModeScreen(service: HidService?, onExit: () -> Unit) {
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    val volSubtext = when (settings.interactiveVolumeKeyMode) {
+                                        InteractiveVolumeKeyMode.VOLUME -> "Vol buttons: Volume \u00b1"
+                                        InteractiveVolumeKeyMode.ARROWS -> "Vol buttons: \u2190 / \u2192"
+                                        InteractiveVolumeKeyMode.TRACKS -> "Vol buttons: \u23ee / \u23ed"
+                                    }
+                                    Text(
+                                        text = volSubtext,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                         textAlign = TextAlign.Center
                                     )
                                 }
@@ -401,6 +538,7 @@ fun InteractiveModeScreen(service: HidService?, onExit: () -> Unit) {
                     detectedOs = detectedOs,
                     heldModifiers = heldModifiers,
                     mapperKeys = mapperKeys,
+                    volumeKeyMode = settings.interactiveVolumeKeyMode,
                     onToggleModifier = { modifier ->
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         heldModifiers = if (modifier in heldModifiers) {
@@ -426,25 +564,20 @@ fun InteractiveModeScreen(service: HidService?, onExit: () -> Unit) {
                     when {
                         newText.startsWith(oldText) -> {
                             newText.substring(oldText.length).forEach { char ->
-                                if (InteractiveKeys.sendChar(service, char, heldModifiers)) {
-                                    log(labelForChar(char), heldModifiers)
-                                }
+                                onCharTyped(char)
                             }
                         }
 
                         oldText.startsWith(newText) -> {
                             repeat(oldText.length - newText.length) {
-                                InteractiveKeys.sendBackspace(service)
-                                history = (listOf("⌫") + history).take(8)
+                                onBackspace()
                             }
                         }
 
                         else -> {
                             // The IME replaced the whole field instead of editing it.
                             newText.removePrefix(CAPTURE_SENTINEL).forEach { char ->
-                                if (InteractiveKeys.sendChar(service, char, heldModifiers)) {
-                                    log(labelForChar(char), heldModifiers)
-                                }
+                                onCharTyped(char)
                             }
                         }
                     }
@@ -528,11 +661,61 @@ private fun StatusPill(isLinked: Boolean) {
     }
 }
 
+private const val TYPING_COOLDOWN_MS = 1200L
+private const val MAX_HISTORY_ITEMS = 10
+
+sealed interface PreviewItem {
+    val timestamp: Long
+
+    data class TextChunk(
+        val text: String,
+        override val timestamp: Long
+    ) : PreviewItem
+
+    data class KeyPress(
+        val label: String,
+        val modifierPrefix: String? = null,
+        val count: Int = 1,
+        val icon: ImageVector? = null,
+        val displayText: String = "",
+        override val timestamp: Long
+    ) : PreviewItem
+}
+
+private fun previewIconForKey(token: String, label: String): Pair<ImageVector?, String> {
+    val norm = token.lowercase().replace(" ", "").replace("_", "").replace("-", "")
+    return when (norm) {
+        // Navigation arrows: show icon cleanly
+        "up" -> Icons.Filled.ArrowUpward to ""
+        "down" -> Icons.Filled.ArrowDownward to ""
+        "left" -> Icons.AutoMirrored.Filled.ArrowBack to ""
+        "right" -> Icons.AutoMirrored.Filled.ArrowForward to ""
+
+        // Media controls: icon + compact label
+        "volumeup" -> Icons.AutoMirrored.Filled.VolumeUp to "Vol +"
+        "volumedown" -> Icons.AutoMirrored.Filled.VolumeDown to "Vol -"
+        "mute" -> Icons.AutoMirrored.Filled.VolumeMute to "Mute"
+        "playpause" -> Icons.Filled.PlayArrow to "Play/Pause"
+        "pause" -> Icons.Filled.Pause to "Pause"
+        "nexttrack", "next" -> Icons.Filled.SkipNext to "Next"
+        "previoustrack", "prevtrack", "prev" -> Icons.Filled.SkipPrevious to "Prev"
+        "stop" -> Icons.Filled.Stop to "Stop"
+
+        // Common keys
+        "backspace" -> Icons.AutoMirrored.Filled.Backspace to ""
+        "enter", "return" -> Icons.AutoMirrored.Filled.KeyboardReturn to "Enter"
+        "tab" -> Icons.AutoMirrored.Filled.KeyboardTab to "Tab"
+        "shift+tab", "stab" -> Icons.AutoMirrored.Filled.KeyboardTab to "Shift+Tab"
+
+        else -> null to label
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun InteractivePreviewChips(
     heldModifiers: Set<InteractiveModifier>,
-    history: List<String>,
+    history: List<PreviewItem>,
     targetOs: TargetOs,
     showPlaceholder: Boolean = true
 ) {
@@ -566,18 +749,83 @@ private fun InteractivePreviewChips(
                 )
             }
         }
-        history.forEach { entry ->
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHighest
-            ) {
-                Text(
-                    text = entry,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                )
+        history.forEach { item ->
+            when (item) {
+                is PreviewItem.TextChunk -> {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                        )
+                    ) {
+                        Text(
+                            text = item.text,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                is PreviewItem.KeyPress -> {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            if (item.modifierPrefix != null) {
+                                Text(
+                                    text = "${item.modifierPrefix} +",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            if (item.icon != null) {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.label,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            if (item.displayText.isNotBlank()) {
+                                Text(
+                                    text = item.displayText,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (item.count > 1) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    Text(
+                                        text = "x${item.count}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -637,6 +885,7 @@ private fun KeyboardIsland(
     detectedOs: TargetOs,
     heldModifiers: Set<InteractiveModifier>,
     mapperKeys: List<String>,
+    volumeKeyMode: InteractiveVolumeKeyMode,
     onToggleModifier: (InteractiveModifier) -> Unit,
     onKeyClick: (InteractiveKey) -> Unit,
     onSlotHold: (Int) -> Unit,
@@ -703,9 +952,14 @@ private fun KeyboardIsland(
                 }
             }
 
-            // Center-aligned text to touch island and open keyboard
+            // Center-aligned text to touch island and open keyboard with minimal subtext
+            val volHint = when (volumeKeyMode) {
+                InteractiveVolumeKeyMode.VOLUME -> "Vol: \u00b1"
+                InteractiveVolumeKeyMode.ARROWS -> "Vol: \u2190 \u2192"
+                InteractiveVolumeKeyMode.TRACKS -> "Vol: \u23ee \u23ed"
+            }
             Text(
-                text = "Touch this island to open keyboard",
+                text = "Touch this island to open keyboard \u2022 $volHint",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Computer
@@ -87,6 +88,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sj010.ghid.GhostHidApp
 import com.sj010.ghid.domain.model.AppSettings
+import com.sj010.ghid.domain.model.InteractiveVolumeKeyMode
 import com.sj010.ghid.domain.model.OsOverrideMode
 import com.sj010.ghid.domain.model.ThemeMode
 import com.sj010.ghid.ui.theme.ExpressiveShapes
@@ -597,6 +599,41 @@ fun SettingsScreen(
                             accentColor = roseAccent,
                             onCheckedChange = { checked ->
                                 repository.update { it.copy(quickSendHaptics = checked) }
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Category 6: Interactive Mode
+            item(key = "cat_interactive") {
+                val isExpanded = expandedCategory == "interactive"
+                val indigoAccent = Color(0xFF7E57C2)
+                val indigoContainer = MaterialTheme.colorScheme.surfaceContainerHigh
+                val onIndigoContainer = MaterialTheme.colorScheme.onSurface
+
+                ExpressiveCategoryCard(
+                    title = "Interactive Mode",
+                    subtitle = "Hardware volume buttons and interactive keyboard settings",
+                    icon = Icons.AutoMirrored.Filled.VolumeUp,
+                    iconShape = ExpressiveShapes.Ghostish,
+                    categoryColor = indigoAccent,
+                    categoryContainerColor = indigoContainer,
+                    categoryOnContainerColor = onIndigoContainer,
+                    isExpanded = isExpanded,
+                    onToggleExpand = { expandedCategory = if (isExpanded) null else "interactive" }
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        ExpressiveChoiceGroup(
+                            title = "Volume Keys",
+                            description = "Hardware volume buttons mapping in interactive mode",
+                            options = InteractiveVolumeKeyMode.entries.map { it.label },
+                            selectedOption = settings.interactiveVolumeKeyMode.label,
+                            accentColor = indigoAccent,
+                            onOptionSelected = { label ->
+                                val mode = InteractiveVolumeKeyMode.entries.firstOrNull { it.label == label }
+                                    ?: InteractiveVolumeKeyMode.VOLUME
+                                repository.update { it.copy(interactiveVolumeKeyMode = mode) }
                             }
                         )
                     }
