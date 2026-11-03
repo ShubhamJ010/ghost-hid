@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.2.2] - 2026-11-04
+
+### Added
+- **Most Used Payloads pill carousel on Dashboard.**
+  - **3-Row staggered capsule carousel:** New `MostUsedPayloadsSection` rendering a 3-row horizontally scrolling grid of 58dp capsule pills directly below Most Used Combos, placing raw HID reports and typed text snippets one tap away without opening the landscape stream deck.
+  - **Dynamic interlocking widths & leading insets:** Pure policy (`PayloadPillsPolicy.calculatePillWidth`) computes irregular stepped widths (118..252dp) seeded from title and subtitle lengths with per-(row, column) stagger rhythm, coupled with per-row leading offsets (0/44/18dp) for a signature staggered brickwork layout with full edge bleed under screen gutters.
+  - **Visual & tactile feedback:** Leading 38dp circular art badge with icon type indicators (Lock for secure vault items, Memory for raw hex reports, TextFields for keystrokes), tactile spring morph on press (29dp stadium down to 18dp squarish pill on long-press haptic), and 8 curated M3 Expressive tonal palettes.
+  - **One-tap payload dispatch:** Standalone `PayloadDispatcher` executes typed strings or validated raw HID byte packets and logs usage immediately.
+- **Scoped usage tracking for Combos & Payloads.**
+  - **Configurable history scope:** New `UsageTrackingScope` preference under Settings > Host options ("Most Used History Scope") supporting `Device Type` (OS-wide grouping across all Macs/PCs) and `Device Name` (isolated per Bluetooth host name, e.g. Mac A vs Mac B).
+  - **Multi-tier key scheme & migration safety:** `UsageScopingPolicy` maintains global (`usage:`), per-OS (`usage_type:<os>:`), and per-device (`usage_device:<device>:`) counters on every use, with graceful fallback ensuring pre-existing usage counts survive without data loss.
+  - **Scope-aware basis indicators:** Header subtitles on both Most Used Combos and Most Used Payloads dynamically reflect the active tracking basis ("Based on <OS> history" or "Based on <device> history").
+  - **Optimized dashboard resolution:** Pre-filtered count maps memoized with `remember` on the dashboard, and `HidService` combo execution plus stream deck payload paths updated to pass effective target OS and device name.
+
 ## [0.2.1] - 2026-11-03
 
 ### Added
@@ -86,8 +100,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hardware-encrypted payload vault backed by Android Keystore.
 - ADB/CLI companion (`ghid-cli`) for terminal and agent automation.
 
+[0.2.2]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.2
 [0.2.1]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.0
 [0.1.1]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.0
-[Unreleased]: https://github.com/ShubhamJ010/ghost-hid/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/ShubhamJ010/ghost-hid/compare/v0.2.2...HEAD
