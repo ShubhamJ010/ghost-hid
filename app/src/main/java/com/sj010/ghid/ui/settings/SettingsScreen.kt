@@ -519,7 +519,7 @@ fun SettingsScreen(
                         // Keep Screen Awake
                         ExpressiveSwitchSetting(
                             title = "Keep Screen Awake",
-                            description = "Prevent device screen from turning off while using virtual trackpad or stream deck",
+                            description = "Keep screen on while app is open. Turn off to let screen sleep per Android display settings.",
                             checked = settings.keepScreenAwake,
                             accentColor = mintAccent,
                             onCheckedChange = { checked ->

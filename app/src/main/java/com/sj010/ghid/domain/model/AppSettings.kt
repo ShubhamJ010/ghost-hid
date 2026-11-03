@@ -96,7 +96,7 @@ data class AppSettings(
     // 4. Display & System Appearance
     @SerialName("ui_theme_mode") val themeMode: ThemeMode = ThemeMode.SYSTEM,
     @SerialName("ui_dynamic_color") val dynamicColor: Boolean = true,
-    @SerialName("ui_keep_screen_awake") val keepScreenAwake: Boolean = true,
+    @SerialName("ui_keep_screen_awake") val keepScreenAwake: Boolean = false,
     @SerialName("ui_high_refresh_rate") val highRefreshRate: Boolean = true,
 
     // 5. Quick Send & Deck
