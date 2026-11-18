@@ -8,10 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Interactive Mode now runs as an overlay on the dashboard.**
+  - **Keys shade replaces the device card.** The overlay is transparent and hosted above the scaffold's bottom-nav padding: no scrim and no page surface, so the dashboard stays visible and touchable around it and only steps back to a ghost (28% opacity) while the keys are up. The shade takes over the top dock exactly where the device card sits, so the keys replace that component instead of stacking on top of it, and the card fades and shrinks away underneath.
+  - **Island and preview ride just above the keyboard.** The software keyboard opens with the overlay so the mode is immediately typing-ready; the island keeps the sticky modifier row plus four mapper slots, and an animated preview popup grows out of it to show chained modifiers and the last keys sent, then sinks back when it empties (auto-clearing after 4s).
+  - **Keyboard-dismissal closes the overlay.** Putting the keyboard away animates the overlay out and morphs the keys back into the device card; Back does the same. Hiding the keyboard for the key drawer or the key picker is exempt, so those never dismiss the mode.
+- **Mouse keys in the interactive key catalog.** New Mouse category with left, right, middle, back and forward clicks, sent as real HID mouse button usages (including new `BACK` / `FORWARD` buttons), and the shade crest always offers the two clicks.
+- **Crest key row in the interactive shade.** Three large configurable buttons above the drag handle: a free "add your own" slot shared with the island's fourth mapper slot, plus L Click and R Click, with the handle moved to the bottom edge of the crest.
+- **Quick Combo bolt FAB on the Combos screen.** A secondary-toned `FloatingActionButton` beside the extended "New Combo" button opens the quick-send overlay without leaving the combo list, in the same keep-away group as the rest of the bottom-edge actions.
 
 ### Changed
+- **Interactive mapper defaults are back on keys.** The row defaults to Esc / Tab / Play-Pause / free slot, and media keys draw as icons wherever they are assigned. Installs that saved one of the two interim defaults (the mouse-click row, or the older Esc / Tab / Stab row) migrate to the new default on load; a customised row is never touched.
+- **Mapper slots are written through `SettingsRepository`.** `updateInteractiveMapperSlot()` pads and validates the row, and `AppSettings` owns the slot count and default row so the island, the crest and storage cannot drift apart.
+- **Taller interactive dock.** The shade's crest dock is taller than the dashboard's device dock so the mapper keys have room to sit as full-width buttons.
+- **Interactive overlay internals shared and simplified.** The crest and the island now draw the same mapper/add buttons, the duplicate slot callbacks collapsed into one edit callback, and the shared widgets moved into `InteractiveWidgets.kt`.
+
+### Removed
+- **Full-screen interactive mode.** The dedicated screen, its status pill, pointer-motion trackpad, preview icon mapper and the `Screen.Interactive` route are gone, along with the now-unused imports they left behind. The "Stab" key is removed from the catalog.
 
 ### Fixed
+- **Interactive Mode FAB follows scroll direction.** The dashboard FAB now hides only while the list is scrolling down and returns on any upward scroll, instead of staying hidden until the list hit the very top. It also steps aside while the Settings/Quit panel or the interactive overlay owns the bottom edge.
+- **Quick Combo FAB reads as its own action.** The bolt button uses the `secondaryContainer` / `onSecondaryContainer` pair so it is distinct from the primary-toned New Combo button next to it.
 
 ## [0.2.2] - 2026-11-04
 
