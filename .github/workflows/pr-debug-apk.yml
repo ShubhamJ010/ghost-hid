@@ -1,0 +1,84 @@
+name: PR Debug APK
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened ]
+
+permissions:
+  contents: read
+  actions: read
+  # Needed to post the APK link back on the pull request.
+  pull-requests: write
+
+concurrency:
+  group: pr-debug-apk-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: debug-apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --build-cache --parallel
+
+      - name: Rename APK
+        id: apk
+        run: |
+          set -euo pipefail
+          SRC=app/build/outputs/apk/debug/app-debug.apk
+          NAME="ghost-hid-debug-pr${{ github.event.pull_request.number }}-${GITHUB_SHA::7}.apk"
+          cp "$SRC" "$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          ls -la "$NAME"
+
+      - name: Upload debug APK
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghost-hid-debug-pr${{ github.event.pull_request.number }}
+          path: ${{ steps.apk.outputs.name }}
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Comment debug APK on the PR
+        if: steps.upload.outcome == 'success'
+        # Pull requests from forks get a read-only token, so a failed comment
+        # must not turn an otherwise good build red.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          APK="${{ steps.apk.outputs.name }}"
+          {
+            echo "**Debug APK ready** — \`$APK\`"
+            echo
+            echo "This build installs **next to** the release app: package \`com.sj010.ghid.debug\`, launcher label *GhostHID Debug*."
+            echo
+            echo "Download: [run artifacts]($RUN_URL) → \`ghost-hid-debug-pr${{ github.event.pull_request.number }}\`"
+            echo
+            echo '```sh'
+            echo "adb install -r $APK"
+            echo '```'
+            echo
+            echo "<sub>Commit \`${{ github.sha }}\` · run ${{ github.run_id }}</sub>"
+          } > comment.md
+          gh pr comment "$PR_NUMBER" --body-file comment.md

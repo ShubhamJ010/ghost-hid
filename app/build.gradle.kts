@@ -82,7 +82,10 @@ android {
             )
         }
         debug {
-            applicationIdSuffix = ""
+            // Suffixed so a debug build installs alongside the release app
+            // instead of replacing it. Override the label in app/src/debug/AndroidManifest.xml.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
             signingConfig = signingConfigs.getByName("debug")
         }
     }
