@@ -9,6 +9,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -81,6 +82,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -111,7 +113,8 @@ fun DashboardScreen(
     service: HidService?,
     onNavigateToCombos: (() -> Unit)? = null,
     onNavigateToSettings: (() -> Unit)? = null,
-    onNavigateToInteractive: (() -> Unit)? = null,
+    interactiveOverlayOpen: Boolean = false,
+    onToggleInteractive: () -> Unit = {},
     onQuit: () -> Unit = {}
 ) {
     val connectionState by service?.connectionState?.collectAsState()
@@ -191,6 +194,19 @@ fun DashboardScreen(
             previousOffset = offset
         }
     }
+    // POC: interactive mode is an overlay hosted above the whole scaffold. The dashboard
+    // cards step back to a ghost and the device card yields its dock to the keys shade,
+    // so the keys replace that component instead of stacking on top of it.
+    val dashboardContentPresence by animateFloatAsState(
+        targetValue = if (interactiveOverlayOpen) 0.28f else 1f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "dashboardContentPresence"
+    )
+    val deviceCardPresence by animateFloatAsState(
+        targetValue = if (interactiveOverlayOpen) 0f else 1f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "deviceCardPresence"
+    )
     val showQuitButton by remember {
         derivedStateOf {
             DashboardScrollPolicy.showQuitButton(
@@ -219,7 +235,12 @@ fun DashboardScreen(
                 onDisconnect = { service?.disconnectTarget() },
                 onSwitchDevice = { showDevicePicker = true },
                 onOpen = { scope.open() },
-                onDismiss = { scope.dismiss() }
+                onDismiss = { scope.dismiss() },
+                modifier = Modifier.graphicsLayer {
+                    alpha = deviceCardPresence
+                    scaleX = 0.9f + 0.1f * deviceCardPresence
+                    scaleY = 0.9f + 0.1f * deviceCardPresence
+                }
             )
         },
         shade = {},
@@ -235,7 +256,8 @@ fun DashboardScreen(
             state = dashboardListState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .graphicsLayer { alpha = dashboardContentPresence },
             contentPadding = PaddingValues(bottom = 220.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -441,8 +463,9 @@ fun DashboardScreen(
         // dark icon, so it reads as the primary action against the dark surface.
         // It hides on downward scroll and returns when the user scrolls back up.
         AnimatedVisibility(
-            // The quit/settings panel owns the bottom edge, so the FAB steps aside for it.
-            visible = showInteractiveFab && !showQuitButton,
+            // The quit/settings panel and the overlay own the bottom edge, so the FAB
+            // steps aside for them.
+            visible = showInteractiveFab && !showQuitButton && !interactiveOverlayOpen,
             enter = scaleIn(
                 initialScale = 0.9f,
                 animationSpec = tween(180, easing = FastOutSlowInEasing)
@@ -456,7 +479,7 @@ fun DashboardScreen(
                 .padding(end = 20.dp, bottom = 20.dp)
         ) {
             LargeFloatingActionButton(
-                onClick = { onNavigateToInteractive?.invoke() },
+                onClick = onToggleInteractive,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 shape = ExpressiveShapes.Ghostish,
@@ -474,6 +497,7 @@ fun DashboardScreen(
                 )
             }
         }
+
       }
     }
 

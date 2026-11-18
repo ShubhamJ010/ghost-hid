@@ -18,17 +18,25 @@ class SettingsRepository(context: Context) {
         encodeDefaults = true
     }
 
+    private val scope = CoroutineScope(Dispatchers.IO)
+
     private val _settings = MutableStateFlow(loadSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
-    private val scope = CoroutineScope(Dispatchers.IO)
-
     private fun loadSettings(): AppSettings {
         val raw = prefs.getString(KEY_SETTINGS, null) ?: return AppSettings()
-        return try {
+        val loaded = try {
             json.decodeFromString<AppSettings>(raw)
         } catch (_: Exception) {
-            AppSettings()
+            return AppSettings()
+        }
+        // The mapper row is back to its keyboard defaults; installs that picked up the
+        // interim mouse-button default revert with it. Customised rows are left alone.
+        return if (loaded.interactiveMapperKeys in STALE_MAPPER_DEFAULTS) {
+            loaded.copy(interactiveMapperKeys = AppSettings().interactiveMapperKeys)
+                .also(::persist)
+        } else {
+            loaded
         }
     }
 
@@ -60,5 +68,9 @@ class SettingsRepository(context: Context) {
     companion object {
         private const val PREFS_NAME = "ghosthid_app_settings"
         private const val KEY_SETTINGS = "settings_payload_v1"
+        private val STALE_MAPPER_DEFAULTS = listOf(
+            listOf("lclick", "rclick", "mclick", ""),
+            listOf("esc", "tab", "shift+tab", "")
+        )
     }
 }

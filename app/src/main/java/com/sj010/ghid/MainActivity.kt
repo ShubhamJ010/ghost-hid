@@ -27,8 +27,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -52,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -60,7 +57,7 @@ import com.sj010.ghid.domain.model.ThemeMode
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.combos.ComboStudioScreen
 import com.sj010.ghid.ui.dashboard.DashboardScreen
-import com.sj010.ghid.ui.interactive.InteractiveModeScreen
+import com.sj010.ghid.ui.interactive.InteractiveOverlay
 import com.sj010.ghid.ui.navigation.Screen
 import com.sj010.ghid.ui.settings.SettingsScreen
 import com.sj010.ghid.ui.streamdeck.StreamDeckScreen
@@ -302,6 +299,12 @@ class MainActivity : ComponentActivity() {
 fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequests: Int = 0) {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
 
+    // POC: interactive mode is an overlay on the dashboard, not a screen of its own.
+    var interactiveOverlayOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(currentScreen) {
+        if (currentScreen != Screen.Dashboard) interactiveOverlayOpen = false
+    }
+
     // A notification tap always lands on the dashboard, even if another tab is showing.
     LaunchedEffect(dashboardRequests) {
         if (dashboardRequests > 0) currentScreen = Screen.Dashboard
@@ -318,32 +321,30 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequ
         return
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            // Interactive mode hands the bottom of the screen to the system IME.
-            if (currentScreen != Screen.Interactive) {
-                NavigationBar(
-                    modifier = Modifier.alpha(if (currentScreen == Screen.Settings) 0f else 1f),
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ) {
-                    Screen.bottomNavScreens.forEach { screen ->
-                        NavigationBarItem(
-                            selected = currentScreen == screen,
-                            enabled = currentScreen != Screen.Settings,
-                            onClick = { currentScreen = screen },
-                            icon = { Icon(screen.icon, contentDescription = screen.title) },
-                            label = {
-                                Text(
-                                    text = screen.title,
-                                    maxLines = 1,
-                                    fontSize = 11.sp,
-                                    softWrap = false
-                                )
-                            }
-                        )
-                    }
+            NavigationBar(
+                modifier = Modifier.alpha(if (currentScreen == Screen.Settings) 0f else 1f),
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ) {
+                Screen.bottomNavScreens.forEach { screen ->
+                    NavigationBarItem(
+                        selected = currentScreen == screen,
+                        enabled = currentScreen != Screen.Settings,
+                        onClick = { currentScreen = screen },
+                        icon = { Icon(screen.icon, contentDescription = screen.title) },
+                        label = {
+                            Text(
+                                text = screen.title,
+                                maxLines = 1,
+                                fontSize = 11.sp,
+                                softWrap = false
+                            )
+                        }
+                    )
                 }
             }
         }
@@ -357,16 +358,9 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequ
             AnimatedContent(
                 targetState = currentScreen,
                 transitionSpec = {
-                    if (targetState == Screen.Interactive || initialState == Screen.Interactive) {
-                        (fadeIn(tween(220)) + scaleIn(initialScale = 0.96f, animationSpec = tween(220)))
-                            .togetherWith(
-                                fadeOut(tween(160)) + scaleOut(targetScale = 0.98f, animationSpec = tween(160))
-                            )
-                    } else {
-                        fadeIn(animationSpec = tween(180)).togetherWith(
-                            fadeOut(animationSpec = tween(180))
-                        )
-                    }
+                    fadeIn(animationSpec = tween(180)).togetherWith(
+                        fadeOut(animationSpec = tween(180))
+                    )
                 },
                 label = "screenTransition"
             ) { screen ->
@@ -380,19 +374,27 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequ
                             service = service,
                             onNavigateToCombos = { currentScreen = Screen.Combos },
                             onNavigateToSettings = { currentScreen = Screen.Settings },
-                            onNavigateToInteractive = { currentScreen = Screen.Interactive },
+                            interactiveOverlayOpen = interactiveOverlayOpen,
+                            onToggleInteractive = { interactiveOverlayOpen = !interactiveOverlayOpen },
                             onQuit = onQuit
                         )
                     }
                     Screen.Combos -> ComboStudioScreen(service = service)
                     Screen.Trackpad -> TrackpadScreen(service = service)
-                    Screen.Interactive -> InteractiveModeScreen(
-                        service = service,
-                        onExit = { currentScreen = Screen.Dashboard }
-                    )
                     Screen.Settings -> SettingsScreen(onBack = { currentScreen = Screen.Dashboard })
                 }
             }
         }
+    }
+
+        // Transparent, and above the scaffold's bottom-nav padding: no scrim, so the
+        // dashboard shows through; the keys shade takes the top dock and the island
+        // rides just above the keyboard.
+        InteractiveOverlay(
+            service = service,
+            visible = interactiveOverlayOpen,
+            onDismiss = { interactiveOverlayOpen = false },
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }
