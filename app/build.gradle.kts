@@ -46,8 +46,8 @@ android {
         applicationId = "com.sj010.ghid"
         minSdk = 28
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.2.2"
+        versionCode = 11
+        versionName = "0.2.3"
     }
 
     signingConfigs {
@@ -82,7 +82,10 @@ android {
             )
         }
         debug {
-            applicationIdSuffix = ""
+            // Suffixed so a debug build installs alongside the release app
+            // instead of replacing it. Override the label in app/src/debug/AndroidManifest.xml.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
             signingConfig = signingConfigs.getByName("debug")
         }
     }

@@ -13,10 +13,12 @@ local.properties
 .kotlin/
 
 # Signing keys & properties
-debug.keystore
 *.jks
 *.keystore
 keystore.properties
+# The Android debug key is tracked on purpose: CI builds debug APKs with it so
+# every PR artifact keeps the same signature, and it is not a secret key.
+!debug.keystore
 
 # Logs & temp files
 *.log

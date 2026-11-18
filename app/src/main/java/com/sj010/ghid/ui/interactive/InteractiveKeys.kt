@@ -1,12 +1,19 @@
 package com.sj010.ghid.ui.interactive
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeMute
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Functions
+import androidx.compose.material.icons.filled.Mouse
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.parser.KeyTokens
+import com.sj010.ghid.domain.pointer.MouseButton
 import com.sj010.ghid.service.HidService
 
 /**
@@ -25,6 +32,7 @@ enum class InteractiveModifier(val label: String, val bit: Int) {
 
 enum class InteractiveKeyCategory(val title: String, val icon: ImageVector) {
     NAVIGATION("Navigation", Icons.Default.Navigation),
+    MOUSE("Mouse", Icons.Default.Mouse),
     MEDIA("Media", Icons.AutoMirrored.Filled.VolumeUp),
     FUNCTION("Function", Icons.Default.Functions)
 }
@@ -38,7 +46,12 @@ data class InteractiveKey(
     val label: String,
     val token: String,
     val category: InteractiveKeyCategory,
-    val consumerUsage: Int? = null
+    val consumerUsage: Int? = null,
+    val mouseButton: MouseButton? = null,
+    /** Compact label for the narrow mapper row, where [label] would clip. */
+    val shortLabel: String? = null,
+    /** Drawn instead of the label wherever this key is assigned. */
+    val icon: ImageVector? = null
 )
 
 object InteractiveKeys {
@@ -59,19 +72,26 @@ object InteractiveKeys {
         InteractiveKey("Backspace", "backspace", InteractiveKeyCategory.NAVIGATION),
         InteractiveKey("Enter", "enter", InteractiveKeyCategory.NAVIGATION),
         InteractiveKey("Tab", "tab", InteractiveKeyCategory.NAVIGATION),
-        InteractiveKey("Stab", "shift+tab", InteractiveKeyCategory.NAVIGATION),
         InteractiveKey("Esc", "esc", InteractiveKeyCategory.NAVIGATION),
         InteractiveKey("Space", "space", InteractiveKeyCategory.NAVIGATION),
         InteractiveKey("Menu", "menu", InteractiveKeyCategory.NAVIGATION)
     )
 
+    private val mouseKeys = listOf(
+        InteractiveKey("Left Click", "lclick", InteractiveKeyCategory.MOUSE, mouseButton = MouseButton.LEFT, shortLabel = "L Click"),
+        InteractiveKey("Right Click", "rclick", InteractiveKeyCategory.MOUSE, mouseButton = MouseButton.RIGHT, shortLabel = "R Click"),
+        InteractiveKey("Middle Click", "mclick", InteractiveKeyCategory.MOUSE, mouseButton = MouseButton.MIDDLE, shortLabel = "M Click"),
+        InteractiveKey("Back", "mouseback", InteractiveKeyCategory.MOUSE, mouseButton = MouseButton.BACK, shortLabel = "Back"),
+        InteractiveKey("Forward", "mouseforward", InteractiveKeyCategory.MOUSE, mouseButton = MouseButton.FORWARD, shortLabel = "Fwd")
+    )
+
     private val mediaKeys = listOf(
-        InteractiveKey("Volume Up", "volumeup", InteractiveKeyCategory.MEDIA, consumerUsage = 0xE9),
-        InteractiveKey("Volume Down", "volumedown", InteractiveKeyCategory.MEDIA, consumerUsage = 0xEA),
-        InteractiveKey("Mute", "mute", InteractiveKeyCategory.MEDIA, consumerUsage = 0xE2),
-        InteractiveKey("Play/Pause", "playpause", InteractiveKeyCategory.MEDIA, consumerUsage = 0xCD),
-        InteractiveKey("Next Track", "nexttrack", InteractiveKeyCategory.MEDIA, consumerUsage = 0xB5),
-        InteractiveKey("Previous Track", "previoustrack", InteractiveKeyCategory.MEDIA, consumerUsage = 0xB6)
+        InteractiveKey("Volume Up", "volumeup", InteractiveKeyCategory.MEDIA, consumerUsage = 0xE9, icon = Icons.AutoMirrored.Filled.VolumeUp),
+        InteractiveKey("Volume Down", "volumedown", InteractiveKeyCategory.MEDIA, consumerUsage = 0xEA, icon = Icons.AutoMirrored.Filled.VolumeDown),
+        InteractiveKey("Mute", "mute", InteractiveKeyCategory.MEDIA, consumerUsage = 0xE2, icon = Icons.AutoMirrored.Filled.VolumeMute),
+        InteractiveKey("Play/Pause", "playpause", InteractiveKeyCategory.MEDIA, consumerUsage = 0xCD, icon = Icons.Filled.PlayArrow),
+        InteractiveKey("Next Track", "nexttrack", InteractiveKeyCategory.MEDIA, consumerUsage = 0xB5, icon = Icons.Filled.SkipNext),
+        InteractiveKey("Previous Track", "previoustrack", InteractiveKeyCategory.MEDIA, consumerUsage = 0xB6, icon = Icons.Filled.SkipPrevious)
     )
 
     private val functionKeys = buildList {
@@ -85,7 +105,7 @@ object InteractiveKeys {
         add(InteractiveKey("Num Lock", "numlock", InteractiveKeyCategory.FUNCTION))
     }
 
-    val catalog: List<InteractiveKey> = navigationKeys + mediaKeys + functionKeys
+    val catalog: List<InteractiveKey> = navigationKeys + mouseKeys + mediaKeys + functionKeys
 
     fun findByToken(token: String): InteractiveKey? {
         if (token.isBlank()) return null
@@ -108,6 +128,10 @@ object InteractiveKeys {
     /** Sends one catalog key with the chained modifiers applied. */
     fun send(service: HidService?, key: InteractiveKey, modifiers: Set<InteractiveModifier>) {
         val svc = service ?: return
+        key.mouseButton?.let { button ->
+            svc.sendMouseButton(button)
+            return
+        }
         key.consumerUsage?.let { usage ->
             svc.sendConsumerKey(usage)
             return
@@ -120,13 +144,12 @@ object InteractiveKeys {
     }
 
     /** Sends one soft-keyboard character, folding in the chained modifiers. */
-    fun sendChar(service: HidService?, char: Char, modifiers: Set<InteractiveModifier>): Boolean {
-        val svc = service ?: return false
+    fun sendChar(service: HidService?, char: Char, modifiers: Set<InteractiveModifier>) {
+        val svc = service ?: return
         val (charModifier, keyCode) = KeyTokens.keyForChar(char)
-        if (keyCode == 0.toByte()) return false
+        if (keyCode == 0.toByte()) return
         val combined = (charModifier.toInt() or modifierByte(modifiers).toInt()).toByte()
         svc.sendKey(combined, keyCode)
-        return true
     }
 
     fun sendBackspace(service: HidService?) {

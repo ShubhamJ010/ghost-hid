@@ -132,6 +132,36 @@ flowchart TD
     class Input,Complete start
 ```
 
+### FIFO Job Queue
+
+The phone owns ordering and pacing. A `combo`, `type`, `raw`, or held-chord command becomes one job on a single-worker FIFO queue, so the CLI can fire several macros back to back without thinking about timing:
+
+```mermaid
+sequenceDiagram
+    participant CLI
+    participant ADB
+    participant Queue as HidService job queue
+    participant Worker as Single HID worker
+    participant Host as Target host
+
+    CLI->>ADB: am broadcast cmd=combo (one per sequence)
+    ADB->>Queue: enqueue HidJob.Combo
+    CLI->>ADB: am broadcast cmd=combo (second sequence)
+    ADB->>Queue: enqueue HidJob.Combo
+
+    Queue->>Worker: job#1 (FIFO)
+    Worker->>Host: scancodes + delays
+    Worker->>Host: all-zero keyboard release
+    Queue->>Worker: job#2
+    Worker->>Host: scancodes + delays
+    Worker->>Host: all-zero keyboard release
+```
+
+- One worker means macros never interleave. The old behaviour — a fresh coroutine per trigger with only individual reports serialized — could splice two sequences together and strand a held modifier.
+- The all-zero keyboard report between jobs is the reset boundary: whatever the previous macro left pressed is released before the next one starts.
+- Host-resolved payload values arrive with the sequence (`payloads_b64`), so each job is self-contained and needs no extra ADB round trip.
+- The CLI reports success as soon as the broadcast is accepted. Completion is visible in `gateway.log` (`[job#N] start …` / `[job#N] done`), not in the command's exit code.
+
 ### HID Timing Details
 - **Keystroke down/up report interval:** 60 ms hold time before zeroing report.
 - **Character typing interval:** 25 ms down report hold, 25 ms up report hold (up to 20 characters per second).
@@ -365,7 +395,7 @@ flowchart TD
 
 ## 8. Bi-directional Synchronization and Reconnect Flow (Android SSOT)
 
-The synchronization pipeline enforces the Android smartphone as the Single Source of Truth (SSOT). Remote phone combos and payloads are pulled into the local cache on startup. Local mutations automatically push back to Android, restart the application to invalidate in-memory repositories, and restore the active Bluetooth link.
+The synchronization pipeline enforces the Android smartphone as the Single Source of Truth (SSOT). Remote phone combos and payloads are pulled into the local cache on startup. Local mutations push back to Android, then ask the running service to re-read the pushed files. The app is never force-stopped: killing it dropped the Bluetooth link and could strand in-flight broadcasts in Android's deferred-delivery queue, so a sync would silently break the next commands.
 
 ```mermaid
 sequenceDiagram
@@ -393,16 +423,20 @@ sequenceDiagram
         CLI->>ADB: push combos.json & payloads.json
         ADB->>PhoneDisk: Write updated JSON files
 
-        Note over CLI,Target: Phase 3: Reload Memory & Restore Connection
-        CLI->>ADB: shell am force-stop com.sj010.ghid
-        ADB->>App: Process terminated
-        Target-->>Target: Bluetooth link momentarily dropped
-        CLI->>ADB: shell am start -n com.sj010.ghid/.MainActivity
-        ADB->>App: Process started, load() reads fresh JSON
-        CLI->>CLI: Sleep 1500ms (Compose UI & service init)
-        CLI->>ADB: broadcast ACTION_CMD --es cmd connect
-        ADB->>App: HidCommandReceiver -> HidService.connectTarget()
-        App->>Target: Bluetooth HID connect (L2CAP PSM 0x11/0x13)
-        Target-->>App: Reconnected to active laptop
+        Note over CLI,App: Phase 3: Reload in Place & Confirm Link
+        CLI->>ADB: broadcast ACTION_CMD --es cmd reload
+        ADB->>App: HidCommandReceiver -> HidService.reloadFromDisk()
+        App->>PhoneDisk: comboRepository.load() + payloadRepository.load()
+        Note over App,Target: The app is never force-stopped, so the<br/>Bluetooth link survives the sync.
+        CLI->>ADB: shell am start-foreground-service (idempotent)
+        CLI->>CLI: Poll status.json until registered && connected
+        alt Link already up
+            Note over CLI,Target: Nothing to do; HID link untouched
+        else Link down
+            CLI->>ADB: broadcast ACTION_CMD --es cmd connect
+            ADB->>App: HidService.connectTarget()
+            App->>Target: Bluetooth HID connect (L2CAP PSM 0x11/0x13)
+            Target-->>App: Reconnected to active laptop
+        end
     end
 ```

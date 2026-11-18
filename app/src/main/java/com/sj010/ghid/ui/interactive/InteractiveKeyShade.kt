@@ -12,11 +12,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -41,9 +39,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.lerp
-import androidx.compose.ui.unit.sp
+import com.sj010.ghid.domain.model.AppSettings
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.ui.common.shade.PullDownShade
 
@@ -58,21 +56,26 @@ fun InteractiveKeyShade(
     targetOs: TargetOs,
     heldModifiers: Set<InteractiveModifier>,
     onKey: (InteractiveKey) -> Unit,
+    mapperKeys: List<String>,
+    onMapperSlotEdit: (Int) -> Unit,
     onToggleModifier: (InteractiveModifier) -> Unit,
     onOpenChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    dockHeight: Dp = 56.dp,
     content: @Composable () -> Unit
 ) {
     PullDownShade(
         modifier = modifier,
-        dockHeight = 56.dp,
-        openDockHeight = 56.dp,
+        dockHeight = dockHeight,
         onOpenChanged = onOpenChanged,
         dock = { scope ->
             InteractiveMorphingDock(
                 progress = scope.progress,
                 onDismiss = { scope.dismiss() },
                 onOpen = { scope.open() },
+                mapperKeys = mapperKeys,
+                onKey = onKey,
+                onSlotEdit = onMapperSlotEdit,
                 dragHandleModifier = scope.dragHandleModifier
             )
         },
@@ -246,30 +249,32 @@ private fun DrawerKeyChip(key: InteractiveKey, onClick: () -> Unit) {
 }
 
 /**
- * Morphing dock crest. Closed shows the lowercase "keys" label with the drag
- * pill under it; opening lifts the pill above the label and reveals a close key.
+ * Morphing dock crest. Closed it hosts the configurable mapper keys above the drag
+ * pill; opening fades the keys away and reveals the close key, handing the body to
+ * the full key catalog.
  */
 @Composable
 private fun InteractiveMorphingDock(
     progress: Float,
     onDismiss: () -> Unit,
     onOpen: () -> Unit,
+    mapperKeys: List<String>,
+    onKey: (InteractiveKey) -> Unit,
+    onSlotEdit: (Int) -> Unit,
     dragHandleModifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
     val isClosed = progress < 0.15f
     val isOpen = progress > 0.85f
     val sideProgress = ((progress - 0.15f) / 0.85f).coerceIn(0f, 1f)
-
-    val barOffsetY = lerp(28.dp, 4.dp, progress)
-    val textOffsetY = lerp(4.dp, 16.dp, progress)
-    val closedAlpha = (1f - progress * 2.5f).coerceIn(0f, 1f)
-    val openAlpha = ((progress - 0.4f) * 2.5f).coerceIn(0f, 1f)
+    val keysAlpha = (1f - progress * 3f).coerceIn(0f, 1f)
+    // Crest keys sit one step brighter than the island's mapper row.
+    val crestColor = MaterialTheme.colorScheme.surfaceContainerHigh
 
     Surface(
+        // Fills the dock slot so the closed crest matches the dashboard's device dock.
         modifier = dragHandleModifier
-            .fillMaxWidth()
-            .height(56.dp)
+            .fillMaxSize()
             .clickable(
                 enabled = isClosed,
                 interactionSource = remember { MutableInteractionSource() },
@@ -285,49 +290,68 @@ private fun InteractiveMorphingDock(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 4.dp),
+                .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(200.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                Box(
+            if (keysAlpha > 0f) {
+                Column(
                     modifier = Modifier
-                        .offset(y = barOffsetY)
-                        .size(width = 38.dp, height = 4.dp)
-                        .clip(CircleShape)
-                        .background(
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
-                        )
-                )
-                Box(
-                    modifier = Modifier.offset(y = textOffsetY),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .graphicsLayer { alpha = keysAlpha }
+                        .padding(bottom = 14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (closedAlpha > 0f) {
-                        Text(
-                            text = "keys",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            letterSpacing = 0.5.sp,
-                            modifier = Modifier.graphicsLayer { alpha = closedAlpha }
-                        )
-                    }
-                    if (openAlpha > 0f) {
-                        Text(
-                            text = "Key drawer",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.graphicsLayer { alpha = openAlpha }
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // First: add-your-own, which turns into whatever key it was given.
+                        // It shares the island's free slot, so the two rows agree.
+                        val customKey = InteractiveKeys.findByToken(mapperKeys.getOrElse(CUSTOM_SLOT) { "" })
+                        if (customKey != null) {
+                            MapperKeyButton(
+                                modifier = Modifier.weight(1f),
+                                key = customKey,
+                                onClick = { onKey(customKey) },
+                                onLongClick = { onSlotEdit(CUSTOM_SLOT) },
+                                large = true,
+                                containerColor = crestColor
+                            )
+                        } else {
+                            DottedAddKey(
+                                modifier = Modifier.weight(1f),
+                                onClick = { onSlotEdit(CUSTOM_SLOT) },
+                                large = true
+                            )
+                        }
+
+                        // Then the two mouse clicks, in this order.
+                        DOCK_MOUSE_KEYS.forEach { key ->
+                            MapperKeyButton(
+                                modifier = Modifier.weight(1f),
+                                key = key,
+                                onClick = { onKey(key) },
+                                large = true,
+                                containerColor = crestColor
+                            )
+                        }
                     }
                 }
             }
+
+            // Handle sits on the bottom edge of the crest, clear of the key row.
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp)
+                    .graphicsLayer { alpha = keysAlpha }
+                    .size(width = 38.dp, height = 4.dp)
+                    .clip(CircleShape)
+                    .background(
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                    )
+            )
 
             Surface(
                 onClick = {
@@ -363,3 +387,9 @@ private fun InteractiveMorphingDock(
         }
     }
 }
+
+/** Left and right click, the two mouse buttons the crest always offers. */
+private val DOCK_MOUSE_KEYS = listOf("lclick", "rclick").mapNotNull(InteractiveKeys::findByToken)
+
+/** Mapper slot the crest's "add your own" button writes to (the island's free slot). */
+private const val CUSTOM_SLOT = AppSettings.MAPPER_SLOTS - 1

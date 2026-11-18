@@ -16,6 +16,7 @@ import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.util.Base64
 import android.util.Log
 import com.sj010.ghid.GhostHidApp
 import com.sj010.ghid.MainActivity
@@ -31,15 +32,18 @@ import com.sj010.ghid.domain.parser.ActionSequenceParser
 import com.sj010.ghid.domain.parser.KeyTokens
 import com.sj010.ghid.domain.pointer.MouseButton
 import com.sj010.ghid.domain.pointer.PointerMath
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
@@ -67,6 +71,47 @@ class HidService : Service() {
         { runnable -> Thread(runnable, "ghid-worker").apply { isDaemon = true } },
         ThreadPoolExecutor.DiscardPolicy()
     )
+
+    /**
+     * One HID command at a time. Keyboard reports are a single stateful stream:
+     * two macros running at once would interleave scancodes and clobber each
+     * other's modifier release. A channel gives strict FIFO ordering and a
+     * single place for cancellation later.
+     */
+    private sealed interface HidJob {
+        val label: String
+
+        data class Combo(
+            val rawOrName: String,
+            val payloadOverrides: Map<String, String>
+        ) : HidJob {
+            override val label: String get() = "combo $rawOrName"
+        }
+
+        data class Text(val text: String) : HidJob {
+            override val label: String get() = "type ${text.length} chars"
+        }
+
+        data class Raw(
+            val reportId: Int?,
+            val bytes: ByteArray,
+            val holdMs: Long
+        ) : HidJob {
+            override val label: String get() = "raw ${bytes.size}B"
+        }
+
+        data class Key(
+            val modifier: Byte,
+            val keyCode: Byte,
+            val durationMs: Long
+        ) : HidJob {
+            override val label: String get() = "key"
+        }
+    }
+
+    private val jobQueue = Channel<HidJob>(Channel.UNLIMITED)
+    private var jobWorker: Job? = null
+    private var nextJobId = 0L
     private val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
 
     private var adapter: BluetoothAdapter? = null
@@ -209,6 +254,7 @@ class HidService : Service() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        startJobWorker()
         try {
             logFile = File(getExternalFilesDir(null), "gateway.log")
         } catch (ignored: Exception) {}
@@ -655,10 +701,14 @@ class HidService : Service() {
             8 -> KEYBOARD_REPORT_ID
             else -> KEYBOARD_REPORT_ID
         }
-        sendRawReport(reportId, bytes, holdMs)
+        enqueueJob(HidJob.Raw(reportId, bytes, holdMs))
     }
 
     fun sendRawReport(reportId: Int, bytes: ByteArray, holdMs: Long = 60L) {
+        enqueueJob(HidJob.Raw(reportId, bytes, holdMs))
+    }
+
+    private fun sendRawReportNow(reportId: Int, bytes: ByteArray, holdMs: Long = 60L) {
         val hid = hidDevice ?: return
         val target = targetDevice ?: return
         executor.execute {
@@ -675,32 +725,29 @@ class HidService : Service() {
         }
     }
 
-    fun sendSystemSleep() {
-        val hid = hidDevice ?: return
-        val target = targetDevice ?: return
-        executor.execute {
-            log(">>> Executing System Sleep (Report $SYSTEM_REPORT_ID)...")
-            val down = byteArrayOf(0x02) // Bit 1 is System Sleep (0x02)
-            val up = byteArrayOf(0x00)
-            val r1 = hid.sendReport(target, SYSTEM_REPORT_ID, down)
-            try { Thread.sleep(60) } catch (ignored: Exception) {}
-            val r2 = hid.sendReport(target, SYSTEM_REPORT_ID, up)
-            log("System Sleep sent: down=$r1, up=$r2")
+    private fun sendRawReportNow(bytes: ByteArray, holdMs: Long = 60L) {
+        val reportId = when (bytes.size) {
+            1 -> SYSTEM_REPORT_ID
+            2 -> CONSUMER_REPORT_ID
+            4 -> MOUSE_REPORT_ID
+            8 -> KEYBOARD_REPORT_ID
+            else -> KEYBOARD_REPORT_ID
         }
+        sendRawReportNow(reportId, bytes, holdMs)
+    }
+
+    fun sendSystemSleep() {
+        // Queued like every other report so a sleep can never be spliced into
+        // the middle of a running macro. 1 byte routes to System Control (ID 3).
+        sendRawReport(byteArrayOf(0x02), 60L)
     }
 
     fun sendConsumerKey(usageCode: Int) {
-        val hid = hidDevice ?: return
-        val target = targetDevice ?: return
-        executor.execute {
-            log(">>> Executing Consumer Key 0x${usageCode.toString(16)} (Report $CONSUMER_REPORT_ID)...")
-            val down = byteArrayOf((usageCode and 0xFF).toByte(), ((usageCode shr 8) and 0xFF).toByte())
-            val up = byteArrayOf(0x00, 0x00)
-            val r1 = hid.sendReport(target, CONSUMER_REPORT_ID, down)
-            try { Thread.sleep(60) } catch (ignored: Exception) {}
-            val r2 = hid.sendReport(target, CONSUMER_REPORT_ID, up)
-            log("Consumer Key sent: down=$r1, up=$r2")
-        }
+        // 2 bytes route to Consumer Control (ID 4).
+        sendRawReport(
+            byteArrayOf((usageCode and 0xFF).toByte(), ((usageCode shr 8) and 0xFF).toByte()),
+            60L
+        )
     }
 
     fun sendLock() {
@@ -713,32 +760,22 @@ class HidService : Service() {
     }
 
     fun sendMacLock() {
-        val hid = hidDevice ?: return
-        val target = targetDevice ?: return
-        executor.execute {
-            log(">>> Executing macOS Lock (Cmd+Ctrl+Q)...")
-            val down = byteArrayOf(0x09.toByte(), 0x00, 0x14.toByte(), 0, 0, 0, 0, 0)
-            val up = ByteArray(8)
-            hid.sendReport(target, KEYBOARD_REPORT_ID, down)
-            try { Thread.sleep(70) } catch (ignored: Exception) {}
-            hid.sendReport(target, KEYBOARD_REPORT_ID, up)
-        }
+        // Cmd+Ctrl+Q as one queued chord. Modifier 0x09 = GUI(0x08) | Ctrl(0x01).
+        log(">>> Executing macOS Lock (Cmd+Ctrl+Q)...")
+        sendKey(0x09, 0x14, 70L)
     }
 
     fun sendWinL() {
-        val hid = hidDevice ?: return
-        val target = targetDevice ?: return
-        executor.execute {
-            log(">>> Executing Win+L...")
-            val down = byteArrayOf(0x08.toByte(), 0x00, 0x0F.toByte(), 0, 0, 0, 0, 0)
-            val up = ByteArray(8)
-            hid.sendReport(target, KEYBOARD_REPORT_ID, down)
-            try { Thread.sleep(70) } catch (ignored: Exception) {}
-            hid.sendReport(target, KEYBOARD_REPORT_ID, up)
-        }
+        // Win+L as one queued chord. Modifier 0x08 = GUI, keycode 0x0F = L.
+        log(">>> Executing Win+L...")
+        sendKey(0x08, 0x0F, 70L)
     }
 
     fun sendKey(modifier: Byte, keyCode: Byte, durationMs: Long = 40) {
+        enqueueJob(HidJob.Key(modifier, keyCode, durationMs))
+    }
+
+    private fun sendKeyNow(modifier: Byte, keyCode: Byte, durationMs: Long = 40) {
         val hid = hidDevice ?: return
         val target = targetDevice ?: return
         executor.execute {
@@ -752,6 +789,11 @@ class HidService : Service() {
     }
 
     fun typeText(text: String?) {
+        if (text.isNullOrEmpty()) return
+        enqueueJob(HidJob.Text(text))
+    }
+
+    private fun typeTextNow(text: String?) {
         if (text.isNullOrEmpty()) return
         val hid = hidDevice ?: return
         val target = targetDevice ?: return
@@ -771,6 +813,60 @@ class HidService : Service() {
             }
             log(">>> Typing complete.")
         }
+    }
+
+    private fun startJobWorker() {
+        if (jobWorker != null) return
+        jobWorker = scope.launch {
+            for (job in jobQueue) {
+                val id = ++nextJobId
+                log("[job#$id] start ${job.label}")
+                try {
+                    when (job) {
+                        is HidJob.Combo -> runCombo(job.rawOrName, job.payloadOverrides)
+                        is HidJob.Text -> typeTextNow(job.text)
+                        is HidJob.Raw -> {
+                            if (job.reportId != null) {
+                                sendRawReportNow(job.reportId, job.bytes, job.holdMs)
+                            } else {
+                                sendRawReportNow(job.bytes, job.holdMs)
+                            }
+                        }
+                        is HidJob.Key -> sendKeyNow(job.modifier, job.keyCode, job.durationMs)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    log("[job#$id] error: ${e.message}")
+                } finally {
+                    releaseAllKeyboardKeys()
+                    log("[job#$id] done")
+                }
+            }
+        }
+    }
+
+    private fun enqueueJob(job: HidJob) {
+        if (isTornDown) return
+        if (jobQueue.trySend(job).isFailure) {
+            log("Job queue closed; dropped ${job.label}")
+        }
+    }
+
+    /**
+     * Releases modifiers and keys between jobs. The report is submitted to the
+     * same single worker that carries every keyboard report, so it always lands
+     * after the previous job's last report and before the next job's first one.
+     */
+    private fun releaseAllKeyboardKeys() {
+        val hid = hidDevice ?: return
+        val target = targetDevice ?: return
+        if (executor.isShutdown) return
+        try {
+            executor.execute {
+                hid.sendReport(target, KEYBOARD_REPORT_ID, ByteArray(8))
+            }
+        } catch (ignored: RejectedExecutionException) {}
     }
 
     // ---------------------------------------------------------------------
@@ -968,84 +1064,91 @@ class HidService : Service() {
     }
 
     /**
-     * Executes a full action sequence with AST steps, payload expansion, and delay handling.
+     * Queues a full action sequence. Execution is strictly FIFO on the phone;
+     * callers never wait for HID delivery.
      */
-    fun executeCombo(rawOrName: String) {
-        scope.launch {
-            val app = GhostHidApp.instance
-            val combo = app.comboRepository.find(rawOrName)
-                ?: app.comboRepository.combos.value.firstOrNull { it.sequence == rawOrName || it.effectiveSequence == rawOrName }
-            val raw = combo?.effectiveSequence ?: rawOrName
-            val steps = ActionSequenceParser.parse(raw, _effectiveTargetOs.value)
-            combo?.let {
-                app.comboUsageRepository.recordUse(
-                    name = it.name,
-                    os = _effectiveTargetOs.value,
-                    deviceName = targetDevice?.name
-                )
-            }
-            log(">>> Executing sequence ($raw)")
+    fun executeCombo(rawOrName: String, payloadOverrides: Map<String, String> = emptyMap()) {
+        enqueueJob(HidJob.Combo(rawOrName, payloadOverrides))
+    }
 
-            for (step in steps) {
-                when (step) {
-                    is HidStep.Delay -> {
-                        delay(step.millis)
-                    }
-                    is HidStep.KeyboardChord -> {
-                        sendKey(step.modifier, step.keyCode, step.durationMs)
-                        delay(step.durationMs + 20)
-                    }
-                    is HidStep.TypeText -> {
-                        typeText(step.text)
-                        delay(step.text.length * 50L + 50L)
-                    }
-                    is HidStep.PayloadReference -> {
-                        val pRepo = GhostHidApp.instance.payloadRepository
-                        val comboPayload = combo?.payloads?.get(step.name)
-                        val p = pRepo.get(step.name) ?: comboPayload
-                        val value = pRepo.resolve(step.name) ?: comboPayload?.value
-                        val hold = step.durationMs ?: 60L
-                        if (!value.isNullOrEmpty()) {
-                            val cleanVal = value.trim()
-                            val isExplicitRawPrefix = cleanVal.startsWith("raw:", ignoreCase = true)
-                            val isPayloadRaw = p?.isRaw == true || isExplicitRawPrefix
-                            if (isPayloadRaw) {
-                                val hexStr = if (isExplicitRawPrefix) cleanVal.substring(4).trim() else cleanVal
-                                val cleanHex = hexStr.replace(" ", "")
-                                val isHexMatch = cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }
-                                if (isHexMatch) {
-                                    val bytes = ByteArray(cleanHex.length / 2) { i ->
-                                        cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
-                                    }
-                                    sendRawReport(bytes, hold)
-                                    delay(hold + 20)
-                                } else {
-                                    log("Invalid raw report hex in payload {${step.name}}: $value")
+    private suspend fun runCombo(rawOrName: String, payloadOverrides: Map<String, String>) {
+        val app = GhostHidApp.instance
+        val combo = app.comboRepository.find(rawOrName)
+            ?: app.comboRepository.combos.value.firstOrNull { it.sequence == rawOrName || it.effectiveSequence == rawOrName }
+        val raw = combo?.effectiveSequence ?: rawOrName
+        val steps = ActionSequenceParser.parse(raw, _effectiveTargetOs.value)
+        combo?.let {
+            app.comboUsageRepository.recordUse(
+                name = it.name,
+                os = _effectiveTargetOs.value,
+                deviceName = targetDevice?.name
+            )
+        }
+        log(">>> Executing sequence ($raw)")
+
+        for (step in steps) {
+            when (step) {
+                is HidStep.Delay -> {
+                    delay(step.millis)
+                }
+                is HidStep.KeyboardChord -> {
+                    sendKeyNow(step.modifier, step.keyCode, step.durationMs)
+                    delay(step.durationMs + 20)
+                }
+                is HidStep.TypeText -> {
+                    typeTextNow(step.text)
+                    delay(step.text.length * 50L + 50L)
+                }
+                is HidStep.PayloadReference -> {
+                    val pRepo = GhostHidApp.instance.payloadRepository
+                    val comboPayload = combo?.payloads?.get(step.name)
+                    val override = payloadOverrides[step.name]
+                    val p = pRepo.get(step.name) ?: comboPayload
+                    val value = override ?: pRepo.resolve(step.name) ?: comboPayload?.value
+                    val hold = step.durationMs ?: 60L
+                    if (!value.isNullOrEmpty()) {
+                        val cleanVal = value.trim()
+                        val isExplicitRawPrefix = cleanVal.startsWith("raw:", ignoreCase = true)
+                        // An override is CLI-resolved text unless it carries the
+                        // explicit raw: marker. Only device-local payloads fall
+                        // back to their stored isRaw flag.
+                        val isPayloadRaw = isExplicitRawPrefix || (override == null && p?.isRaw == true)
+                        if (isPayloadRaw) {
+                            val hexStr = if (isExplicitRawPrefix) cleanVal.substring(4).trim() else cleanVal
+                            val cleanHex = hexStr.replace(" ", "")
+                            val isHexMatch = cleanHex.length in listOf(2, 4, 8, 16) && cleanHex.all { it in "0123456789abcdefABCDEF" }
+                            if (isHexMatch) {
+                                val bytes = ByteArray(cleanHex.length / 2) { i ->
+                                    cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
                                 }
+                                sendRawReportNow(bytes, hold)
+                                delay(hold + 20)
                             } else {
-                                typeText(value)
-                                delay(value.length * 50L + 50L)
+                                log("Invalid raw report hex in payload {${step.name}}: $value")
                             }
                         } else {
-                            log("Payload {${step.name}} empty or unresolved")
+                            typeTextNow(value)
+                            delay(value.length * 50L + 50L)
                         }
-                    }
-                    is HidStep.MouseAction -> {
-                        sendMouse(step.action)
-                        delay(100)
-                    }
-                    is HidStep.MediaKey -> {
-                        sendRawReport(step.bytes, step.durationMs)
-                        delay(step.durationMs + 20)
-                    }
-                    is HidStep.RawReport -> {
-                        sendRawReport(step.bytes, step.durationMs)
-                        delay(step.durationMs + 20)
+                    } else {
+                        log("Payload {${step.name}} empty or unresolved")
                     }
                 }
+                is HidStep.MouseAction -> {
+                    sendMouse(step.action)
+                    delay(100)
+                }
+                is HidStep.MediaKey -> {
+                    sendRawReportNow(step.bytes, step.durationMs)
+                    delay(step.durationMs + 20)
+                }
+                is HidStep.RawReport -> {
+                    sendRawReportNow(step.bytes, step.durationMs)
+                    delay(step.durationMs + 20)
+                }
             }
-            log(">>> Sequence finished.")
         }
+        log(">>> Sequence finished.")
     }
 
     private fun writeStatusFile() {
@@ -1178,6 +1281,33 @@ class HidService : Service() {
         return START_NOT_STICKY
     }
 
+    private fun parsePayloadOverrides(base64Payloads: String?, legacyJson: String?): Map<String, String> {
+        val raw = when {
+            !base64Payloads.isNullOrBlank() -> try {
+                String(Base64.decode(base64Payloads, Base64.DEFAULT), Charsets.UTF_8)
+            } catch (e: Exception) {
+                log("Ignoring invalid payloads_b64: ${e.message}")
+                return emptyMap()
+            }
+            else -> legacyJson
+        }
+        if (raw.isNullOrBlank()) return emptyMap()
+        return try {
+            val json = JSONObject(raw)
+            buildMap {
+                val keys = json.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val value = json.optString(key)
+                    if (value.isNotEmpty()) put(key, value)
+                }
+            }
+        } catch (e: Exception) {
+            log("Ignoring invalid payloads_json: ${e.message}")
+            emptyMap()
+        }
+    }
+
     fun handleIntent(intent: Intent) {
         val action = intent.action
         val cmd = intent.getStringExtra("cmd")
@@ -1230,7 +1360,10 @@ class HidService : Service() {
                         val (mod, code) = KeyTokens.parseChord(keys, resolveEffectiveOs())
                         sendKey(mod, code, holdMs)
                     } else {
-                        executeCombo(keys)
+                        executeCombo(keys, parsePayloadOverrides(
+                            intent.getStringExtra("payloads_b64"),
+                            intent.getStringExtra("payloads_json")
+                        ))
                     }
                 }
             }
@@ -1249,7 +1382,25 @@ class HidService : Service() {
             "disconnect".equals(cmd, ignoreCase = true) -> disconnectTarget()
             "unpair".equals(cmd, ignoreCase = true) -> unpairTarget(intent.getStringExtra("address"))
             "register".equals(cmd, ignoreCase = true) -> registerHidApp()
+            "reload".equals(cmd, ignoreCase = true) -> reloadFromDisk()
             "status".equals(cmd, ignoreCase = true) -> writeStatusFile()
+        }
+    }
+
+    /**
+     * Re-reads combos and payloads pushed by the CLI. Syncing used to restart
+     * the whole app, which dropped the Bluetooth link and, worse, killed the
+     * process while broadcasts were in flight. Reloading keeps the HID link up.
+     * Secure payload values come back from the Android Keystore, never the file.
+     */
+    private fun reloadFromDisk() {
+        try {
+            val app = GhostHidApp.instance
+            val combos = app.comboRepository.load()
+            val payloads = app.payloadRepository.load()
+            log("Reloaded ${combos.size} combos and ${payloads.size} payloads from disk")
+        } catch (e: Exception) {
+            log("Reload failed: ${e.message}")
         }
     }
 
@@ -1279,12 +1430,18 @@ class HidService : Service() {
         isTornDown = true
 
         log("Tearing down GhostHID Service...")
+        try {
+            jobQueue.close()
+        } catch (ignored: Exception) {}
+        jobWorker?.cancel()
+        jobWorker = null
         targetSwitchJob?.cancel()
         osDetectionJob?.cancel()
         try {
             scope.cancel()
         } catch (ignored: Exception) {}
 
+        releaseAllKeyboardKeys()
         disconnectTarget()
 
         try {

@@ -319,11 +319,16 @@ The human output mirrors this with `(synced to Android)` or
     "payloads_pulled": 0,
     "payloads_pushed": 4,
     "payloads_skipped_secure": 3,
-    "app_restarted": true,
+    "app_restarted": false,
+    "state_reloaded": true,
     "reconnected": true
   }
 }
 ```
+
+`app_restarted` is always `false` now: a push reloads the service in place instead of
+killing the app, so the Bluetooth link survives the sync. `state_reloaded` is the field
+that reports the in-place reload.
 
 ---
 

@@ -18,18 +18,29 @@ class SettingsRepository(context: Context) {
         encodeDefaults = true
     }
 
+    private val scope = CoroutineScope(Dispatchers.IO)
+
     private val _settings = MutableStateFlow(loadSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
-    private val scope = CoroutineScope(Dispatchers.IO)
-
     private fun loadSettings(): AppSettings {
         val raw = prefs.getString(KEY_SETTINGS, null) ?: return AppSettings()
-        return try {
+        val loaded = try {
             json.decodeFromString<AppSettings>(raw)
         } catch (_: Exception) {
-            AppSettings()
+            return AppSettings()
         }
+        return migrate(loaded)
+    }
+
+    /**
+     * The mapper row is back on its keyboard defaults, so installs that saved one of the
+     * interim defaults revert with it. A customised row is never touched.
+     */
+    private fun migrate(loaded: AppSettings): AppSettings {
+        if (loaded.interactiveMapperKeys !in STALE_MAPPER_DEFAULTS) return loaded
+        return loaded.copy(interactiveMapperKeys = AppSettings.DEFAULT_INTERACTIVE_MAPPER_KEYS)
+            .also(::persist)
     }
 
     fun update(transform: (AppSettings) -> AppSettings) {
@@ -38,6 +49,18 @@ class SettingsRepository(context: Context) {
         if (updated == current) return
         _settings.value = updated
         persist(updated)
+    }
+
+    /** Writes one interactive mapper slot, padding the row out to its full width first. */
+    fun updateInteractiveMapperSlot(index: Int, token: String) {
+        if (index !in 0 until AppSettings.MAPPER_SLOTS) return
+        update { settings ->
+            val slots = settings.interactiveMapperKeys
+                .toMutableList()
+                .apply { while (size < AppSettings.MAPPER_SLOTS) add("") }
+            slots[index] = token
+            settings.copy(interactiveMapperKeys = slots)
+        }
     }
 
     fun resetToDefaults() {
@@ -60,5 +83,10 @@ class SettingsRepository(context: Context) {
     companion object {
         private const val PREFS_NAME = "ghosthid_app_settings"
         private const val KEY_SETTINGS = "settings_payload_v1"
+        /** Interim defaults, matched exactly so a customised row always survives. */
+        private val STALE_MAPPER_DEFAULTS = listOf(
+            listOf("lclick", "rclick", "mclick", ""), // crest mouse buttons
+            listOf("esc", "tab", "shift+tab", "")     // pre-0.2.2 Stab row
+        )
     }
 }

@@ -226,6 +226,18 @@ Two action-only variants carry no `cmd` extra:
 - `com.sj010.ghid.ACTION_LOCK` — instant screen lock.
 - `com.sj010.ghid.ACTION_TYPE` — type `--es text "<string>"`.
 
+The CLI always adds `--receiver-foreground` to these broadcasts. GhostHID is a UI-less
+foreground service, and Android (plus several OEM ROMs) defers plain manifest broadcasts
+for an app with no visible window into a "deliver until active" queue. Marking the intent
+as foreground keeps command delivery immediate. Hand-run `adb` calls should pass the same
+flag:
+
+```bash
+adb shell am broadcast --receiver-foreground \
+  -n com.sj010.ghid/.service.HidCommandReceiver \
+  -a com.sj010.ghid.ACTION_CMD --es cmd "<command>"
+```
+
 Service lifecycle uses the component directly, with no extras:
 ```bash
 adb shell am start-foreground-service -n com.sj010.ghid/.service.HidService   # ghid start
@@ -247,13 +259,38 @@ Closes L2CAP interrupt and control channels.
 #### `type`
 Types an ASCII string with automatic key down and key up delays.
 - Extras: `--es text "<string>"`
-- Behavior: Iterates through characters, maps to modifier + keycode, sleeps 25 ms down, sleeps 25 ms up.
+- Behavior: Enqueued as a queued job. Iterates through characters, maps to modifier + keycode, sleeps 25 ms down, sleeps 25 ms up.
 
 #### `combo`
 Executes a keyboard chord or full unified bracket sequence DSL (e.g. `{win+r}{500ms}cmd{Enter}`).
-- Extras: `--es keys "<sequence>"`
+- Extras: `--es keys "<sequence>"`, optional `--es payloads_b64 "<base64>"`
 - Example: `--es keys "{ctrl+shift+esc}"` or `--es keys "{mod+space}{600ms}terminal{Enter}"`
 - Behavior: Parses unified sequence steps (chords, delays, literal text, payload substitutions). For chords, sends key down report, sleeps 60 ms, and sends all-zero release report.
+
+##### Whole-Sequence Delivery
+A `combo` broadcast is one unit of work. The CLI resolves `{PAYLOAD}` references on the host and sends exactly one broadcast; the phone parses the DSL and runs the whole sequence as a single queued job. It never dispatches one broadcast per step.
+
+That matters because HID input reports are a single stateful stream: two macros running at once would interleave scancodes and clobber each other's modifier release. Sending the sequence once also removes per-step ADB round-trip latency and `adb shell` quoting hazards between steps.
+
+##### Payload Overrides (`payloads_b64`)
+Host-resolved payload values ride along with the sequence so the phone never has to look them up (and so the CLI's Keychain values stay the source of truth for that send).
+
+```json
+{ "PASSWORD": "hunter2", "WIN_SLEEP": "raw:02" }
+```
+
+- The JSON object is Base64-encoded and passed as `--es payloads_b64 "<base64>"`. Base64 keeps quotes, braces, spaces, and `raw:` markers intact through the remote shell without platform-specific escaping.
+- A value with the `raw:` prefix is a raw HID report; the Report ID is inferred from byte length, exactly like the `raw` command.
+- A plain value is typed as text.
+- Payloads the CLI could not resolve are simply absent from the map; the phone then falls back to its own payload store, then to the combo's embedded payload values.
+- The legacy `--es payloads_json "<json>"` form is still accepted when `payloads_b64` is absent, but it cannot survive shell metacharacters and exists only for hand-run `adb` calls.
+
+##### Command Queue and Ordering
+- Every HID command (`combo`, `type`, `raw`, a held bare chord, and the `lock` / `sleep` / `media` shortcuts) is enqueued as one job and executed by a single FIFO worker. Concurrent broadcasts therefore run strictly in arrival order, never interleaved.
+- Between jobs the service emits an all-zero keyboard report, so a modifier left down by one macro can never leak into the next.
+- The queue is unbounded: a burst of broadcasts is accepted immediately and drained in order. Callers do not wait for HID delivery — the CLI's `{"status":"success"}` means "accepted and dispatched", not "delivered".
+- There is no per-job acknowledgement and no cancel command yet. Queue depth and completion appear in `gateway.log` as `[job#N] start …` / `[job#N] done`.
+- Pointer moves/clicks stay on their own single worker, so mouse traffic never blocks or reorders the keyboard queue.
 
 #### `mouse`
 Transmits a pointer gesture using Report ID 2.
@@ -269,7 +306,13 @@ Transmits an explicit hexadecimal raw HID report. The Report ID is auto-inferred
   - Play/Pause: `--es hex "cd00"` (inferred Report ID 4)
   - Mouse Click: `--es hex "01000000"` (inferred Report ID 2)
   - Win/Cmd + L: `--es hex "08000F0000000000"` (inferred Report ID 1)
-- Behavior: Dispatches report via `BluetoothHidDevice.sendReport(target, reportId, bytes)`.
+- Behavior: Enqueued as a queued job. Dispatches report via `BluetoothHidDevice.sendReport(target, reportId, bytes)`.
+
+#### `reload`
+Re-reads `combos.json` and `payloads.json` from external app storage into the running service.
+- Extras: none
+- Behavior: Calls `ComboRepository.load()` and `PayloadRepository.load()` in place, then logs the counts. Secure payload values are repopulated from the Android Keystore, never from the file.
+- Used by the CLI after a push so combos and payloads take effect without force-stopping the app. Restarting used to drop the Bluetooth link and could strand in-flight broadcasts.
 
 #### `stop`
 Gracefully cleans up Bluetooth resources and kills the Android foreground service.

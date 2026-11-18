@@ -35,7 +35,10 @@ enum class GestureShapeType {
  *
  * @property title the gesture itself, e.g. "Swipe Up" — used as the card headline.
  * @property windowsActionName / [macActionName] short action labels for each host OS.
- * @property windowsCombo / [macCombo] combo strings sent through the HID service.
+ * @property windowsCombo / [macCombo] single-step bracket sequences (e.g. `{win+tab}`)
+ * sent through the HID service. The braces are required: a bare `win+tab` is parsed as
+ * literal text by [com.sj010.ghid.domain.parser.ActionSequenceParser] and gets typed
+ * instead of triggering the shortcut.
  * @property fingers required finger count, rendered as dots on the card.
  * @property direction swipe direction, drives the badge arrow.
  */
@@ -93,9 +96,9 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.UP,
         title = "Swipe Up",
         windowsActionName = "Task View",
-        windowsCombo = "win+tab",
+        windowsCombo = "{win+tab}",
         macActionName = "Mission Control",
-        macCombo = "ctrl+up",
+        macCombo = "{ctrl+up}",
         shapeType = GestureShapeType.ARCH
     )
 
@@ -105,9 +108,9 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.DOWN,
         title = "Swipe Down",
         windowsActionName = "Show Desktop",
-        windowsCombo = "win+d",
+        windowsCombo = "{win+d}",
         macActionName = "Show Desktop",
-        macCombo = "cmd+f3",
+        macCombo = "{cmd+f3}",
         shapeType = GestureShapeType.SEMI_CIRCLE
     )
 
@@ -117,9 +120,9 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.LEFT,
         title = "Swipe Left",
         windowsActionName = "Previous App",
-        windowsCombo = "alt+shift+tab",
+        windowsCombo = "{alt+shift+tab}",
         macActionName = "Previous Space",
-        macCombo = "ctrl+left",
+        macCombo = "{ctrl+left}",
         shapeType = GestureShapeType.FAN
     )
 
@@ -129,9 +132,9 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.RIGHT,
         title = "Swipe Right",
         windowsActionName = "Next App",
-        windowsCombo = "alt+tab",
+        windowsCombo = "{alt+tab}",
         macActionName = "Next Space",
-        macCombo = "ctrl+right",
+        macCombo = "{ctrl+right}",
         shapeType = GestureShapeType.FAN
     )
 
@@ -141,9 +144,9 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.UP,
         title = "Swipe Up",
         windowsActionName = "Maximize",
-        windowsCombo = "win+up",
+        windowsCombo = "{win+up}",
         macActionName = "App Exposé",
-        macCombo = "ctrl+down",
+        macCombo = "{ctrl+down}",
         shapeType = GestureShapeType.BOOM
     )
 
@@ -153,9 +156,9 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.DOWN,
         title = "Swipe Down",
         windowsActionName = "Minimize All",
-        windowsCombo = "win+m",
+        windowsCombo = "{win+m}",
         macActionName = "Minimize All",
-        macCombo = "cmd+opt+m",
+        macCombo = "{cmd+opt+m}",
         shapeType = GestureShapeType.CLOVER
     )
 
@@ -165,9 +168,9 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.LEFT,
         title = "Swipe Left",
         windowsActionName = "Desktop Left",
-        windowsCombo = "win+ctrl+left",
+        windowsCombo = "{win+ctrl+left}",
         macActionName = "Previous Space",
-        macCombo = "ctrl+left",
+        macCombo = "{ctrl+left}",
         shapeType = GestureShapeType.SUNNY
     )
 
@@ -177,9 +180,9 @@ object TrackpadGestureRegistry {
         direction = GestureDirection.RIGHT,
         title = "Swipe Right",
         windowsActionName = "Desktop Right",
-        windowsCombo = "win+ctrl+right",
+        windowsCombo = "{win+ctrl+right}",
         macActionName = "Next Space",
-        macCombo = "ctrl+right",
+        macCombo = "{ctrl+right}",
         shapeType = GestureShapeType.SUNNY
     )
 

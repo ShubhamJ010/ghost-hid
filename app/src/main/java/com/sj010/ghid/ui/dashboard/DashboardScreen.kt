@@ -1,15 +1,12 @@
 package com.sj010.ghid.ui.dashboard
 
-import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,32 +35,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.BluetoothConnected
-import androidx.compose.material.icons.filled.BluetoothDisabled
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SyncAlt
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -78,12 +57,13 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -100,14 +80,10 @@ import com.sj010.ghid.domain.model.HostOsFingerprint
 import com.sj010.ghid.domain.model.PinnedFavoritesPolicy
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.os.HostOsClassifier
-import com.sj010.ghid.domain.model.Snippet
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.theme.ExpressiveShapes
 import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.shade.PullDownShade
-import com.sj010.ghid.ui.common.shade.ShadeScope
-import com.sj010.ghid.ui.quicksend.QuickSendOverlay
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,7 +91,8 @@ fun DashboardScreen(
     service: HidService?,
     onNavigateToCombos: (() -> Unit)? = null,
     onNavigateToSettings: (() -> Unit)? = null,
-    onNavigateToInteractive: (() -> Unit)? = null,
+    interactiveOverlayOpen: Boolean = false,
+    onToggleInteractive: () -> Unit = {},
     onQuit: () -> Unit = {}
 ) {
     val connectionState by service?.connectionState?.collectAsState()
@@ -178,12 +155,36 @@ fun DashboardScreen(
             .filterValues { ComboOsPolicy.matches(it, connectedOs) }
     }
     val dashboardListState = rememberLazyListState()
-    val showQuickSendFab by remember {
-        derivedStateOf {
-            dashboardListState.firstVisibleItemIndex == 0 &&
-                dashboardListState.firstVisibleItemScrollOffset == 0
+    // The FAB steps away while the list scrolls down and comes back as soon as the
+    // user scrolls up again (or reaches the top), so it never blocks reading.
+    var showInteractiveFab by remember { mutableStateOf(true) }
+    LaunchedEffect(dashboardListState) {
+        var previousIndex = dashboardListState.firstVisibleItemIndex
+        var previousOffset = dashboardListState.firstVisibleItemScrollOffset
+        snapshotFlow {
+            dashboardListState.firstVisibleItemIndex to dashboardListState.firstVisibleItemScrollOffset
+        }.collect { (index, offset) ->
+            val atTop = index == 0 && offset == 0
+            val scrollingUp = index < previousIndex ||
+                (index == previousIndex && offset < previousOffset)
+            showInteractiveFab = atTop || scrollingUp
+            previousIndex = index
+            previousOffset = offset
         }
     }
+    // POC: interactive mode is an overlay hosted above the whole scaffold. The dashboard
+    // cards step back to a ghost and the device card yields its dock to the keys shade,
+    // so the keys replace that component instead of stacking on top of it.
+    val dashboardContentPresence by animateFloatAsState(
+        targetValue = if (interactiveOverlayOpen) 0.28f else 1f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "dashboardContentPresence"
+    )
+    val deviceCardPresence by animateFloatAsState(
+        targetValue = if (interactiveOverlayOpen) 0f else 1f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "deviceCardPresence"
+    )
     val showQuitButton by remember {
         derivedStateOf {
             DashboardScrollPolicy.showQuitButton(
@@ -194,7 +195,6 @@ fun DashboardScreen(
     }
 
     var showDevicePicker by remember { mutableStateOf(false) }
-    var showQuickSend by remember { mutableStateOf(false) }
 
     LaunchedEffect(service, targetSelectionReady, needsInitialTargetSelection) {
         if (service != null && targetSelectionReady && needsInitialTargetSelection) {
@@ -213,7 +213,12 @@ fun DashboardScreen(
                 onDisconnect = { service?.disconnectTarget() },
                 onSwitchDevice = { showDevicePicker = true },
                 onOpen = { scope.open() },
-                onDismiss = { scope.dismiss() }
+                onDismiss = { scope.dismiss() },
+                modifier = Modifier.graphicsLayer {
+                    alpha = deviceCardPresence
+                    scaleX = 0.9f + 0.1f * deviceCardPresence
+                    scaleY = 0.9f + 0.1f * deviceCardPresence
+                }
             )
         },
         shade = {},
@@ -229,7 +234,8 @@ fun DashboardScreen(
             state = dashboardListState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .graphicsLayer { alpha = dashboardContentPresence },
             contentPadding = PaddingValues(bottom = 220.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -261,23 +267,6 @@ fun DashboardScreen(
                         letterSpacing = (-1.5).sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-
-                    // Interactive mode: ghost floating on the keyboard.
-                    FilledTonalIconButton(
-                        onClick = { onNavigateToInteractive?.invoke() },
-                        modifier = Modifier.size(54.dp),
-                        shape = ExpressiveShapes.Ghostish,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_ghost_keyboard_mode),
-                            contentDescription = "Interactive mode",
-                            modifier = Modifier.size(34.dp)
-                        )
-                    }
                 }
             }
 
@@ -448,8 +437,13 @@ fun DashboardScreen(
         }
 
 
+        // Interactive mode: the ghost floating on the keyboard. Light container,
+        // dark icon, so it reads as the primary action against the dark surface.
+        // It hides on downward scroll and returns when the user scrolls back up.
         AnimatedVisibility(
-            visible = showQuickSendFab,
+            // The quit/settings panel and the overlay own the bottom edge, so the FAB
+            // steps aside for them.
+            visible = showInteractiveFab && !showQuitButton && !interactiveOverlayOpen,
             enter = scaleIn(
                 initialScale = 0.9f,
                 animationSpec = tween(180, easing = FastOutSlowInEasing)
@@ -463,10 +457,10 @@ fun DashboardScreen(
                 .padding(end = 20.dp, bottom = 20.dp)
         ) {
             LargeFloatingActionButton(
-                onClick = { showQuickSend = true },
+                onClick = onToggleInteractive,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = ExpressiveShapes.Clover4Leaf,
+                shape = ExpressiveShapes.Ghostish,
                 elevation = FloatingActionButtonDefaults.elevation(
                     defaultElevation = 0.dp,
                     pressedElevation = 0.dp,
@@ -475,21 +469,14 @@ fun DashboardScreen(
                 )
             ) {
                 Icon(
-                    imageVector = Icons.Default.Bolt,
-                    contentDescription = "Open quick send",
+                    painter = painterResource(R.drawable.ic_ghost_keyboard_mode),
+                    contentDescription = "Interactive mode",
                     modifier = Modifier.size(38.dp)
                 )
             }
         }
-      }
-    }
 
-    if (showQuickSend) {
-        QuickSendOverlay(
-            service = service,
-            initialTargetOs = connectedOs, targetDeviceOverride = targetDevice,
-            onDismiss = { showQuickSend = false }
-        )
+      }
     }
 
     // Bluetooth Device Picker Dialog

@@ -7,11 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-18
+
 ### Added
+- **Interactive Mode now runs as an overlay on the dashboard.**
+  - **Keys shade replaces the device card.** The overlay is transparent and hosted above the scaffold's bottom-nav padding: no scrim and no page surface, so the dashboard stays visible and touchable around it and only steps back to a ghost (28% opacity) while the keys are up. The shade takes over the top dock exactly where the device card sits, so the keys replace that component instead of stacking on top of it, and the card fades and shrinks away underneath.
+  - **Island and preview ride just above the keyboard.** The software keyboard opens with the overlay so the mode is immediately typing-ready; the island keeps the sticky modifier row plus four mapper slots, and an animated preview popup grows out of it to show chained modifiers and the last keys sent, then sinks back when it empties (auto-clearing after 4s).
+  - **Keyboard-dismissal closes the overlay.** Putting the keyboard away animates the overlay out and morphs the keys back into the device card; Back does the same. Hiding the keyboard for the key drawer or the key picker is exempt, so those never dismiss the mode.
+- **Mouse keys in the interactive key catalog.** New Mouse category with left, right, middle, back and forward clicks, sent as real HID mouse button usages (including new `BACK` / `FORWARD` buttons), and the shade crest always offers the two clicks.
+- **Crest key row in the interactive shade.** Three large configurable buttons above the drag handle: a free "add your own" slot shared with the island's fourth mapper slot, plus L Click and R Click, with the handle moved to the bottom edge of the crest.
+- **Quick Combo bolt FAB on the Combos screen.** A secondary-toned `FloatingActionButton` beside the extended "New Combo" button opens the quick-send overlay without leaving the combo list, in the same keep-away group as the rest of the bottom-edge actions.
+- **Android CI and pull request debug builds.** `ci.yml` runs lint, unit tests and the debug build on pushes to `main` and on every push to a pull request. `pr-debug-apk.yml` builds a debug APK for each pull request, uploads it as an artifact and comments the download link on the PR. `main` is protected: the `lint-test-build` and `debug-apk` checks must pass and changes land through a pull request.
+- **Debug builds install next to the release app.** The debug variant uses the application id `com.sj010.ghid.debug` and the launcher label "GhostHID Debug", so a PR build and the release app can sit on the same phone.
 
 ### Changed
+- **HID commands run through one FIFO queue.** `combo`, `type`, `raw` and held chords are now jobs on a single worker, so overlapping macros run one after another instead of interleaving their scancodes. An all-zero keyboard report separates jobs, so a modifier held by one macro can never leak into the next.
+- **A combo is sent as one broadcast.** The CLI resolves `{PAYLOAD}` references on the host, ships them alongside the sequence as Base64 JSON (`payloads_b64`), and fires a single `cmd=combo` intent. That removes per-step ADB round trips, keeps sequences with spaces and quotes intact through `adb shell`, and lets the phone own pacing for the whole macro.
+- **Interactive mapper defaults are back on keys.** The row defaults to Esc / Tab / Play-Pause / free slot, and media keys draw as icons wherever they are assigned. Installs that saved one of the two interim defaults (the mouse-click row, or the older Esc / Tab / Stab row) migrate to the new default on load; a customised row is never touched.
+- **Mapper slots are written through `SettingsRepository`.** `updateInteractiveMapperSlot()` pads and validates the row, and `AppSettings` owns the slot count and default row so the island, the crest and storage cannot drift apart.
+- **Taller interactive dock.** The shade's crest dock is taller than the dashboard's device dock so the mapper keys have room to sit as full-width buttons.
+- **Interactive overlay internals shared and simplified.** The crest and the island now draw the same mapper/add buttons, the duplicate slot callbacks collapsed into one edit callback, and the shared widgets moved into `InteractiveWidgets.kt`.
+
+### Removed
+- **Full-screen interactive mode.** The dedicated screen, its status pill, pointer-motion trackpad, preview icon mapper and the `Screen.Interactive` route are gone, along with the now-unused imports they left behind. The "Stab" key is removed from the catalog.
 
 ### Fixed
+- **A sync no longer kills the gateway.** Pushing combos or payloads force-stopped the app to reload them, which dropped the Bluetooth link and could leave the next commands parked in Android's deferred-delivery queue. The service now reloads the pushed files in place (`cmd=reload`) and the CLI only reconnects when the link is actually down.
+- **Commands are delivered as foreground broadcasts.** The CLI adds `--receiver-foreground` to every gateway broadcast so an app with no visible window is not deferred by Android's background-broadcast queue.
+- **Interactive Mode FAB follows scroll direction.** The dashboard FAB now hides only while the list is scrolling down and returns on any upward scroll, instead of staying hidden until the list hit the very top. It also steps aside while the Settings/Quit panel or the interactive overlay owns the bottom edge.
+- **Quick Combo FAB reads as its own action.** The bolt button uses the `secondaryContainer` / `onSecondaryContainer` pair so it is distinct from the primary-toned New Combo button next to it.
+- **Gesture shortcuts no longer arrive as typed text.** Each 3-finger and 4-finger gesture sent a bare combo such as `win+tab`, and `ActionSequenceParser` reads text outside braces as literal input, so the host received the shortcut string typed out. Gesture combos are now bracket sequences (`{win+tab}`, `{ctrl+up}`) that parse into a key chord. Both entry points are fixed: live swipes on the pointer pad and the cards in the Gestures shade.
 
 ## [0.2.2] - 2026-11-04
 
@@ -100,9 +125,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hardware-encrypted payload vault backed by Android Keystore.
 - ADB/CLI companion (`ghid-cli`) for terminal and agent automation.
 
+[0.2.3]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.3
 [0.2.2]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.2
 [0.2.1]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.0
 [0.1.1]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.0
-[Unreleased]: https://github.com/ShubhamJ010/ghost-hid/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/ShubhamJ010/ghost-hid/compare/v0.2.3...HEAD
