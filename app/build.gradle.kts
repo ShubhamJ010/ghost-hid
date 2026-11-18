@@ -46,8 +46,8 @@ android {
         applicationId = "com.sj010.ghid"
         minSdk = 28
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.2.2"
+        versionCode = 11
+        versionName = "0.2.3"
     }
 
     signingConfigs {

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-18
+
 ### Added
 - **Interactive Mode now runs as an overlay on the dashboard.**
   - **Keys shade replaces the device card.** The overlay is transparent and hosted above the scaffold's bottom-nav padding: no scrim and no page surface, so the dashboard stays visible and touchable around it and only steps back to a ghost (28% opacity) while the keys are up. The shade takes over the top dock exactly where the device card sits, so the keys replace that component instead of stacking on top of it, and the card fades and shrinks away underneath.
@@ -123,9 +125,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hardware-encrypted payload vault backed by Android Keystore.
 - ADB/CLI companion (`ghid-cli`) for terminal and agent automation.
 
+[0.2.3]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.3
 [0.2.2]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.2
 [0.2.1]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.2.0
 [0.1.1]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ShubhamJ010/ghost-hid/releases/tag/v0.1.0
-[Unreleased]: https://github.com/ShubhamJ010/ghost-hid/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/ShubhamJ010/ghost-hid/compare/v0.2.3...HEAD
