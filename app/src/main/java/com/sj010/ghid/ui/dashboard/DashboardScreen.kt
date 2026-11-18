@@ -41,7 +41,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothDisabled
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Key
@@ -60,11 +59,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -80,6 +76,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -106,7 +103,6 @@ import com.sj010.ghid.ui.theme.ExpressiveShapes
 import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.shade.PullDownShade
 import com.sj010.ghid.ui.common.shade.ShadeScope
-import com.sj010.ghid.ui.quicksend.QuickSendOverlay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -178,10 +174,21 @@ fun DashboardScreen(
             .filterValues { ComboOsPolicy.matches(it, connectedOs) }
     }
     val dashboardListState = rememberLazyListState()
-    val showQuickSendFab by remember {
-        derivedStateOf {
-            dashboardListState.firstVisibleItemIndex == 0 &&
-                dashboardListState.firstVisibleItemScrollOffset == 0
+    // The FAB steps away while the list scrolls down and comes back as soon as the
+    // user scrolls up again (or reaches the top), so it never blocks reading.
+    var showInteractiveFab by remember { mutableStateOf(true) }
+    LaunchedEffect(dashboardListState) {
+        var previousIndex = dashboardListState.firstVisibleItemIndex
+        var previousOffset = dashboardListState.firstVisibleItemScrollOffset
+        snapshotFlow {
+            dashboardListState.firstVisibleItemIndex to dashboardListState.firstVisibleItemScrollOffset
+        }.collect { (index, offset) ->
+            val atTop = index == 0 && offset == 0
+            val scrollingUp = index < previousIndex ||
+                (index == previousIndex && offset < previousOffset)
+            showInteractiveFab = atTop || scrollingUp
+            previousIndex = index
+            previousOffset = offset
         }
     }
     val showQuitButton by remember {
@@ -194,7 +201,6 @@ fun DashboardScreen(
     }
 
     var showDevicePicker by remember { mutableStateOf(false) }
-    var showQuickSend by remember { mutableStateOf(false) }
 
     LaunchedEffect(service, targetSelectionReady, needsInitialTargetSelection) {
         if (service != null && targetSelectionReady && needsInitialTargetSelection) {
@@ -261,23 +267,6 @@ fun DashboardScreen(
                         letterSpacing = (-1.5).sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-
-                    // Interactive mode: ghost floating on the keyboard.
-                    FilledTonalIconButton(
-                        onClick = { onNavigateToInteractive?.invoke() },
-                        modifier = Modifier.size(54.dp),
-                        shape = ExpressiveShapes.Ghostish,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_ghost_keyboard_mode),
-                            contentDescription = "Interactive mode",
-                            modifier = Modifier.size(34.dp)
-                        )
-                    }
                 }
             }
 
@@ -448,8 +437,12 @@ fun DashboardScreen(
         }
 
 
+        // Interactive mode: the ghost floating on the keyboard. Light container,
+        // dark icon, so it reads as the primary action against the dark surface.
+        // It hides on downward scroll and returns when the user scrolls back up.
         AnimatedVisibility(
-            visible = showQuickSendFab,
+            // The quit/settings panel owns the bottom edge, so the FAB steps aside for it.
+            visible = showInteractiveFab && !showQuitButton,
             enter = scaleIn(
                 initialScale = 0.9f,
                 animationSpec = tween(180, easing = FastOutSlowInEasing)
@@ -463,10 +456,10 @@ fun DashboardScreen(
                 .padding(end = 20.dp, bottom = 20.dp)
         ) {
             LargeFloatingActionButton(
-                onClick = { showQuickSend = true },
+                onClick = { onNavigateToInteractive?.invoke() },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = ExpressiveShapes.Clover4Leaf,
+                shape = ExpressiveShapes.Ghostish,
                 elevation = FloatingActionButtonDefaults.elevation(
                     defaultElevation = 0.dp,
                     pressedElevation = 0.dp,
@@ -475,21 +468,13 @@ fun DashboardScreen(
                 )
             ) {
                 Icon(
-                    imageVector = Icons.Default.Bolt,
-                    contentDescription = "Open quick send",
+                    painter = painterResource(R.drawable.ic_ghost_keyboard_mode),
+                    contentDescription = "Interactive mode",
                     modifier = Modifier.size(38.dp)
                 )
             }
         }
       }
-    }
-
-    if (showQuickSend) {
-        QuickSendOverlay(
-            service = service,
-            initialTargetOs = connectedOs, targetDeviceOverride = targetDevice,
-            onDismiss = { showQuickSend = false }
-        )
     }
 
     // Bluetooth Device Picker Dialog

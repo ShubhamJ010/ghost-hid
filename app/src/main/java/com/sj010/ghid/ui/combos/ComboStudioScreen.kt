@@ -44,6 +44,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
@@ -64,6 +65,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -112,6 +115,7 @@ import com.sj010.ghid.ui.common.sequence.SequencePreview
 import com.sj010.ghid.ui.common.sequence.SequencePreviewDialog
 import com.sj010.ghid.ui.common.sequence.formatSequenceDuration
 import com.sj010.ghid.ui.snippets.SnippetsShade
+import com.sj010.ghid.ui.quicksend.QuickSendOverlay
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.theme.ExpressiveShapes
 import kotlinx.coroutines.delay
@@ -156,6 +160,7 @@ fun ComboStudioScreen(
     }
 
     var showEditorSheet by remember { mutableStateOf(false) }
+    var showQuickCombo by remember { mutableStateOf(false) }
     var editingCombo by remember { mutableStateOf<Combo?>(null) }
     var comboToDelete by remember { mutableStateOf<Combo?>(null) }
 
@@ -165,6 +170,13 @@ fun ComboStudioScreen(
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    // Both FABs step away while the combo list is scrolled, so the cards get the screen.
+    val showFabs by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex == 0 &&
+                listState.firstVisibleItemScrollOffset == 0
+        }
+    }
 
     // Filter and search logic
     val filteredCombos = remember(combos, searchQuery, selectedFilter) {
@@ -199,34 +211,73 @@ fun ComboStudioScreen(
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    editingCombo = null
-                    showEditorSheet = true
-                },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                },
-                text = {
-                    Text(
-                        text = "New Combo",
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.4.sp
-                    )
-                },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = RoundedCornerShape(20.dp),
-                elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(
-                    defaultElevation = 4.dp,
-                    pressedElevation = 8.dp
+            AnimatedVisibility(
+                visible = showFabs,
+                enter = scaleIn(
+                    initialScale = 0.9f,
+                    animationSpec = tween(180, easing = FastOutSlowInEasing)
+                ),
+                exit = scaleOut(
+                    targetScale = 0f,
+                    animationSpec = tween(140, easing = FastOutSlowInEasing)
                 )
-            )
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Quick combo: a smaller FAB sitting above New Combo, Google Keep style.
+                    // Secondary container keeps it distinct from the primary-toned New Combo.
+                    FloatingActionButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showQuickCombo = true
+                        },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 2.dp,
+                            pressedElevation = 4.dp
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = "Quick Combo",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            editingCombo = null
+                            showEditorSheet = true
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        text = {
+                            Text(
+                                text = "New Combo",
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.4.sp
+                            )
+                        },
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 4.dp,
+                            pressedElevation = 8.dp
+                        )
+                    )
+                }
+            }
         }
     ) { padding ->
         Box(
@@ -477,6 +528,17 @@ fun ComboStudioScreen(
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    // ==========================================
+    // BOTTOM SHEET: QUICK COMBO (UNSAVED SEQUENCE)
+    // ==========================================
+    if (showQuickCombo) {
+        QuickSendOverlay(
+            service = service,
+            initialTargetOs = connectedOs,
+            onDismiss = { showQuickCombo = false }
         )
     }
 
