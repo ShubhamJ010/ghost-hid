@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -108,20 +107,23 @@ fun InteractiveOverlay(
         keyboardController?.show()
     }
 
+    fun pushHistory(item: PreviewItem) {
+        history = (listOf(item) + history).take(OVERLAY_HISTORY_ITEMS)
+    }
+
+    // The chips read as one entry per key, so a repeat replaces the newest one.
+    fun replaceNewest(item: PreviewItem) {
+        history = listOf(item) + history.drop(1)
+    }
+
     fun logKey(label: String, modifiers: Set<InteractiveModifier>) {
         val prefix = InteractiveKeys.modifierLabel(modifiers, detectedOs)
         val now = android.os.SystemClock.uptimeMillis()
         val first = history.firstOrNull()
         if (first is PreviewItem.KeyPress && first.label == label && first.modifierPrefix == prefix) {
-            history = listOf(first.copy(count = first.count + 1, timestamp = now)) + history.drop(1)
+            replaceNewest(first.copy(count = first.count + 1, timestamp = now))
         } else {
-            val entry = PreviewItem.KeyPress(
-                label = label,
-                modifierPrefix = prefix,
-                displayText = label,
-                timestamp = now
-            )
-            history = (listOf(entry) + history).take(OVERLAY_HISTORY_ITEMS)
+            pushHistory(PreviewItem.KeyPress(label = label, modifierPrefix = prefix, timestamp = now))
         }
         heldModifiers = emptySet()
     }
@@ -149,10 +151,9 @@ fun InteractiveOverlay(
 
         val first = history.firstOrNull()
         if (isWithinCooldown && first is PreviewItem.TextChunk) {
-            history = listOf(first.copy(text = first.text + char, timestamp = now)) + history.drop(1)
+            replaceNewest(first.copy(text = first.text + char, timestamp = now))
         } else {
-            val chunk = PreviewItem.TextChunk(text = char.toString(), timestamp = now)
-            history = (listOf(chunk) + history).take(OVERLAY_HISTORY_ITEMS)
+            pushHistory(PreviewItem.TextChunk(text = char.toString(), timestamp = now))
         }
         heldModifiers = emptySet()
     }
@@ -188,17 +189,6 @@ fun InteractiveOverlay(
         } else {
             heldModifiers + modifier
         }
-    }
-
-    val updateSlot: (Int, String) -> Unit = { index, token ->
-        val updated = mapperKeys.toMutableList()
-        while (updated.size < 4) {
-            updated.add("")
-        }
-        if (index in updated.indices) {
-            updated[index] = token
-        }
-        settingsRepository.update { it.copy(interactiveMapperKeys = updated) }
     }
 
     val currentSendCatalogKey by rememberUpdatedState(sendCatalogKey)
@@ -308,9 +298,7 @@ fun InteractiveOverlay(
             heldModifiers = heldModifiers,
             onKey = sendCatalogKey,
             mapperKeys = mapperKeys,
-            onMapperKey = sendCatalogKey,
-            onMapperSlotHold = { slotIndex -> assigningSlotIndex = slotIndex },
-            onMapperSlotAdd = { slotIndex -> assigningSlotIndex = slotIndex },
+            onMapperSlotEdit = { assigningSlotIndex = it },
             onToggleModifier = toggleModifier,
             onOpenChanged = { isKeyDrawerOpen = it },
             // Taller than the device dock so the mapper keys sit in the crest with room.
@@ -325,122 +313,117 @@ fun InteractiveOverlay(
                 contentAlignment = Alignment.BottomCenter
             ) {
                 Column(
-                    modifier = Modifier,
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                // Preview popup: modifiers being chained and the last keys sent. It
-                // grows out of the island and sinks back into it when it empties.
-                AnimatedVisibility(
-                    visible = heldModifiers.isNotEmpty() || history.isNotEmpty(),
-                    enter = fadeIn(tween(180)) +
-                        expandVertically(
-                            animationSpec = tween(220, easing = FastOutSlowInEasing),
-                            expandFrom = Alignment.Bottom
-                        ) +
-                        slideInVertically(
-                            animationSpec = tween(220, easing = FastOutSlowInEasing),
-                            initialOffsetY = { it / 2 }
-                        ),
-                    exit = fadeOut(tween(120)) +
-                        shrinkVertically(
-                            animationSpec = tween(160, easing = FastOutSlowInEasing),
-                            shrinkTowards = Alignment.Bottom
-                        ) +
-                        slideOutVertically(
-                            animationSpec = tween(160, easing = FastOutSlowInEasing),
-                            targetOffsetY = { it / 2 }
-                        )
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        border = BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
-                        ),
-                        shadowElevation = 3.dp
+                    // Preview popup: modifiers being chained and the last keys sent. It
+                    // grows out of the island and sinks back into it when it empties.
+                    AnimatedVisibility(
+                        visible = heldModifiers.isNotEmpty() || history.isNotEmpty(),
+                        enter = fadeIn(tween(180)) +
+                            expandVertically(
+                                animationSpec = tween(220, easing = FastOutSlowInEasing),
+                                expandFrom = Alignment.Bottom
+                            ) +
+                            slideInVertically(
+                                animationSpec = tween(220, easing = FastOutSlowInEasing),
+                                initialOffsetY = { it / 2 }
+                            ),
+                        exit = fadeOut(tween(120)) +
+                            shrinkVertically(
+                                animationSpec = tween(160, easing = FastOutSlowInEasing),
+                                shrinkTowards = Alignment.Bottom
+                            ) +
+                            slideOutVertically(
+                                animationSpec = tween(160, easing = FastOutSlowInEasing),
+                                targetOffsetY = { it / 2 }
+                            )
                     ) {
-                        InteractivePreviewChips(
-                            heldModifiers = heldModifiers,
-                            history = history,
-                            targetOs = detectedOs,
-                            showPlaceholder = false,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                            ),
+                            shadowElevation = 3.dp
+                        ) {
+                            InteractivePreviewChips(
+                                heldModifiers = heldModifiers,
+                                history = history,
+                                targetOs = detectedOs,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
                     }
+
+                    // The keys themselves: the island that stands where the device card was.
+                    KeyboardIsland(
+                        detectedOs = detectedOs,
+                        heldModifiers = heldModifiers,
+                        mapperKeys = mapperKeys,
+                        onToggleModifier = toggleModifier,
+                        onKeyClick = sendCatalogKey,
+                        onSlotEdit = { assigningSlotIndex = it },
+                        onIslandClick = focusCaptureField,
+                        hint = "Modifiers chain to the next key"
+                    )
                 }
 
-                // The keys themselves: the island that stands where the device card was.
-                KeyboardIsland(
-                    detectedOs = detectedOs,
-                    heldModifiers = heldModifiers,
-                    mapperKeys = mapperKeys,
-                    volumeKeyMode = settings.interactiveVolumeKeyMode,
-                    onToggleModifier = toggleModifier,
-                    onKeyClick = sendCatalogKey,
-                    onSlotHold = { slotIndex -> assigningSlotIndex = slotIndex },
-                    onSlotAdd = { slotIndex -> assigningSlotIndex = slotIndex },
-                    onIslandClick = focusCaptureField,
-                    // Minimal stand-in for the full screen's title/subtitle block.
-                    hintText = "Modifiers chain to the next key"
-                )
-            }
+                // Invisible capture field keeps the system IME attached while every
+                // diff is forwarded over HID.
+                BasicTextField(
+                    value = captureValue,
+                    onValueChange = { newValue ->
+                        val oldText = captureValue.text
+                        val newText = newValue.text
+                        when {
+                            newText.startsWith(oldText) -> {
+                                newText.substring(oldText.length).forEach { char -> onCharTyped(char) }
+                            }
 
-            // Invisible capture field keeps the system IME attached while every
-            // diff is forwarded over HID.
-            BasicTextField(
-                value = captureValue,
-                onValueChange = { newValue ->
-                    val oldText = captureValue.text
-                    val newText = newValue.text
-                    when {
-                        newText.startsWith(oldText) -> {
-                            newText.substring(oldText.length).forEach { char -> onCharTyped(char) }
+                            oldText.startsWith(newText) -> {
+                                repeat(oldText.length - newText.length) { onBackspace() }
+                            }
+
+                            else -> {
+                                newText.removePrefix(OVERLAY_CAPTURE_SENTINEL).forEach { char -> onCharTyped(char) }
+                            }
                         }
-
-                        oldText.startsWith(newText) -> {
-                            repeat(oldText.length - newText.length) { onBackspace() }
-                        }
-
-                        else -> {
-                            newText.removePrefix(OVERLAY_CAPTURE_SENTINEL).forEach { char -> onCharTyped(char) }
-                        }
-                    }
-                    captureValue = overlaySentinelValue()
-                },
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .size(1.dp)
-                    .alpha(0f)
-                    .focusRequester(captureFocus),
-                textStyle = MaterialTheme.typography.bodySmall,
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.None,
-                    autoCorrectEnabled = false,
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.None
-                )
-            )
-
-            if (assigningSlotIndex != null) {
-                val slotIdx = assigningSlotIndex!!
-                KeyPickerSheet(
-                    slotIndex = slotIdx,
-                    currentKey = InteractiveKeys.findByToken(mapperKeys.getOrElse(slotIdx) { "" }),
-                    onSelectKey = { pickedKey ->
-                        updateSlot(slotIdx, pickedKey.token)
-                        assigningSlotIndex = null
+                        captureValue = overlaySentinelValue()
                     },
-                    onClearKey = {
-                        updateSlot(slotIdx, "")
-                        assigningSlotIndex = null
-                    },
-                    onDismiss = { assigningSlotIndex = null }
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .size(1.dp)
+                        .alpha(0f)
+                        .focusRequester(captureFocus),
+                    textStyle = MaterialTheme.typography.bodySmall,
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrectEnabled = false,
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.None
+                    )
                 )
+
+                if (assigningSlotIndex != null) {
+                    val slotIdx = assigningSlotIndex!!
+                    KeyPickerSheet(
+                        slotIndex = slotIdx,
+                        currentKey = InteractiveKeys.findByToken(mapperKeys.getOrElse(slotIdx) { "" }),
+                        onSelectKey = { pickedKey ->
+                            settingsRepository.updateInteractiveMapperSlot(slotIdx, pickedKey.token)
+                            assigningSlotIndex = null
+                        },
+                        onClearKey = {
+                            settingsRepository.updateInteractiveMapperSlot(slotIdx, "")
+                            assigningSlotIndex = null
+                        },
+                        onDismiss = { assigningSlotIndex = null }
+                    )
+                }
             }
-        }
         }
     }
 }

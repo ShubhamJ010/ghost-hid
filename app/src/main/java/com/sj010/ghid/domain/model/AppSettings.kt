@@ -120,7 +120,7 @@ data class AppSettings(
     @SerialName("qs_haptics") val quickSendHaptics: Boolean = true,
 
     // 6. Interactive Mode
-    @SerialName("interactive_mapper_keys") val interactiveMapperKeys: List<String> = listOf("esc", "tab", "playpause", ""),
+    @SerialName("interactive_mapper_keys") val interactiveMapperKeys: List<String> = DEFAULT_INTERACTIVE_MAPPER_KEYS,
     @SerialName("interactive_volume_key_mode") val interactiveVolumeKeyMode: InteractiveVolumeKeyMode = InteractiveVolumeKeyMode.VOLUME
 ) {
     fun toTrackpadConfig(): TrackpadConfig = TrackpadConfig(
@@ -130,4 +130,12 @@ data class AppSettings(
         scrollStepNotches = trackpadScrollStepNotches,
         dragStartDp = trackpadDragStartDp
     )
+
+    companion object {
+        /** Slots in the interactive mapper rows: the island and the crest share them. */
+        const val MAPPER_SLOTS = 4
+
+        /** Keyboard first, then play/pause, then the free slot for the user's own key. */
+        val DEFAULT_INTERACTIVE_MAPPER_KEYS = listOf("esc", "tab", "playpause", "")
+    }
 }

@@ -1,10 +1,8 @@
 package com.sj010.ghid.ui.interactive
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,7 +23,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,18 +34,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.sj010.ghid.domain.model.AppSettings
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.ui.common.shade.PullDownShade
 
@@ -64,20 +57,16 @@ fun InteractiveKeyShade(
     heldModifiers: Set<InteractiveModifier>,
     onKey: (InteractiveKey) -> Unit,
     mapperKeys: List<String>,
-    onMapperKey: (InteractiveKey) -> Unit,
-    onMapperSlotHold: (Int) -> Unit,
-    onMapperSlotAdd: (Int) -> Unit,
+    onMapperSlotEdit: (Int) -> Unit,
     onToggleModifier: (InteractiveModifier) -> Unit,
     onOpenChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     dockHeight: Dp = 56.dp,
-    openDockHeight: Dp = 56.dp,
     content: @Composable () -> Unit
 ) {
     PullDownShade(
         modifier = modifier,
         dockHeight = dockHeight,
-        openDockHeight = openDockHeight,
         onOpenChanged = onOpenChanged,
         dock = { scope ->
             InteractiveMorphingDock(
@@ -85,9 +74,8 @@ fun InteractiveKeyShade(
                 onDismiss = { scope.dismiss() },
                 onOpen = { scope.open() },
                 mapperKeys = mapperKeys,
-                onMapperKey = onMapperKey,
-                onSlotHold = onMapperSlotHold,
-                onSlotAdd = onMapperSlotAdd,
+                onKey = onKey,
+                onSlotEdit = onMapperSlotEdit,
                 dragHandleModifier = scope.dragHandleModifier
             )
         },
@@ -271,9 +259,8 @@ private fun InteractiveMorphingDock(
     onDismiss: () -> Unit,
     onOpen: () -> Unit,
     mapperKeys: List<String>,
-    onMapperKey: (InteractiveKey) -> Unit,
-    onSlotHold: (Int) -> Unit,
-    onSlotAdd: (Int) -> Unit,
+    onKey: (InteractiveKey) -> Unit,
+    onSlotEdit: (Int) -> Unit,
     dragHandleModifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -281,6 +268,8 @@ private fun InteractiveMorphingDock(
     val isOpen = progress > 0.85f
     val sideProgress = ((progress - 0.15f) / 0.85f).coerceIn(0f, 1f)
     val keysAlpha = (1f - progress * 3f).coerceIn(0f, 1f)
+    // Crest keys sit one step brighter than the island's mapper row.
+    val crestColor = MaterialTheme.colorScheme.surfaceContainerHigh
 
     Surface(
         // Fills the dock slot so the closed crest matches the dashboard's device dock.
@@ -321,28 +310,31 @@ private fun InteractiveMorphingDock(
                         // It shares the island's free slot, so the two rows agree.
                         val customKey = InteractiveKeys.findByToken(mapperKeys.getOrElse(CUSTOM_SLOT) { "" })
                         if (customKey != null) {
-                            DockKeyButton(
+                            MapperKeyButton(
                                 modifier = Modifier.weight(1f),
                                 key = customKey,
-                                onClick = { onMapperKey(customKey) },
-                                onLongClick = { onSlotHold(CUSTOM_SLOT) }
+                                onClick = { onKey(customKey) },
+                                onLongClick = { onSlotEdit(CUSTOM_SLOT) },
+                                large = true,
+                                containerColor = crestColor
                             )
                         } else {
-                            DockAddKey(
+                            DottedAddKey(
                                 modifier = Modifier.weight(1f),
-                                onClick = { onSlotAdd(CUSTOM_SLOT) }
+                                onClick = { onSlotEdit(CUSTOM_SLOT) },
+                                large = true
                             )
                         }
 
                         // Then the two mouse clicks, in this order.
-                        DOCK_MOUSE_TOKENS.forEach { token ->
-                            InteractiveKeys.findByToken(token)?.let { key ->
-                                DockKeyButton(
-                                    modifier = Modifier.weight(1f),
-                                    key = key,
-                                    onClick = { onMapperKey(key) }
-                                )
-                            }
+                        DOCK_MOUSE_KEYS.forEach { key ->
+                            MapperKeyButton(
+                                modifier = Modifier.weight(1f),
+                                key = key,
+                                onClick = { onKey(key) },
+                                large = true,
+                                containerColor = crestColor
+                            )
                         }
                     }
                 }
@@ -397,106 +389,7 @@ private fun InteractiveMorphingDock(
 }
 
 /** Left and right click, the two mouse buttons the crest always offers. */
-private val DOCK_MOUSE_TOKENS = listOf("lclick", "rclick")
+private val DOCK_MOUSE_KEYS = listOf("lclick", "rclick").mapNotNull(InteractiveKeys::findByToken)
 
-/** Mapper slot the crest's "add your own" button writes to. */
-private const val CUSTOM_SLOT = 3
-
-/** Big crest button: the larger sibling of the island's mapper keys. */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun DockKeyButton(
-    modifier: Modifier,
-    key: InteractiveKey,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null
-) {
-    val haptic = LocalHapticFeedback.current
-    val interaction = remember { MutableInteractionSource() }
-
-    Surface(
-        modifier = modifier.height(56.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        shadowElevation = 1.dp
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .combinedClickable(
-                    interactionSource = interaction,
-                    indication = null,
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onClick()
-                    },
-                    onLongClick = onLongClick?.let { hold ->
-                        {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            hold()
-                        }
-                    }
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            val icon = key.icon
-            if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = key.label,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(26.dp)
-                )
-            } else {
-                Text(
-                    text = key.shortLabel ?: key.label,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-            }
-        }
-    }
-}
-
-/** Dashed crest button for the unassigned "add your own" slot. */
-@Composable
-private fun DockAddKey(
-    modifier: Modifier,
-    onClick: () -> Unit
-) {
-    val haptic = LocalHapticFeedback.current
-    val outline = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
-
-    Box(
-        modifier = modifier
-            .height(56.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .drawBehind {
-                drawRoundRect(
-                    color = outline,
-                    style = Stroke(
-                        width = 1.5.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
-                    ),
-                    cornerRadius = CornerRadius(16.dp.toPx())
-                )
-            }
-            .clickable {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onClick()
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.Add,
-            contentDescription = "Add your own key",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-            modifier = Modifier.size(22.dp)
-        )
-    }
-}
+/** Mapper slot the crest's "add your own" button writes to (the island's free slot). */
+private const val CUSTOM_SLOT = AppSettings.MAPPER_SLOTS - 1

@@ -1,16 +1,12 @@
 package com.sj010.ghid.ui.dashboard
 
-import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -31,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -40,26 +35,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.BluetoothConnected
-import androidx.compose.material.icons.filled.BluetoothDisabled
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SyncAlt
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFloatingActionButton
@@ -75,7 +57,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -99,13 +80,10 @@ import com.sj010.ghid.domain.model.HostOsFingerprint
 import com.sj010.ghid.domain.model.PinnedFavoritesPolicy
 import com.sj010.ghid.domain.model.TargetOs
 import com.sj010.ghid.domain.os.HostOsClassifier
-import com.sj010.ghid.domain.model.Snippet
 import com.sj010.ghid.service.HidService
 import com.sj010.ghid.ui.theme.ExpressiveShapes
 import com.sj010.ghid.ui.common.os.OsGlyph
 import com.sj010.ghid.ui.common.shade.PullDownShade
-import com.sj010.ghid.ui.common.shade.ShadeScope
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -322,70 +322,70 @@ fun MainAppScaffold(service: HidService?, onQuit: () -> Unit = {}, dashboardRequ
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
-        bottomBar = {
-            NavigationBar(
-                modifier = Modifier.alpha(if (currentScreen == Screen.Settings) 0f else 1f),
-                containerColor = MaterialTheme.colorScheme.surfaceContainer
-            ) {
-                Screen.bottomNavScreens.forEach { screen ->
-                    NavigationBarItem(
-                        selected = currentScreen == screen,
-                        enabled = currentScreen != Screen.Settings,
-                        onClick = { currentScreen = screen },
-                        icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        label = {
-                            Text(
-                                text = screen.title,
-                                maxLines = 1,
-                                fontSize = 11.sp,
-                                softWrap = false
-                            )
-                        }
-                    )
-                }
-            }
-        }
-    ) { innerPadding ->
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = innerPadding.calculateBottomPadding()),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            AnimatedContent(
-                targetState = currentScreen,
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(180)).togetherWith(
-                        fadeOut(animationSpec = tween(180))
-                    )
-                },
-                label = "screenTransition"
-            ) { screen ->
-                when (screen) {
-                    Screen.Dashboard -> Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = innerPadding.calculateTopPadding())
-                    ) {
-                        DashboardScreen(
-                            service = service,
-                            onNavigateToCombos = { currentScreen = Screen.Combos },
-                            onNavigateToSettings = { currentScreen = Screen.Settings },
-                            interactiveOverlayOpen = interactiveOverlayOpen,
-                            onToggleInteractive = { interactiveOverlayOpen = !interactiveOverlayOpen },
-                            onQuit = onQuit
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+            bottomBar = {
+                NavigationBar(
+                    modifier = Modifier.alpha(if (currentScreen == Screen.Settings) 0f else 1f),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Screen.bottomNavScreens.forEach { screen ->
+                        NavigationBarItem(
+                            selected = currentScreen == screen,
+                            enabled = currentScreen != Screen.Settings,
+                            onClick = { currentScreen = screen },
+                            icon = { Icon(screen.icon, contentDescription = screen.title) },
+                            label = {
+                                Text(
+                                    text = screen.title,
+                                    maxLines = 1,
+                                    fontSize = 11.sp,
+                                    softWrap = false
+                                )
+                            }
                         )
                     }
-                    Screen.Combos -> ComboStudioScreen(service = service)
-                    Screen.Trackpad -> TrackpadScreen(service = service)
-                    Screen.Settings -> SettingsScreen(onBack = { currentScreen = Screen.Dashboard })
+                }
+            }
+        ) { innerPadding ->
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = innerPadding.calculateBottomPadding()),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                AnimatedContent(
+                    targetState = currentScreen,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(180)).togetherWith(
+                            fadeOut(animationSpec = tween(180))
+                        )
+                    },
+                    label = "screenTransition"
+                ) { screen ->
+                    when (screen) {
+                        Screen.Dashboard -> Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = innerPadding.calculateTopPadding())
+                        ) {
+                            DashboardScreen(
+                                service = service,
+                                onNavigateToCombos = { currentScreen = Screen.Combos },
+                                onNavigateToSettings = { currentScreen = Screen.Settings },
+                                interactiveOverlayOpen = interactiveOverlayOpen,
+                                onToggleInteractive = { interactiveOverlayOpen = !interactiveOverlayOpen },
+                                onQuit = onQuit
+                            )
+                        }
+                        Screen.Combos -> ComboStudioScreen(service = service)
+                        Screen.Trackpad -> TrackpadScreen(service = service)
+                        Screen.Settings -> SettingsScreen(onBack = { currentScreen = Screen.Dashboard })
+                    }
                 }
             }
         }
-    }
 
         // Transparent, and above the scaffold's bottom-nav padding: no scrim, so the
         // dashboard shows through; the keys shade takes the top dock and the island

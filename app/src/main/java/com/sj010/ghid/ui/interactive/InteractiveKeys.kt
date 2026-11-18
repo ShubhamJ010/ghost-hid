@@ -144,13 +144,12 @@ object InteractiveKeys {
     }
 
     /** Sends one soft-keyboard character, folding in the chained modifiers. */
-    fun sendChar(service: HidService?, char: Char, modifiers: Set<InteractiveModifier>): Boolean {
-        val svc = service ?: return false
+    fun sendChar(service: HidService?, char: Char, modifiers: Set<InteractiveModifier>) {
+        val svc = service ?: return
         val (charModifier, keyCode) = KeyTokens.keyForChar(char)
-        if (keyCode == 0.toByte()) return false
+        if (keyCode == 0.toByte()) return
         val combined = (charModifier.toInt() or modifierByte(modifiers).toInt()).toByte()
         svc.sendKey(combined, keyCode)
-        return true
     }
 
     fun sendBackspace(service: HidService?) {

@@ -43,16 +43,16 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.sj010.ghid.domain.model.InteractiveVolumeKeyMode
+import com.sj010.ghid.domain.model.AppSettings
 import com.sj010.ghid.domain.model.TargetOs
 
 
@@ -68,8 +68,6 @@ sealed interface PreviewItem {
         val label: String,
         val modifierPrefix: String? = null,
         val count: Int = 1,
-        val icon: ImageVector? = null,
-        val displayText: String = "",
         override val timestamp: Long
     ) : PreviewItem
 }
@@ -80,19 +78,9 @@ internal fun InteractivePreviewChips(
     heldModifiers: Set<InteractiveModifier>,
     history: List<PreviewItem>,
     targetOs: TargetOs,
-    showPlaceholder: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    if (heldModifiers.isEmpty() && history.isEmpty()) {
-        if (showPlaceholder) {
-            Text(
-                text = "Press a modifier to chain it, then any key is sent straight to the device.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        return
-    }
+    if (heldModifiers.isEmpty() && history.isEmpty()) return
 
     FlowRow(
         modifier = modifier.fillMaxWidth(),
@@ -157,17 +145,9 @@ internal fun InteractivePreviewChips(
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
-                            if (item.icon != null) {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.label,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            if (item.displayText.isNotBlank()) {
+                            if (item.label.isNotBlank()) {
                                 Text(
-                                    text = item.displayText,
+                                    text = item.label,
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -249,13 +229,11 @@ internal fun KeyboardIsland(
     detectedOs: TargetOs,
     heldModifiers: Set<InteractiveModifier>,
     mapperKeys: List<String>,
-    volumeKeyMode: InteractiveVolumeKeyMode,
     onToggleModifier: (InteractiveModifier) -> Unit,
     onKeyClick: (InteractiveKey) -> Unit,
-    onSlotHold: (Int) -> Unit,
-    onSlotAdd: (Int) -> Unit,
+    onSlotEdit: (Int) -> Unit,
     onIslandClick: () -> Unit,
-    hintText: String? = null
+    hint: String
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -298,33 +276,27 @@ internal fun KeyboardIsland(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                (0 until 4).forEach { slotIndex ->
-                    val token = mapperKeys.getOrElse(slotIndex) { "" }
-                    val key = InteractiveKeys.findByToken(token)
+                (0 until AppSettings.MAPPER_SLOTS).forEach { slotIndex ->
+                    val key = InteractiveKeys.findByToken(mapperKeys.getOrElse(slotIndex) { "" })
                     if (key != null) {
                         MapperKeyButton(
                             modifier = Modifier.weight(1f),
                             key = key,
                             onClick = { onKeyClick(key) },
-                            onLongClick = { onSlotHold(slotIndex) }
+                            onLongClick = { onSlotEdit(slotIndex) }
                         )
                     } else {
                         DottedAddKey(
                             modifier = Modifier.weight(1f),
-                            onClick = { onSlotAdd(slotIndex) }
+                            onClick = { onSlotEdit(slotIndex) }
                         )
                     }
                 }
             }
 
             // Center-aligned text to touch island and open keyboard with minimal subtext
-            val volHint = when (volumeKeyMode) {
-                InteractiveVolumeKeyMode.VOLUME -> "Vol: \u00b1"
-                InteractiveVolumeKeyMode.ARROWS -> "Vol: \u2190 \u2192"
-                InteractiveVolumeKeyMode.TRACKS -> "Vol: \u23ee \u23ed"
-            }
             Text(
-                text = hintText ?: "Touch this island to open keyboard \u2022 $volHint",
+                text = hint,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -339,15 +311,17 @@ internal fun KeyboardIsland(
 @Composable
 internal fun DottedAddKey(
     modifier: Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    large: Boolean = false
 ) {
     val haptic = LocalHapticFeedback.current
     val outlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
-    val shape = RoundedCornerShape(12.dp)
+    val corner = if (large) 16.dp else 12.dp
+    val shape = RoundedCornerShape(corner)
 
     Box(
         modifier = modifier
-            .height(42.dp)
+            .height(if (large) 56.dp else 42.dp)
             .clip(shape)
             .drawBehind {
                 val stroke = Stroke(
@@ -357,7 +331,7 @@ internal fun DottedAddKey(
                 drawRoundRect(
                     color = outlineColor,
                     style = stroke,
-                    cornerRadius = CornerRadius(12.dp.toPx())
+                    cornerRadius = CornerRadius(corner.toPx())
                 )
             }
             .clickable(
@@ -387,24 +361,28 @@ internal fun MapperKeyButton(
     modifier: Modifier,
     key: InteractiveKey,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: (() -> Unit)? = null,
+    large: Boolean = false,
+    containerColor: Color? = null
 ) {
     val haptic = LocalHapticFeedback.current
     Surface(
         modifier = modifier
-            .height(42.dp)
+            .height(if (large) 56.dp else 42.dp)
             .combinedClickable(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onClick()
                 },
-                onLongClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onLongClick()
+                onLongClick = onLongClick?.let { hold ->
+                    {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        hold()
+                    }
                 }
             ),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(if (large) 16.dp else 12.dp),
+        color = containerColor ?: MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -414,18 +392,23 @@ internal fun MapperKeyButton(
                     imageVector = icon,
                     contentDescription = key.label,
                     tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(if (large) 26.dp else 20.dp)
                 )
             } else {
                 Text(
                     // Mouse keys carry a compact label so this narrow row stays readable.
                     text = key.shortLabel ?: key.label,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = if (large) {
+                        MaterialTheme.typography.titleMedium
+                    } else {
+                        MaterialTheme.typography.labelLarge
+                    },
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     softWrap = false,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = if (large) 8.dp else 0.dp)
                 )
             }
         }
