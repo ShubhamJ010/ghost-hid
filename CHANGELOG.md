@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Mouse keys in the interactive key catalog.** New Mouse category with left, right, middle, back and forward clicks, sent as real HID mouse button usages (including new `BACK` / `FORWARD` buttons), and the shade crest always offers the two clicks.
 - **Crest key row in the interactive shade.** Three large configurable buttons above the drag handle: a free "add your own" slot shared with the island's fourth mapper slot, plus L Click and R Click, with the handle moved to the bottom edge of the crest.
 - **Quick Combo bolt FAB on the Combos screen.** A secondary-toned `FloatingActionButton` beside the extended "New Combo" button opens the quick-send overlay without leaving the combo list, in the same keep-away group as the rest of the bottom-edge actions.
+- **Android CI and pull request debug builds.** `ci.yml` runs lint, unit tests and the debug build on pushes to `main` and on every push to a pull request. `pr-debug-apk.yml` builds a debug APK for each pull request, uploads it as an artifact and comments the download link on the PR. `main` is protected: the `lint-test-build` and `debug-apk` checks must pass and changes land through a pull request.
+- **Debug builds install next to the release app.** The debug variant uses the application id `com.sj010.ghid.debug` and the launcher label "GhostHID Debug", so a PR build and the release app can sit on the same phone.
 
 ### Changed
 - **Interactive mapper defaults are back on keys.** The row defaults to Esc / Tab / Play-Pause / free slot, and media keys draw as icons wherever they are assigned. Installs that saved one of the two interim defaults (the mouse-click row, or the older Esc / Tab / Stab row) migrate to the new default on load; a customised row is never touched.
@@ -28,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Interactive Mode FAB follows scroll direction.** The dashboard FAB now hides only while the list is scrolling down and returns on any upward scroll, instead of staying hidden until the list hit the very top. It also steps aside while the Settings/Quit panel or the interactive overlay owns the bottom edge.
 - **Quick Combo FAB reads as its own action.** The bolt button uses the `secondaryContainer` / `onSecondaryContainer` pair so it is distinct from the primary-toned New Combo button next to it.
+- **Gesture shortcuts no longer arrive as typed text.** Each 3-finger and 4-finger gesture sent a bare combo such as `win+tab`, and `ActionSequenceParser` reads text outside braces as literal input, so the host received the shortcut string typed out. Gesture combos are now bracket sequences (`{win+tab}`, `{ctrl+up}`) that parse into a key chord. Both entry points are fixed: live swipes on the pointer pad and the cards in the Gestures shade.
 
 ## [0.2.2] - 2026-11-04
 
