@@ -1,9 +1,9 @@
 name: PR Debug APK
 
 on:
+  # Runs on every push to a pull request branch, whatever the base branch.
   pull_request:
-    branches: [ main ]
-    types: [ opened, synchronize, reopened ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
 
 permissions:
   contents: read

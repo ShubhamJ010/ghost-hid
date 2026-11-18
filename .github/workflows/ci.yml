@@ -1,10 +1,12 @@
 name: Android CI
 
 on:
+  # Push to main catches merges; every push to a pull request branch is covered
+  # by the pull_request trigger below, whatever the base branch.
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
 
 permissions:
   contents: read
